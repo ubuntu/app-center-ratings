@@ -1,22 +1,25 @@
+use std::net::SocketAddr;
+
+use axum::{response::Html, routing::get, Router, ServiceExt};
 use mongodb::{options::ClientOptions, Client};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    println!("Hello, world!");
-
-    // Parse a connection string into an options struct.
+    println!("here we go!");
     let mut client_options = ClientOptions::parse("mongodb://root:covfefe@localhost:27017").await?;
-
-    // Manually set an option.
-    client_options.app_name = Some("My App".to_string());
-
-    // Get a handle to the deployment.
     let client = Client::with_options(client_options)?;
 
-    // List the names of the databases in that deployment.
-    for db_name in client.list_database_names(None, None).await? {
-        println!("{}", db_name);
-    }
+    let router = Router::new().route("/", get(|| async { Html("Hello <strong>you!</strong>") }));
+
+    let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+    axum::Server::bind(&addr)
+        .serve(router.into_make_service())
+        .await
+        .unwrap();
+
+    // for db_name in client.list_database_names(None, None).await? {
+    //     println!("{}", db_name);
+    // }
 
     Ok(())
 }
