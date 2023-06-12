@@ -5,18 +5,11 @@ services:
   mongo:
     image: mongo
     restart: always
-    environment:
-      MONGO_INITDB_ROOT_USERNAME: root
-      MONGO_INITDB_ROOT_PASSWORD: covfefe
     ports:
       - 27017:27017
 
-  mongo-express:
-    image: mongo-express
+  redis:
+    image: redis
     restart: always
     ports:
-      - 8081:8081
-    environment:
-      ME_CONFIG_MONGODB_ADMINUSERNAME: root
-      ME_CONFIG_MONGODB_ADMINPASSWORD: covfefe
-      ME_CONFIG_MONGODB_URL: mongodb://root covfefe@mongo:27017/
+      - 6379:6379
