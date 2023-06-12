@@ -4,10 +4,11 @@ use dotenv::dotenv;
 use log::debug;
 use thiserror::Error;
 
-const ENV_APP_NAME: &str = "APP";
+const ENV_NAME_APP: &str = "APP";
 const ENV_NAME_ENV: &str = "ENV";
 const ENV_NAME_LOG_LEVEL: &str = "RUST_LOG";
 const ENV_NAME_PORT: &str = "PORT";
+const ENV_NAME_ADDRESS: &str = "ADDRESS";
 
 const DEFAULT_DEV_PORT: &str = "18080";
 
@@ -30,8 +31,11 @@ pub fn print_env_if_dev() {
 }
 
 pub fn get_log_level() -> String {
-    let value = env::var(ENV_NAME_LOG_LEVEL).unwrap();
-    value
+    env::var(ENV_NAME_LOG_LEVEL).unwrap()
+}
+
+pub fn get_address() -> String {
+    env::var(ENV_NAME_ADDRESS).unwrap()
 }
 
 pub fn get_env_name() -> EnvName {

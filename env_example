@@ -1,4 +1,5 @@
 APP=urate
 ENV=dev
 RUST_LOG=debug
+ADDRESS=127.0.0.1
 PORT=18080

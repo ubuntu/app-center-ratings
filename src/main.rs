@@ -1,5 +1,6 @@
 use log::info;
 
+mod app;
 mod utils;
 
 #[tokio::main]
@@ -8,6 +9,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     utils::log::init();
 
     info!("hello");
+
+    app::build_and_run_server().await;
 
     // println!("here we go!");
     // let mut client_options = ClientOptions::parse("mongodb://root:covfefe@localhost:27017").await?;
