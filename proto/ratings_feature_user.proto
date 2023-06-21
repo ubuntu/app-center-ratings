@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package ratings.feature.user;
+
+import "google/protobuf/empty.proto";
+
+service User {
+  rpc Register (RegisterRequest) returns (RegisterResponse) {}
+  rpc CastVote (CastVoteRequest) returns (google.protobuf.Empty) {}
+  rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
+}
+
+message ListMyVotesRequest {
+  string app = 1;
+}
+
+message ListMyVotesResponse {
+  string app = 1;
+  string revision = 2;
+  Vote vote = 3;
+  int64 ts = 4;
+}
+
+message GetMyAppVoteRequest {
+  string app = 1;
+}
+
+message CastVoteRequest {
+  string app = 1;
+  string version = 2;
+  string revision = 3;
+
+  Vote vote = 4;
+}
+
+enum Vote {
+  VOTE_UNSPECIFIED = 0;
+  VOTE_UP = 1;
+  VOTE_DOWN = 2;
+}
+
+message RegisterRequest {
+  string uid = 1;
+}
+
+message RegisterResponse {
+  string token = 1;
+}

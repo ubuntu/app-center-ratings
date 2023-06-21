@@ -1,8 +1,7 @@
-use std::{env, fmt::Display, str::FromStr};
-
 use dotenv::dotenv;
-use log::debug;
+use std::{env, fmt::Display, str::FromStr};
 use thiserror::Error;
+use tracing::info;
 
 const ENV_NAME_APP: &str = "APP";
 const ENV_NAME_ENV: &str = "ENV";
@@ -22,19 +21,15 @@ pub fn init() {
 
 pub fn print_env_if_dev() {
     if get_env_name() == EnvName::Dev {
-        debug!("Environment:");
+        info!("Environment:");
         let env = env::vars();
         for (key, value) in env {
-            debug!("{key}: {value}");
+            info!("{key}: {value}");
         }
     }
 }
 
-pub fn get_log_level() -> String {
-    env::var(ENV_NAME_LOG_LEVEL).unwrap()
-}
-
-pub fn get_address() -> String {
+pub fn get_server_ip() -> String {
     env::var(ENV_NAME_ADDRESS).unwrap()
 }
 
@@ -43,11 +38,17 @@ pub fn get_env_name() -> EnvName {
     EnvName::from_str(&value).unwrap()
 }
 
-pub fn get_port() -> u16 {
+pub fn get_server_port() -> u16 {
     env::var(ENV_NAME_PORT)
         .unwrap_or(DEFAULT_DEV_PORT.to_string())
         .parse()
         .unwrap()
+}
+
+pub fn get_socket() -> String {
+    let port = get_server_port();
+    let address = get_server_ip();
+    format!("{address}:{port}")
 }
 
 #[derive(PartialEq)]

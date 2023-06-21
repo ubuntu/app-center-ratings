@@ -1,4 +1,4 @@
-APP=urate
+APP=ratings
 ENV=dev
 RUST_LOG=debug
 ADDRESS=127.0.0.1

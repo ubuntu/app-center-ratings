@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package ratings.feature.app;
+
+service App {
+  rpc GetVotes (GetVotesRequest) returns (GetVotesResponse) {}
+}
+
+message GetVotesRequest {
+  string app = 1;
+}
+
+message GetVotesResponse {
+  string app = 1;
+  uint64 total_up_votes = 2;
+  uint64 total_down_votes = 3;
+}

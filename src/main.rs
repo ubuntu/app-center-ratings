@@ -1,34 +1,17 @@
-use log::info;
-
-mod admin;
-mod app;
+mod feature;
+mod service;
 mod utils;
-mod vote;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     utils::env::init();
-    utils::log::init();
+    tracing_subscriber::fmt()
+        .with_max_level(tracing::Level::INFO)
+        .init();
+    tracing::info!("Starting Ubuntu App Rating Service");
+    utils::env::print_env_if_dev();
 
-    info!("hello");
-
-    app::build_and_run_server().await;
-
-    // println!("here we go!");
-    // let mut client_options = ClientOptions::parse("mongodb://root:covfefe@localhost:27017").await?;
-    // let client = Client::with_options(client_options)?;
-
-    // let router = Router::new().route("/", get(|| async { Html("Hello <strong>you!</strong>") }));
-
-    // let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
-    // axum::Server::bind(&addr)
-    //     .serve(router.into_make_service())
-    //     .await
-    //     .unwrap();
-
-    // for db_name in client.list_database_names(None, None).await? {
-    //     println!("{}", db_name);
-    // }
+    service::build_and_run().await;
 
     Ok(())
 }
