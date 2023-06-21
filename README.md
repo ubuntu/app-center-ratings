@@ -8,3 +8,10 @@
 
 /v1/apps/hot
 ```
+
+- rate limiting (ie x votes per time unit ... maybe several tiers)
+- register first (can we generate a stable machine id/privacy)
+
+```
+
+```

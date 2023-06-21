@@ -1,7 +1,9 @@
 use log::info;
 
+mod admin;
 mod app;
 mod utils;
+mod vote;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

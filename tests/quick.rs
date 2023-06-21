@@ -1,9 +1,15 @@
 #[tokio::test]
 async fn quick_dev() -> Result<(), Box<dyn std::error::Error>> {
-    let response = reqwest::get("http://localhost:18080").await?;
-    let text = response.text().await.unwrap();
+    let url = "http://localhost:18080/v1/vote";
+    let response = reqwest::get(url).await?;
 
-    assert_eq!(text, "OK");
+    println!("response: {response:?}");
+
+    let actual = response.text().await.unwrap();
+    let expected = "id-1";
+
+    println!("body: {actual}");
+    assert_eq!(actual, expected);
 
     Ok(())
 }
