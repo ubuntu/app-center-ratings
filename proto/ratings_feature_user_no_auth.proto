@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package ratings.feature.user_no_auth;
+
+service UserNoAuth {
+  rpc Register (RegisterRequest) returns (RegisterResponse) {}
+}
+
+message RegisterRequest {
+  string uid = 1;
+}
+
+message RegisterResponse {
+  string token = 1;
+}

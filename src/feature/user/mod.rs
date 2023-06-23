@@ -1,8 +1,6 @@
 use tonic::{Request, Response, Status};
 
-use self::pb::{
-    CastVoteRequest, ListMyVotesRequest, ListMyVotesResponse, RegisterRequest, RegisterResponse,
-};
+use self::pb::{CastVoteRequest, ListMyVotesRequest, ListMyVotesResponse};
 
 pub mod pb {
     tonic::include_proto!("ratings.feature.user");
@@ -15,21 +13,6 @@ pub struct UserService;
 
 #[tonic::async_trait]
 impl pb::user_server::User for UserService {
-    #[tracing::instrument]
-    async fn register(
-        &self,
-        request: Request<RegisterRequest>,
-    ) -> Result<Response<RegisterResponse>, Status> {
-        tracing::info!("");
-        let request = request.into_inner();
-
-        let payload = RegisterResponse {
-            token: "uid-token".to_string(),
-        };
-
-        Ok(Response::new(payload))
-    }
-
     #[tracing::instrument]
     async fn cast_vote(&self, request: Request<CastVoteRequest>) -> Result<Response<()>, Status> {
         tracing::info!("");

@@ -5,7 +5,6 @@ package ratings.feature.user;
 import "google/protobuf/empty.proto";
 
 service User {
-  rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc CastVote (CastVoteRequest) returns (google.protobuf.Empty) {}
   rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
 }
@@ -37,12 +36,4 @@ enum Vote {
   VOTE_UNSPECIFIED = 0;
   VOTE_UP = 1;
   VOTE_DOWN = 2;
-}
-
-message RegisterRequest {
-  string uid = 1;
-}
-
-message RegisterResponse {
-  string token = 1;
 }

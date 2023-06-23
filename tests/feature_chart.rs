@@ -18,7 +18,11 @@ async fn feature_chart() {
     before().await;
 
     let url = server_url();
-    let channel = Endpoint::from_shared(url).unwrap().connect().await.unwrap();
+    let channel = Endpoint::from_shared(url)
+        .unwrap()
+        .connect()
+        .await
+        .unwrap();
     let mut client = ChartClient::with_interceptor(channel, with_auth);
 
     let body = GetChartRequest {
@@ -30,7 +34,12 @@ async fn feature_chart() {
     let response: Response<GetChartResponse> = client.get_chart(request).await.unwrap();
     let body = response.into_inner();
 
-    let actual = body.ordered_chart_data.first().unwrap().app.as_str();
+    let actual = body
+        .ordered_chart_data
+        .first()
+        .unwrap()
+        .app
+        .as_str();
     let expected = "signal";
     assert_eq!(actual, expected);
 

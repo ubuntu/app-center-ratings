@@ -10,6 +10,7 @@ use crate::{
         app::{app_server::AppServer, AppService},
         chart::{chart_server::ChartServer, ChartService},
         user::{user_server::UserServer, UserService},
+        user_no_auth::{user_no_auth_server::UserNoAuthServer, UserNoAuthService},
     },
     utils,
 };
@@ -43,15 +44,20 @@ fn build_grpc() -> tonic::transport::server::Routes {
         .unwrap();
 
     let app_service = AppServer::with_interceptor(AppService::default(), super::auth::require_auth);
+
     let chart_service =
         ChartServer::with_interceptor(ChartService::default(), super::auth::require_auth);
+
     let user_service =
         UserServer::with_interceptor(UserService::default(), super::auth::require_auth);
+
+    let user_service_no_auth = UserNoAuthServer::new(UserNoAuthService::default());
 
     tonic::transport::Server::builder()
         .add_service(reflection_service)
         .add_service(app_service)
         .add_service(chart_service)
         .add_service(user_service)
+        .add_service(user_service_no_auth)
         .into_service()
 }
