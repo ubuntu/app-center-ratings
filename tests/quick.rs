@@ -1,7 +1,13 @@
+mod utils;
+
+use utils::lifecycle::{after, before};
+
 #[tokio::test]
-async fn quick_dev() -> Result<(), Box<dyn std::error::Error>> {
-    let url = "http://localhost:18080/v1/vote";
-    let response = reqwest::get(url).await?;
+async fn quick() {
+    before().await;
+
+    let url = format!("{}/", utils::server_url());
+    let response = reqwest::get(url).await.unwrap();
 
     println!("response: {response:?}");
 
@@ -11,5 +17,5 @@ async fn quick_dev() -> Result<(), Box<dyn std::error::Error>> {
     println!("body: {actual}");
     assert_eq!(actual, expected);
 
-    Ok(())
+    after().await;
 }
