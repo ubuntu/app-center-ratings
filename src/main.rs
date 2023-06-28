@@ -1,5 +1,5 @@
+mod app;
 mod feature;
-mod service;
 mod utils;
 
 #[tokio::main]
@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     tracing::info!("Starting Ubuntu App Rating Service");
     utils::env::print_env_if_dev();
 
-    service::build_and_run().await;
+    app::build_and_run().await;
 
     Ok(())
 }

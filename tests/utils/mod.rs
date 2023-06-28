@@ -1,4 +1,5 @@
 mod after_test;
+pub mod assert;
 mod before_test;
 
 pub mod lifecycle {

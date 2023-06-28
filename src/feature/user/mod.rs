@@ -36,4 +36,11 @@ impl pb::user_server::User for UserService {
 
         Ok(Response::new(payload))
     }
+
+    #[tracing::instrument]
+    async fn delete_self(&self, request: Request<()>) -> Result<Response<()>, Status> {
+        tracing::info!("");
+        let request = request.into_inner();
+        Ok(Response::new(()))
+    }
 }

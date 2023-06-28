@@ -8,6 +8,7 @@ const ENV_NAME_ENV: &str = "ENV";
 const ENV_NAME_LOG_LEVEL: &str = "RUST_LOG";
 const ENV_NAME_PORT: &str = "PORT";
 const ENV_NAME_ADDRESS: &str = "ADDRESS";
+const ENV_POSTGRES: &str = "POSTGRES";
 
 const DEFAULT_DEV_PORT: &str = "18080";
 
@@ -27,6 +28,10 @@ pub fn print_env_if_dev() {
             info!("{key}: {value}");
         }
     }
+}
+
+pub fn get_postgres_uri() -> String {
+    env::var(ENV_POSTGRES).unwrap()
 }
 
 pub fn get_server_ip() -> String {
