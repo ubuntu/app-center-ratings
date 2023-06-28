@@ -17,15 +17,11 @@ pub fn require_auth(req: Request<()>) -> Result<Request<()>, Status> {
 
     let token = token.to_str().unwrap_or("");
 
-    if is_valid_auth_token(token) {
+    if token.len() == crate::feature::register::TOKEN_LENGTH {
         Ok(req)
     } else {
         Err(Status::unauthenticated("invalid authz token"))
     }
-}
-
-fn is_valid_auth_token(_: &str) -> bool {
-    return true;
 }
 
 pub fn build_reflection_service(
