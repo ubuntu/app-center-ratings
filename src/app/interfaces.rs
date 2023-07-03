@@ -13,18 +13,14 @@ pub fn build_reflection_service(
         .unwrap()
 }
 
-pub fn build_public_servers<R>(
-    router: Router<R>,
-    infra: std::sync::Arc<Infrastructure>,
-) -> Router<R> {
-    let register_service = register::service::build_service(infra);
+pub fn build_public_servers<R>(router: Router<R>) -> Router<R> {
+    let register_service = register::service::build_service();
 
     router.add_service(register_service)
 }
 
-pub fn build_private_servers<R>(
-    router: Router<R>,
-    infra: std::sync::Arc<Infrastructure>,
-) -> Router<R> {
-    router
+pub fn build_private_servers<R>(router: Router<R>) -> Router<R> {
+    let user_service = user::service::build_service();
+
+    router.add_service(user_service)
 }

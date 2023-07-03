@@ -1,21 +1,10 @@
-use std::sync::Arc;
-
-use crate::app::infrastructure::Infrastructure;
-
 use super::interface::protobuf::RegisterServer;
 
-#[derive(Debug)]
-pub struct RegisterService {
-    pub infra: Arc<Infrastructure>,
-}
+#[derive(Debug, Default)]
+pub struct RegisterService;
 
-impl RegisterService {
-    fn new(infra: Arc<Infrastructure>) -> Self {
-        RegisterService { infra }
-    }
-}
 
-pub fn build_service(infra: Arc<Infrastructure>) -> RegisterServer<RegisterService> {
-    let service = RegisterService::new(infra);
+pub fn build_service() -> RegisterServer<RegisterService> {
+    let service = RegisterService::default();
     RegisterServer::new(service)
 }

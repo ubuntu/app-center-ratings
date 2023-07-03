@@ -1,5 +1,6 @@
 use self::protobuf::{CreateRequest, CreateResponse, Register};
 use tonic::{Request, Response, Status};
+use crate::app::infrastructure::Infrastructure;
 
 use super::service::RegisterService;
 use super::use_cases;
@@ -16,11 +17,14 @@ impl Register for RegisterService {
         &self,
         request: Request<CreateRequest>,
     ) -> Result<Response<CreateResponse>, Status> {
-        tracing::info!("Registering");
+        tracing::info!("register");
 
-        let CreateRequest { uid } = request.into_inner();
+        let (_, extensions, payload) = request.into_parts();
 
-        match use_cases::create_user(&uid, &self.infra).await {
+        let CreateRequest { uid } = payload;
+        let infra = extensions.get::<Infrastructure>().expect("missing context");
+
+        match use_cases::create_user(&uid, infra).await {
             Ok(token) => {
                 let payload = CreateResponse { token };
                 let response = Response::new(payload);

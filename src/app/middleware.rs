@@ -6,10 +6,12 @@ use tonic::body::BoxBody;
 use tonic::{Request, Status};
 use tower::Layer;
 use tracing::info;
+use crate::app::infrastructure::Infrastructure;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Context {
     uri: String,
+    infra: Infrastructure,
 }
 
 #[tracing::instrument]
@@ -82,9 +84,12 @@ impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
         let mut inner = std::mem::replace(&mut self.inner, clone);
 
         Box::pin(async move {
-            let uri = req.uri().clone();
+            let uri = req.uri().clone().to_string();
+            let infra = Infrastructure::new().await;
+
             let ctx = Context {
-                uri: uri.to_string(),
+                uri,
+                infra,
             };
 
             let mut req = req;
