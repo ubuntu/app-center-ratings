@@ -1,8 +1,10 @@
+use crate::app::authentication::{authentication, AuthenticationMiddlewareLayer};
 use std::sync::Arc;
 use std::{net::SocketAddr, time::Duration};
 use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
+use crate::app::middleware::{authentication, ContextMiddlewareLayer};
 
 use super::infrastructure::Infrastructure;
 
@@ -12,6 +14,8 @@ use crate::utils;
 pub async fn build_and_run() {
     let layer = ServiceBuilder::new()
         .timeout(Duration::from_secs(30))
+        .layer(ContextMiddlewareLayer::default())
+        .layer(tonic::service::interceptor(authentication))
         .into_inner();
 
     let infra = Infrastructure::new().await;
