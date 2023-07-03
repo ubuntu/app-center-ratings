@@ -1,34 +1,35 @@
 use std::pin::Pin;
 
-use hyper::service::Service;
 use hyper::Body;
+use hyper::service::Service;
 use tonic::body::BoxBody;
 use tower::Layer;
 
 use crate::app::context::Context;
-use crate::app::infrastructure::Infrastructure;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone, Default)]
 pub struct ContextMiddlewareLayer;
 
 impl<S> Layer<S> for ContextMiddlewareLayer {
     type Service = ContextMiddleware<S>;
     fn layer(&self, service: S) -> Self::Service {
-        ContextMiddleware { inner: service }
+        ContextMiddleware {
+            inner: service
+        }
     }
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Clone)]
 pub struct ContextMiddleware<S> {
     inner: S,
 }
 
-type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
+type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output=T> + Send + 'a>>;
 
 impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
-where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
-    S::Future: Send + 'static,
+    where
+        S: Service<hyper::Request<Body>, Response=hyper::Response<BoxBody>> + Clone + Send + 'static,
+        S::Future: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -41,18 +42,16 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, req: hyper::Request<Body>) -> Self::Future {
+    fn call(&mut self, mut req: hyper::Request<Body>) -> Self::Future {
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
 
         Box::pin(async move {
             let uri = req.uri().clone().to_string();
-            let infra = Infrastructure::new().await;
-
-            let ctx = Context { uri, infra };
+            let context = Context { uri, claims: None };
 
             let mut req = req;
-            req.extensions_mut().insert(ctx);
+            req.extensions_mut().insert(context);
 
             let response = inner.call(req).await?;
             Ok(response)

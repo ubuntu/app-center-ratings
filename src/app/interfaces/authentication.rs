@@ -1,13 +1,9 @@
-use http::{header};
+use http::header;
 use tonic::{Request, Status};
-use tracing::info;
 
 use crate::app::context::Context;
 
-#[tracing::instrument]
 pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
-    info!("validating request authorization");
-
     let ctx = req.extensions().get::<Context>();
 
     if ctx.is_none() {

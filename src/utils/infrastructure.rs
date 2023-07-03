@@ -1,12 +1,21 @@
+use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use sqlx::{postgres::PgPoolOptions, Pool, Postgres};
+use once_cell::sync::OnceCell;
+use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
 
 use crate::utils::env;
+use crate::utils::jwt::Jwt;
 
-#[derive(Debug)]
 pub struct Infrastructure {
     pub postgres: Arc<Pool<Postgres>>,
+    pub jwt: Jwt,
+}
+
+impl Debug for Infrastructure {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Infrastructure { postgres, jwt }")
+    }
 }
 
 impl Infrastructure {
@@ -19,7 +28,8 @@ impl Infrastructure {
             .await
             .unwrap();
         let postgres = Arc::new(postgres);
+        let jwt = Jwt::new();
 
-        Infrastructure { postgres }
+        Infrastructure { postgres, jwt }
     }
 }

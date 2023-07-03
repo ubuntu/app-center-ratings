@@ -1,28 +1,31 @@
-use std::sync::Arc;
 use std::{net::SocketAddr, time::Duration};
+use std::sync::Arc;
 
+use once_cell::sync::OnceCell;
 use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::app::interfaces::authentication::authentication;
-use crate::app::interfaces::interfaces::{
+use crate::utils;
+use crate::utils::infrastructure::Infrastructure;
+
+use super::interfaces::{authentication::authentication, middleware::ContextMiddlewareLayer};
+use super::interfaces::routes::{
     build_private_servers, build_public_servers, build_reflection_service,
 };
-use crate::app::interfaces::middleware::ContextMiddlewareLayer;
-use crate::utils;
 
-use super::infrastructure::Infrastructure;
+pub static INFRA: OnceCell<Infrastructure> = OnceCell::new();
 
 pub async fn build_and_run() {
+    let infra = Infrastructure::new().await;
+    INFRA.set(infra).expect("infrastructure should have initialised");
+
     let layer = ServiceBuilder::new()
         .timeout(Duration::from_secs(30))
         .layer(ContextMiddlewareLayer::default())
         .layer(tonic::service::interceptor(authentication))
         .into_inner();
 
-    let infra = Infrastructure::new().await;
-    let infra = Arc::new(infra);
 
     let server = Server::builder()
         .layer(layer)

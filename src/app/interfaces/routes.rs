@@ -1,6 +1,7 @@
-use crate::feature::{register, user};
 use tonic::transport::server::Router;
 use tonic_reflection::server::ServerReflection;
+
+use crate::feature::{register, user};
 
 pub fn build_reflection_service(
 ) -> tonic_reflection::server::ServerReflectionServer<impl ServerReflection> {

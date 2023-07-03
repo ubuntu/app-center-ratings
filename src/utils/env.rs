@@ -1,20 +1,22 @@
-use dotenv::dotenv;
 use std::{env, fmt::Display, str::FromStr};
+
+use dotenv::dotenv;
 use thiserror::Error;
 use tracing::info;
 
-const ENV_NAME_APP: &str = "APP";
-const ENV_NAME_ENV: &str = "ENV";
-const ENV_NAME_LOG_LEVEL: &str = "RUST_LOG";
-const ENV_NAME_PORT: &str = "PORT";
-const ENV_NAME_ADDRESS: &str = "ADDRESS";
-const ENV_POSTGRES: &str = "POSTGRES";
+const ENVVAR_NAME_APP: &str = "APP";
+const ENVVAR_NAME_ENV: &str = "ENV";
+const ENVVAR_NAME_LOG_LEVEL: &str = "RUST_LOG";
+const ENVVAR_NAME_PORT: &str = "PORT";
+const ENVVAR_NAME_ADDRESS: &str = "ADDRESS";
+const ENVVAR_NAME_POSTGRES: &str = "POSTGRES";
+const ENVVAR_NAME_JWT_SECRET: &str = "JWT_SECRET";
+
+pub const ENVVAR_NAME_DEV: &str = "dev";
+pub const ENVVAR_NAME_BETA: &str = "beta";
+pub const ENVVAR_NAME_STABLE: &str = "stable";
 
 const DEFAULT_DEV_PORT: &str = "18080";
-
-pub const ENV_NAME_DEV: &str = "dev";
-pub const ENV_NAME_BETA: &str = "beta";
-pub const ENV_NAME_STABLE: &str = "stable";
 
 pub fn init() {
     dotenv().ok();
@@ -31,20 +33,20 @@ pub fn print_env_if_dev() {
 }
 
 pub fn get_postgres_uri() -> String {
-    env::var(ENV_POSTGRES).unwrap()
+    env::var(ENVVAR_NAME_POSTGRES).unwrap()
 }
 
 pub fn get_server_ip() -> String {
-    env::var(ENV_NAME_ADDRESS).unwrap()
+    env::var(ENVVAR_NAME_ADDRESS).unwrap()
 }
 
 pub fn get_env_name() -> EnvName {
-    let value = env::var(ENV_NAME_ENV).unwrap_or(ENV_NAME_STABLE.to_string());
+    let value = env::var(ENVVAR_NAME_ENV).unwrap_or(ENVVAR_NAME_STABLE.to_string());
     EnvName::from_str(&value).unwrap()
 }
 
 pub fn get_server_port() -> u16 {
-    env::var(ENV_NAME_PORT)
+    env::var(ENVVAR_NAME_PORT)
         .unwrap_or(DEFAULT_DEV_PORT.to_string())
         .parse()
         .unwrap()
@@ -54,6 +56,10 @@ pub fn get_socket() -> String {
     let port = get_server_port();
     let address = get_server_ip();
     format!("{address}:{port}")
+}
+
+pub fn get_jwt_secret() -> String {
+    env::var(ENVVAR_NAME_JWT_SECRET).unwrap()
 }
 
 #[derive(PartialEq)]
@@ -66,9 +72,9 @@ pub enum EnvName {
 impl Display for EnvName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EnvName::Dev => write!(f, "{ENV_NAME_DEV}"),
-            EnvName::Beta => write!(f, "{ENV_NAME_BETA}"),
-            EnvName::Stable => write!(f, "{ENV_NAME_STABLE}"),
+            EnvName::Dev => write!(f, "{ENVVAR_NAME_DEV}"),
+            EnvName::Beta => write!(f, "{ENVVAR_NAME_BETA}"),
+            EnvName::Stable => write!(f, "{ENVVAR_NAME_STABLE}"),
         }
     }
 }
@@ -87,9 +93,9 @@ impl FromStr for EnvName {
         let value = value.as_str();
 
         match value {
-            ENV_NAME_DEV => Ok(EnvName::Dev),
-            ENV_NAME_BETA => Ok(EnvName::Beta),
-            ENV_NAME_STABLE => Ok(EnvName::Stable),
+            ENVVAR_NAME_DEV => Ok(EnvName::Dev),
+            ENVVAR_NAME_BETA => Ok(EnvName::Beta),
+            ENVVAR_NAME_STABLE => Ok(EnvName::Stable),
             unknown => Err(EnvError::UnknownEnvNameError(unknown.to_string())),
         }
     }

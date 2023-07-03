@@ -1,7 +1,7 @@
-use super::infrastructure::Infrastructure;
+use crate::utils::jwt::Claims;
 
 #[derive(Debug)]
 pub struct Context {
     pub uri: String,
-    pub infra: Infrastructure,
+    pub claims: Option<Claims>
 }
