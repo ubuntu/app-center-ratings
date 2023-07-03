@@ -1,4 +1,3 @@
-use super::infrastructure::Infrastructure;
 use crate::feature::{register, user};
 use tonic::transport::server::Router;
 use tonic_reflection::server::ServerReflection;

@@ -1,15 +1,18 @@
-use std::{net::SocketAddr, time::Duration};
 use std::sync::Arc;
+use std::{net::SocketAddr, time::Duration};
 
 use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::app::middleware::{authentication, ContextMiddlewareLayer};
+use crate::app::interfaces::authentication::authentication;
+use crate::app::interfaces::interfaces::{
+    build_private_servers, build_public_servers, build_reflection_service,
+};
+use crate::app::interfaces::middleware::ContextMiddlewareLayer;
 use crate::utils;
 
 use super::infrastructure::Infrastructure;
-use super::interfaces::{build_private_servers, build_public_servers, build_reflection_service};
 
 pub async fn build_and_run() {
     let layer = ServiceBuilder::new()

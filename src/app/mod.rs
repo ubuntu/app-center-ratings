@@ -1,7 +1,7 @@
-mod app;
-pub mod infrastructure;
-pub mod interfaces;
-mod middleware;
-
 pub use app::build_and_run;
-pub use middleware::Context;
+pub use context::Context;
+
+mod app;
+mod context;
+pub mod infrastructure;
+mod interfaces;

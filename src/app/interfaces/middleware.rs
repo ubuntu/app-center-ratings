@@ -1,56 +1,18 @@
-use http::{header, Uri};
+use std::pin::Pin;
+
 use hyper::service::Service;
 use hyper::Body;
-use std::pin::Pin;
 use tonic::body::BoxBody;
-use tonic::{Request, Status};
 use tower::Layer;
-use tracing::info;
+
+use crate::app::context::Context;
 use crate::app::infrastructure::Infrastructure;
-
-#[derive(Debug)]
-pub struct Context {
-    uri: String,
-    infra: Infrastructure,
-}
-
-#[tracing::instrument]
-pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
-    info!("validating request authorization");
-
-    let ctx = req.extensions().get::<Context>();
-
-    if ctx.is_none() {
-        return Err(Status::unknown("no request context"));
-    }
-    let ctx = ctx.unwrap();
-    let uri = &ctx.uri;
-
-    if uri.contains("ratings.feature.register.Register/Create")
-        || uri.contains("grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo")
-    {
-        return Ok(req);
-    }
-
-    let Some(token) = req.metadata().get(header::AUTHORIZATION.as_str()) else {
-        return Err(Status::unauthenticated("missing authz header"));
-    };
-
-    let token = token.to_str().unwrap_or("");
-
-    if token.len() == crate::feature::register::TOKEN_LENGTH {
-        Ok(req)
-    } else {
-        Err(Status::unauthenticated("invalid authz token"))
-    }
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct ContextMiddlewareLayer;
 
 impl<S> Layer<S> for ContextMiddlewareLayer {
     type Service = ContextMiddleware<S>;
-
     fn layer(&self, service: S) -> Self::Service {
         ContextMiddleware { inner: service }
     }
@@ -64,9 +26,9 @@ pub struct ContextMiddleware<S> {
 type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>>;
 
 impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
-    where
-        S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
-        S::Future: Send + 'static,
+where
+    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S::Future: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
@@ -87,10 +49,7 @@ impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
             let uri = req.uri().clone().to_string();
             let infra = Infrastructure::new().await;
 
-            let ctx = Context {
-                uri,
-                infra,
-            };
+            let ctx = Context { uri, infra };
 
             let mut req = req;
             req.extensions_mut().insert(ctx);
