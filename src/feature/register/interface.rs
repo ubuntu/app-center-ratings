@@ -1,12 +1,15 @@
-use self::protobuf::{CreateRequest, CreateResponse, Register};
 use tonic::{Request, Response, Status};
-use crate::app::infrastructure::Infrastructure;
+
+use crate::app::INFRA;
 
 use super::service::RegisterService;
 use super::use_cases;
 
+use self::protobuf::{CreateRequest, CreateResponse, Register};
+
 pub mod protobuf {
     pub use self::register_server::{Register, RegisterServer};
+
     tonic::include_proto!("ratings.feature.register");
 }
 
@@ -19,13 +22,13 @@ impl Register for RegisterService {
     ) -> Result<Response<CreateResponse>, Status> {
         tracing::info!("register");
 
-        let (_, extensions, payload) = request.into_parts();
+        let CreateRequest { uid } = request.into_inner();
 
-        let CreateRequest { uid } = payload;
-        let infra = extensions.get::<Infrastructure>().expect("missing context");
+        match use_cases::create_user(&uid).await {
+            Ok(uid) => {
+                let infra = INFRA.get().expect("INFRA should be initialised");
+                let token = infra.jwt.encode(uid).unwrap();
 
-        match use_cases::create_user(&uid, infra).await {
-            Ok(token) => {
                 let payload = CreateResponse { token };
                 let response = Response::new(payload);
 

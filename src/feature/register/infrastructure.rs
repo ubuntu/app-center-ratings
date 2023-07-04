@@ -1,18 +1,16 @@
-use crate::app::infrastructure::Infrastructure;
+use crate::app::INFRA;
 
-use super::{errors::RegisterError, use_cases::Token};
+use super::{errors::RegisterError, use_cases::UserId};
 
-pub(crate) async fn create_user_in_db(
-    token: Token,
-    infra: &Infrastructure,
-) -> Result<Token, RegisterError> {
+pub(crate) async fn create_user_in_db(uid: &UserId) -> Result<UserId, RegisterError> {
+    let infra = INFRA.get().expect("Infrastructure should be initialised");
     let mut pool = match infra.postgres.acquire().await {
         Ok(p) => p,
         Err(_) => return Err(RegisterError::FailedToCreateUserRecord),
     };
 
     sqlx::query("INSERT INTO users (token) VALUES ($1)")
-        .bind(&token)
+        .bind(&uid)
         .execute(&mut pool)
         .await
         .map_err(|err| {
@@ -23,7 +21,7 @@ pub(crate) async fn create_user_in_db(
             let rows_affected = pg_result.rows_affected();
 
             if rows_affected == 1 {
-                Ok(token)
+                Ok(uid.to_string())
             } else {
                 tracing::error!("user insert changed {rows_affected} row(s) but 1 expected");
                 Err(RegisterError::FailedToCreateUserRecord)
