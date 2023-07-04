@@ -65,8 +65,8 @@ impl Jwt {
             })
     }
 
-    pub fn decode(&self, token: String) -> Result<Claims, JwtError> {
-        jsonwebtoken::decode::<Claims>(&token, &self.decoding_key, &Validation::default())
+    pub fn decode(&self, token: &str) -> Result<Claims, JwtError> {
+        jsonwebtoken::decode::<Claims>(token, &self.decoding_key, &Validation::default())
             .map(|t| t.claims)
             .map_err(|e| {
                 error!("{e:?}");

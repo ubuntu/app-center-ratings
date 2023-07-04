@@ -5,7 +5,7 @@ pub type UserId = String;
 pub async fn create_user(uid: &UserId) -> Result<UserId, RegisterError> {
     tracing::info!("");
 
-    if !validate_uid(&uid) {
+    if !validate_uid(uid) {
         return Err(RegisterError::InvalidUid);
     }
 
