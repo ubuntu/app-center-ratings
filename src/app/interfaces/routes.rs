@@ -1,7 +1,7 @@
 use tonic::transport::server::Router;
 use tonic_reflection::server::ServerReflection;
 
-use crate::feature::{register, user};
+use crate::feature::user;
 
 pub fn build_reflection_service(
 ) -> tonic_reflection::server::ServerReflectionServer<impl ServerReflection> {
@@ -13,13 +13,7 @@ pub fn build_reflection_service(
         .unwrap()
 }
 
-pub fn build_public_servers<R>(router: Router<R>) -> Router<R> {
-    let register_service = register::service::build_service();
-
-    router.add_service(register_service)
-}
-
-pub fn build_private_servers<R>(router: Router<R>) -> Router<R> {
+pub fn build_servers<R>(router: Router<R>) -> Router<R> {
     let user_service = user::service::build_service();
 
     router.add_service(user_service)

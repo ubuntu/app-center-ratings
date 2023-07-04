@@ -5,9 +5,18 @@ package ratings.feature.user;
 import "google/protobuf/empty.proto";
 
 service User {
+  rpc Login (LoginRequest) returns (LoginResponse) {}
   rpc DeleteSelf (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc CastVote (CastVoteRequest) returns (google.protobuf.Empty) {}
   rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
+}
+
+message LoginRequest {
+  string uid = 1;
+}
+
+message LoginResponse {
+  string token = 1;
 }
 
 message ListMyVotesRequest {

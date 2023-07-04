@@ -12,7 +12,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let ctx = ctx.unwrap();
     let uri = &ctx.uri;
 
-    if uri.contains("ratings.feature.register.Register/Create")
+    if uri.contains("ratings.feature.user.User/Login")
         || uri.contains("grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo")
     {
         return Ok(req);
@@ -24,7 +24,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
 
     let token = token.to_str().unwrap_or("");
 
-    if token.len() == crate::feature::register::TOKEN_LENGTH {
+    if token.len() == crate::feature::user::TOKEN_LENGTH {
         Ok(req)
     } else {
         Err(Status::unauthenticated("invalid authz token"))

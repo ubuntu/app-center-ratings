@@ -8,7 +8,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "proto/ratings_feature_app.proto",
         "proto/ratings_feature_chart.proto",
         "proto/ratings_feature_user.proto",
-        "proto/ratings_feature_register.proto",
     ];
 
     tonic_build::configure()
