@@ -1,3 +1,14 @@
-pub fn assert_token(value: &str) {
-    assert_eq!(value.len(), 30)
+use ratings::utils::jwt::{Claims, Jwt, JwtError};
+
+pub fn assert_token_is_valid(value: &str) {
+    let jwt = Jwt::new();
+    jwt.decode(value).expect("value should be a valid jwt");
+}
+
+pub fn assert_token_is_not_valid(value: &str) {
+    let jwt = Jwt::new();
+    match jwt.decode(value) {
+        Ok(_) => { panic!("expected invalid jwt") }
+        Err(_) => {}
+    }
 }
