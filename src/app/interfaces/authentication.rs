@@ -24,7 +24,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
 
     let token = token.to_str().unwrap_or("");
 
-    if token.len() == crate::feature::user::TOKEN_LENGTH {
+    if token.len() == crate::features::user::TOKEN_LENGTH {
         Ok(req)
     } else {
         Err(Status::unauthenticated("invalid authz token"))

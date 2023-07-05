@@ -1,12 +1,12 @@
 use tonic::{Request, Response, Status};
 
+pub use pb::chart_server;
+
 use self::pb::{ChartData, GetChartRequest, GetChartResponse};
 
 pub mod pb {
-    tonic::include_proto!("ratings.feature.chart");
+    tonic::include_proto!("ratings.features.chart");
 }
-
-pub use pb::chart_server;
 
 #[derive(Default, Debug)]
 pub struct ChartService;

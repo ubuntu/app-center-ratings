@@ -1,7 +1,7 @@
 use tonic::transport::server::Router;
 use tonic_reflection::server::ServerReflection;
 
-use crate::feature::user;
+use crate::features::user;
 
 pub fn build_reflection_service(
 ) -> tonic_reflection::server::ServerReflectionServer<impl ServerReflection> {

@@ -3,7 +3,7 @@ use tonic::{Request, Response, Status};
 pub use protobuf::user_server;
 
 use crate::app::INFRA;
-use crate::feature::user::use_cases;
+use crate::features::user::use_cases;
 
 use super::service::UserService;
 
@@ -12,7 +12,7 @@ use self::protobuf::{CastVoteRequest, ListMyVotesRequest, ListMyVotesResponse, L
 pub mod protobuf {
     pub use self::user_server::{User, UserServer};
 
-    tonic::include_proto!("ratings.feature.user");
+    tonic::include_proto!("ratings.features.user");
 }
 
 #[tonic::async_trait]

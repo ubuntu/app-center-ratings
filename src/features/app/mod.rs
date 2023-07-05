@@ -1,12 +1,12 @@
 use tonic::{Request, Response, Status};
 
+pub use pb::app_server;
+
 use self::pb::{GetVotesRequest, GetVotesResponse};
 
 pub mod pb {
-    tonic::include_proto!("ratings.feature.app");
+    tonic::include_proto!("ratings.features.app");
 }
-
-pub use pb::app_server;
 
 #[derive(Default, Debug)]
 pub struct AppService;

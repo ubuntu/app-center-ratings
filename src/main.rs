@@ -1,5 +1,5 @@
 mod app;
-mod feature;
+mod features;
 mod utils;
 
 #[tokio::main]
