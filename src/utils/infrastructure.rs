@@ -1,14 +1,13 @@
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
-use once_cell::sync::OnceCell;
-use sqlx::{Pool, Postgres, postgres::PgPoolOptions};
+use sqlx::{PgPool, postgres::PgPoolOptions};
 
 use crate::utils::env;
 use crate::utils::jwt::Jwt;
 
 pub struct Infrastructure {
-    pub postgres: Arc<Pool<Postgres>>,
+    pub postgres: Arc<PgPool>,
     pub jwt: Jwt,
 }
 

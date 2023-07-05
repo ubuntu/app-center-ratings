@@ -14,7 +14,7 @@ prost = "0.11.9"
 rand = "0.8.5"
 reqwest = "0.11.18"
 serde = { version = "1.0.166", features = ["derive"] }
-sqlx = { version = "0.6.3", features = [ "runtime-tokio-rustls", "postgres" ] }
+sqlx = { version = "0.7.0", features = ["runtime-tokio-rustls", "postgres", "time"] }
 thiserror = "1.0.40"
 time = { version = "0.3.22", features = ["macros"] }
 tokio = { version = "1.28.2", features = ["full"] }
