@@ -1,4 +1,4 @@
-use ratings::utils::jwt::{Claims, Jwt, JwtError};
+use ratings::utils::jwt::Jwt;
 
 pub fn assert_token_is_valid(value: &str) {
     let jwt = Jwt::new();
@@ -8,7 +8,9 @@ pub fn assert_token_is_valid(value: &str) {
 pub fn assert_token_is_not_valid(value: &str) {
     let jwt = Jwt::new();
     match jwt.decode(value) {
-        Ok(_) => { panic!("expected invalid jwt") }
+        Ok(_) => {
+            panic!("expected invalid jwt")
+        }
         Err(_) => {}
     }
 }

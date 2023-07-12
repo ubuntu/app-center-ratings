@@ -1,12 +1,14 @@
-mod utils;
+use helpers::hooks::{after, before};
 
-use utils::lifecycle::{after, before};
+use crate::helpers::env::get_server_base_url;
+
+mod helpers;
 
 #[tokio::test]
 async fn quick() {
     before().await;
 
-    let url = format!("{}/", utils::server_url());
+    let url = get_server_base_url();
     let response = reqwest::get(url).await.unwrap();
 
     println!("response: {response:?}");

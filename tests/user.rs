@@ -1,13 +1,12 @@
 use sqlx::Row;
 use tonic::Code;
 
-use clients::user::{protobuf::LoginResponse, UserClient};
+use ratings::features::user::interface::protobuf::LoginResponse;
 
-use crate::utils::infra::get_repository;
+use crate::helpers::client_user::UserClient;
+use crate::helpers::infrastructure::get_repository;
 
-mod clients;
-mod repositories;
-mod utils;
+mod helpers;
 
 struct TestData {
     foo: String,

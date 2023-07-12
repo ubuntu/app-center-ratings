@@ -36,7 +36,7 @@ pub fn get_postgres_uri() -> String {
     env::var(ENVVAR_NAME_POSTGRES).unwrap()
 }
 
-pub fn get_server_ip() -> String {
+pub fn get_server_address() -> String {
     env::var(ENVVAR_NAME_ADDRESS).unwrap()
 }
 
@@ -54,7 +54,7 @@ pub fn get_server_port() -> u16 {
 
 pub fn get_socket() -> String {
     let port = get_server_port();
-    let address = get_server_ip();
+    let address = get_server_address();
     format!("{address}:{port}")
 }
 
