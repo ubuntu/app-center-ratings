@@ -1,6 +1,9 @@
-use tonic::{Response, Status};
+use tonic::metadata::MetadataValue;
+use tonic::transport::Endpoint;
+use tonic::{Request, Response, Status};
 
-use protobuf::{LoginRequest, LoginResponse, UserClient as GrpcClient};
+use protobuf::UserClient as GrpcClient;
+pub use protobuf::{LoginRequest, LoginResponse};
 
 use crate::helpers::env::get_server_base_url;
 
@@ -10,17 +13,38 @@ pub mod protobuf {
     tonic::include_proto!("ratings.features.user");
 }
 
-#[derive(Default)]
-pub struct UserClient;
+pub struct UserClient {
+    url: String,
+}
 
 impl UserClient {
+    pub fn new() -> Self {
+        Self {
+            url: get_server_base_url(),
+        }
+    }
+
     pub async fn login(&self, uid: &str) -> Result<Response<LoginResponse>, Status> {
-        let url = get_server_base_url();
-        let mut client = GrpcClient::connect(url).await.unwrap();
+        let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
         client
             .login(LoginRequest {
                 uid: uid.to_string(),
             })
             .await
+    }
+
+    pub async fn delete(&self, token: &str) -> Result<Response<()>, Status> {
+        let channel = Endpoint::from_shared(self.url.clone())
+            .unwrap()
+            .connect()
+            .await
+            .unwrap();
+        let mut client = GrpcClient::with_interceptor(channel, move |mut req: Request<()>| {
+            let header: MetadataValue<_> = format!("Bearer {token}").parse().unwrap();
+            req.metadata_mut().insert("authorization", header.clone());
+            Ok(req)
+        });
+
+        client.delete(()).await
     }
 }
