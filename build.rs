@@ -5,9 +5,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let files = &[
-        "proto/ratings_feature_app.proto",
-        "proto/ratings_feature_chart.proto",
-        "proto/ratings_feature_user.proto",
+        "proto/ratings_features_app.proto",
+        "proto/ratings_features_chart.proto",
+        "proto/ratings_features_user.proto",
     ];
 
     tonic_build::configure()

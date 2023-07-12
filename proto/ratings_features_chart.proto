@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package ratings.feature.chart;
+package ratings.features.chart;
 
 service Chart {
   rpc GetChart (GetChartRequest) returns (GetChartResponse) {}

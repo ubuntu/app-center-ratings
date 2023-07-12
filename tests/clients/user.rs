@@ -7,7 +7,7 @@ use crate::utils::server_url;
 pub mod protobuf {
     pub use self::user_client::UserClient;
 
-    tonic::include_proto!("ratings.feature.user");
+    tonic::include_proto!("ratings.features.user");
 }
 
 #[derive(Default)]

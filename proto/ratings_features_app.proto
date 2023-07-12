@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package ratings.feature.app;
+package ratings.features.app;
 
 service App {
   rpc GetVotes (GetVotesRequest) returns (GetVotesResponse) {}
