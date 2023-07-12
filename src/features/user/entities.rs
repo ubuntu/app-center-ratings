@@ -1,10 +1,24 @@
 use sqlx::FromRow;
-use time::format_description::modifier::UnixTimestamp;
+use time::OffsetDateTime;
 
-#[derive(Debug, FromRow)]
+pub type UserId = i32;
+
+#[derive(Debug, Clone, FromRow)]
 pub struct User {
-    id: i32,
-    instance_id: String,
-    last_seen: UnixTimestamp,
-    first_seen: UnixTimestamp,
+    pub id: UserId,
+    pub instance_id: String,
+    pub created: OffsetDateTime,
+    pub last_seen: OffsetDateTime,
+}
+
+impl User {
+    pub fn new(instance_id: &str) -> Self {
+        let now = OffsetDateTime::now_utc();
+        Self {
+            id: -1,
+            instance_id: instance_id.to_string(),
+            last_seen: now,
+            created: now,
+        }
+    }
 }

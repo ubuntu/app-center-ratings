@@ -1,6 +1,7 @@
 mod after_test;
 pub mod assert;
 mod before_test;
+pub mod infra;
 
 pub mod lifecycle {
     pub use super::after_test::after;

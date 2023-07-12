@@ -8,8 +8,8 @@ CREATE USER service WITH PASSWORD 'covfefe!1';
 CREATE TABLE users (
     id SERIAL PRIMARY KEY,
     instance_id CHAR(64) NOT NULL UNIQUE,
-    last_seen TIMESTAMP,
-    first_seen TIMESTAMP
+    created TIMESTAMP NOT NULL,
+    last_seen TIMESTAMP NOT NULL
 );
 
 GRANT ALL PRIVILEGES ON TABLE users TO service;

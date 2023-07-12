@@ -1,41 +1,31 @@
-use sqlx::Executor;
-use time::OffsetDateTime;
+use sqlx::{Acquire, Row};
 
-use crate::app::INFRA;
+use crate::utils::infrastructure::get_repository;
 
-use super::{errors::RegisterError, use_cases::UserId};
+use super::entities::User;
 
-pub(crate) async fn create_user_in_db(instance_id: &UserId) -> Result<UserId, RegisterError> {
-    let infra = INFRA.get().expect("Infrastructure should be initialised");
-    let mut pool = match infra.postgres.acquire().await {
-        Ok(p) => p,
-        Err(_) => return Err(RegisterError::FailedToCreateUserRecord),
-    };
+pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
+    let mut connection = get_repository().await;
+    let mut tx = connection.begin().await?;
 
-    let now = OffsetDateTime::now_utc();
-
-    let query = sqlx::query(r#"
-        INSERT INTO users (instance_id, last_seen, first_seen)
+    let row = sqlx::query(
+        r#"
+        INSERT INTO users (instance_id, created, last_seen)
         VALUES ($1, $2, $2)
-    "#)
-        .bind(instance_id)
-        .bind(now);
+        RETURNING id
+    "#,
+    )
+    .bind(&user.instance_id)
+    .bind(&user.last_seen)
+    .bind(&user.created)
+    .fetch_one(&mut *tx)
+    .await?;
 
-    pool
-        .execute(query)
-        .await
-        .map_err(|err| {
-            tracing::error!("Failed to insert user into the db: {err:?}");
-            RegisterError::FailedToCreateUserRecord
-        })
-        .and_then(|pg_result| {
-            let rows_affected = pg_result.rows_affected();
+    let id = row.try_get("id")?;
 
-            if rows_affected == 1 {
-                Ok(instance_id.to_string())
-            } else {
-                tracing::error!("user insert changed {rows_affected} row(s) but 1 expected");
-                Err(RegisterError::FailedToCreateUserRecord)
-            }
-        })
+    tx.commit().await.unwrap();
+
+    let user_with_id = User { id, ..user };
+
+    Ok(user_with_id)
 }

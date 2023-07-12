@@ -2,15 +2,17 @@ use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
 
-use crate::app::INFRA;
 use crate::features::user::use_cases;
+use crate::utils::infrastructure::INFRA;
 
 use super::service::UserService;
 
-use self::protobuf::{CastVoteRequest, ListMyVotesRequest, ListMyVotesResponse, LoginRequest, LoginResponse, User};
+use self::protobuf::{
+    CastVoteRequest, ListMyVotesRequest, ListMyVotesResponse, LoginRequest, LoginResponse, User,
+};
 
 pub mod protobuf {
-    pub use self::user_server::{User, UserServer};
+    pub use self::user_server::User;
 
     tonic::include_proto!("ratings.features.user");
 }
@@ -29,7 +31,7 @@ impl User for UserService {
         match use_cases::create_user(&uid).await {
             Ok(uid) => {
                 let infra = INFRA.get().expect("INFRA should be initialised");
-                let token = infra.jwt.encode(uid).unwrap();
+                let token = infra.jwt.encode(uid.to_string()).unwrap();
 
                 let payload = LoginResponse { token };
                 let response = Response::new(payload);

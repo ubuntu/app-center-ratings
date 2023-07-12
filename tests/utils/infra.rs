@@ -1,25 +1,15 @@
-use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
 use sqlx::pool::PoolConnection;
-use sqlx::{postgres::PgPoolOptions, Acquire, PgPool, Postgres};
+use sqlx::postgres::PgPoolOptions;
+use sqlx::Postgres;
 
-use crate::utils::env;
-use crate::utils::jwt::Jwt;
+use ratings::utils::env;
+use ratings::utils::infrastructure::Infrastructure;
+use ratings::utils::jwt::Jwt;
 
-pub static INFRA: OnceCell<Infrastructure> = OnceCell::new();
-
-pub struct Infrastructure {
-    pub postgres: Arc<PgPool>,
-    pub jwt: Jwt,
-}
-
-impl Debug for Infrastructure {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.write_str("Infrastructure { postgres, jwt }")
-    }
-}
+pub static TEST_INFRA: OnceCell<Infrastructure> = OnceCell::new();
 
 pub async fn init() {
     let uri = env::get_postgres_uri();
@@ -32,12 +22,14 @@ pub async fn init() {
     let postgres = Arc::new(postgres);
     let jwt = Jwt::new();
     let infra = Infrastructure { postgres, jwt };
-    INFRA
+    TEST_INFRA
         .set(infra)
         .expect("infrastructure should be initialised");
 }
 
 pub async fn get_repository() -> PoolConnection<Postgres> {
-    let infra = INFRA.get().expect("infrastructure should be initialised");
+    let infra = TEST_INFRA
+        .get()
+        .expect("infrastructure should be initialised");
     infra.postgres.acquire().await.unwrap()
 }
