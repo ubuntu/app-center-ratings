@@ -6,7 +6,7 @@ import "google/protobuf/empty.proto";
 
 service User {
   rpc Login (LoginRequest) returns (LoginResponse) {}
-  rpc DeleteSelf (google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc Delete (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc CastVote (CastVoteRequest) returns (google.protobuf.Empty) {}
   rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
 }

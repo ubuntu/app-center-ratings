@@ -37,7 +37,7 @@ pub async fn init() {
         .expect("infrastructure should be initialised");
 }
 
-pub async fn get_repository() -> PoolConnection<Postgres> {
+pub async fn get_repository() -> Result<PoolConnection<Postgres>, sqlx::Error> {
     let infra = INFRA.get().expect("infrastructure should be initialised");
-    infra.postgres.acquire().await.unwrap()
+    infra.postgres.acquire().await
 }

@@ -1,9 +1,12 @@
+use std::future::Future;
+
 use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
 
 use crate::features::user::use_cases;
 use crate::utils::infrastructure::INFRA;
+use crate::utils::jwt::Claims;
 
 use super::service::UserService;
 
@@ -40,16 +43,27 @@ impl User for UserService {
             }
             Err(error) => {
                 tracing::error!("{error:?}");
-
                 Err(Status::invalid_argument("uid"))
             }
         }
     }
 
     #[tracing::instrument]
-    async fn delete_self(&self, _: Request<()>) -> Result<Response<()>, Status> {
-        tracing::info!("delete self");
-        Ok(Response::new(()))
+    async fn delete(&self, request: Request<()>) -> Result<Response<()>, Status> {
+        tracing::info!("deleting self");
+        let claim = request
+            .extensions()
+            .get::<Claims>()
+            .expect("request should have claim");
+        let instance_id = claim.sub.clone();
+
+        match use_cases::delete_user(&instance_id).await {
+            Ok(_) => Ok(Response::new(())),
+            Err(error) => {
+                tracing::error!("{error:?}");
+                Ok(Response::new(()))
+            }
+        }
     }
 
     #[tracing::instrument]
