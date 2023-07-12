@@ -2,6 +2,7 @@ use http::header;
 use tonic::{Request, Status};
 
 use crate::app::context::Context;
+use crate::utils::infrastructure::INFRA;
 
 pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let ctx = req.extensions().get::<Context>();
@@ -18,15 +19,24 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
         return Ok(req);
     }
 
-    let Some(token) = req.metadata().get(header::AUTHORIZATION.as_str()) else {
+    let Some(header) = req.metadata().get(header::AUTHORIZATION.as_str()) else {
         return Err(Status::unauthenticated("missing authz header"));
     };
 
-    let token = token.to_str().unwrap_or("");
+    let raw: Vec<&str> = header.to_str().unwrap_or("").split_whitespace().collect();
 
-    if token.len() == crate::features::user::TOKEN_LENGTH {
-        Ok(req)
-    } else {
-        Err(Status::unauthenticated("invalid authz token"))
+    if raw.len() != 2 {
+        return Err(Status::unauthenticated("invalid authz token"));
+    }
+
+    let token = raw[1];
+    let infra = INFRA.get().expect("INFRA should be initialised");
+    match infra.jwt.decode(token) {
+        Ok(claim) => {
+            let mut req = req;
+            req.extensions_mut().insert(claim);
+            Ok(req)
+        }
+        Err(_) => Err(Status::unauthenticated("invalid authz token")),
     }
 }
