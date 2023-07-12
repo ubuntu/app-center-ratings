@@ -1,15 +1,25 @@
-use tracing::info;
+use std::sync::Arc;
 
-use super::infrastructure;
+use once_cell::sync::Lazy;
+use tokio::sync::Mutex;
 
-pub async fn before() {
-    tracing_subscriber::fmt().init();
-    ratings::utils::env::init();
-    infrastructure::init().await;
+use ratings::utils::env;
 
-    info!("Before test")
+use crate::helpers::infrastructure;
+
+static INITIALIZATION_FLAG: Lazy<Arc<Mutex<bool>>> = Lazy::new(|| Arc::new(Mutex::new(false)));
+
+pub async fn before_all() {
+    let mutex = Arc::clone(&*INITIALIZATION_FLAG);
+    let mut initialised = mutex.lock().await;
+
+    if !*initialised {
+        *initialised = true;
+
+        tracing_subscriber::fmt().init();
+        env::init();
+        infrastructure::init().await;
+    }
 }
 
-pub async fn after() {
-    info!("After test")
-}
+pub async fn after_all() {}

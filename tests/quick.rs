@@ -1,4 +1,4 @@
-use helpers::hooks::{after, before};
+use helpers::hooks::{afterAll, beforeAll};
 
 use crate::helpers::env::get_server_base_url;
 
@@ -6,7 +6,7 @@ mod helpers;
 
 #[tokio::test]
 async fn quick() {
-    before().await;
+    beforeAll().await;
 
     let url = get_server_base_url();
     let response = reqwest::get(url).await.unwrap();
@@ -19,5 +19,5 @@ async fn quick() {
     println!("body: {actual}");
     assert_eq!(actual, expected);
 
-    after().await;
+    afterAll().await;
 }
