@@ -12,7 +12,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let ctx = ctx.unwrap();
     let uri = &ctx.uri;
 
-    if uri.contains("ratings.feature.user.User/Login")
+    if uri.contains("ratings.features.user.User/Login")
         || uri.contains("grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo")
     {
         return Ok(req);
