@@ -8,10 +8,10 @@ mod helpers;
 #[tokio::test]
 async fn blank() {
     with_lifecycle(async {
-        let uid = "";
-        let client = UserClient::default();
+        let user_id = "";
+        let client = UserClient::new();
 
-        match client.login(uid).await {
+        match client.login(user_id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)
@@ -24,10 +24,10 @@ async fn blank() {
 #[tokio::test]
 async fn wrong_length() {
     with_lifecycle(async {
-        let uid = "foobarbazbun";
-        let client = UserClient::default();
+        let user_id = "foobarbazbun";
+        let client = UserClient::new();
 
-        match client.login(uid).await {
+        match client.login(user_id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)

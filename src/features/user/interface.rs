@@ -29,12 +29,12 @@ impl User for UserService {
     ) -> Result<Response<LoginResponse>, Status> {
         tracing::info!("register");
 
-        let LoginRequest { uid } = request.into_inner();
+        let LoginRequest { user_id } = request.into_inner();
 
-        match use_cases::create_user(&uid).await {
-            Ok(uid) => {
+        match use_cases::create_user(&user_id).await {
+            Ok(user_id) => {
                 let infra = INFRA.get().expect("INFRA should be initialised");
-                let token = infra.jwt.encode(uid.to_string()).unwrap();
+                let token = infra.jwt.encode(user_id.to_string()).unwrap();
 
                 let payload = LoginResponse { token };
                 let response = Response::new(payload);
@@ -43,7 +43,7 @@ impl User for UserService {
             }
             Err(error) => {
                 tracing::error!("{error:?}");
-                Err(Status::invalid_argument("uid"))
+                Err(Status::invalid_argument("user_id"))
             }
         }
     }
@@ -55,9 +55,9 @@ impl User for UserService {
             .extensions()
             .get::<Claims>()
             .expect("request should have claim");
-        let instance_id = claim.sub.clone();
+        let user_id = claim.sub.clone();
 
-        match use_cases::delete_user(&instance_id).await {
+        match use_cases::delete_user(&user_id).await {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");

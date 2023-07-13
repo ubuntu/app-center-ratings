@@ -24,11 +24,11 @@ impl UserClient {
         }
     }
 
-    pub async fn login(&self, uid: &str) -> Result<Response<LoginResponse>, Status> {
+    pub async fn login(&self, user_id: &str) -> Result<Response<LoginResponse>, Status> {
         let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
         client
             .login(LoginRequest {
-                uid: uid.to_string(),
+                user_id: user_id.to_string(),
             })
             .await
     }

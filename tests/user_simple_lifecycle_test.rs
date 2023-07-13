@@ -9,7 +9,7 @@ mod helpers;
 
 #[derive(Debug, Default)]
 struct TestData {
-    instance_id: Option<String>,
+    user_id: Option<String>,
     token: Option<String>,
 }
 
@@ -23,12 +23,12 @@ async fn user_simple_lifecycle_test() {
 }
 
 async fn login(mut data: TestData) -> TestData {
-    let instance_id: String = helpers::data_faker::rnd_sha_256();
-    data.instance_id = Some(instance_id.to_string());
+    let user_id: String = helpers::data_faker::rnd_sha_256();
+    data.user_id = Some(user_id.to_string());
 
     let client = UserClient::new();
     let response: LoginResponse = client
-        .login(&instance_id)
+        .login(&user_id)
         .await
         .expect("request should have succeeded")
         .into_inner();
@@ -38,15 +38,15 @@ async fn login(mut data: TestData) -> TestData {
     helpers::assert::assert_token_is_valid(&token);
 
     let mut conn = get_repository().await;
-    let rows = sqlx::query("SELECT * FROM users WHERE instance_id = $1")
-        .bind(&instance_id)
+    let rows = sqlx::query("SELECT * FROM users WHERE user_id = $1")
+        .bind(&user_id)
         .fetch_one(&mut *conn)
         .await
         .unwrap();
 
-    let actual: String = rows.get("instance_id");
+    let actual: String = rows.get("user_id");
 
-    assert_eq!(actual, instance_id);
+    assert_eq!(actual, user_id);
 
     data
 }
@@ -56,15 +56,15 @@ async fn delete(data: TestData) -> TestData {
     let client = UserClient::new();
     client.delete(&token.clone()).await.unwrap();
 
-    let instance_id = data.instance_id.clone().unwrap();
+    let user_id = data.user_id.clone().unwrap();
     let mut conn = get_repository().await;
-    let result = sqlx::query("SELECT * FROM users WHERE instance_id = $1")
-        .bind(&instance_id)
+    let result = sqlx::query("SELECT * FROM users WHERE user_id = $1")
+        .bind(&user_id)
         .fetch_one(&mut *conn)
         .await;
 
     let Err(sqlx::Error::RowNotFound) = result else {
-        panic!("The user {} still exists in the database or there was a database error", instance_id);
+        panic!("The user {} still exists in the database or there was a database error", user_id);
     };
 
     data

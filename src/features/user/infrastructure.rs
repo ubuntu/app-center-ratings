@@ -10,12 +10,12 @@ pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
 
     let row = sqlx::query(
         r#"
-        INSERT INTO users (instance_id, created, last_seen)
+        INSERT INTO users (user_id, created, last_seen)
         VALUES ($1, $2, $2)
         RETURNING id
         "#,
     )
-    .bind(&user.instance_id)
+    .bind(&user.user_id)
     .bind(&user.last_seen)
     .bind(&user.created)
     .fetch_one(&mut *tx)
@@ -29,7 +29,7 @@ pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
     Ok(user_with_id)
 }
 
-pub(crate) async fn delete_user_by_instance_id(id: &str) -> Result<u64, sqlx::Error> {
+pub(crate) async fn delete_user_by_user_id(id: &str) -> Result<u64, sqlx::Error> {
     let mut connection = get_repository().await?;
     let mut tx = connection.begin().await?;
 
