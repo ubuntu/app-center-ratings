@@ -1,7 +1,7 @@
 use futures::FutureExt;
 use sqlx::Row;
 
-use crate::helpers::client_user::{LoginResponse, UserClient};
+use crate::helpers::client_user::{AuthenticateResponse, RegisterResponse, UserClient};
 use crate::helpers::infrastructure::get_repository;
 use crate::helpers::with_lifecycle::with_lifecycle;
 
@@ -9,6 +9,7 @@ mod helpers;
 
 #[derive(Debug, Default)]
 struct TestData {
+    client: Option<UserClient>,
     user_id: Option<String>,
     token: Option<String>,
 }
@@ -16,24 +17,26 @@ struct TestData {
 #[tokio::test]
 async fn user_simple_lifecycle_test() {
     with_lifecycle(async {
-        let data = TestData::default();
-        login(data).then(delete).await;
+        let mut data = TestData::default();
+        data.client = Some(UserClient::new());
+
+        register(data).then(authenticate).then(delete).await;
     })
     .await;
 }
 
-async fn login(mut data: TestData) -> TestData {
+async fn register(mut data: TestData) -> TestData {
     let user_id: String = helpers::data_faker::rnd_sha_256();
     data.user_id = Some(user_id.to_string());
 
-    let client = UserClient::new();
-    let response: LoginResponse = client
-        .login(&user_id)
+    let client = data.client.clone().unwrap();
+    let response: RegisterResponse = client
+        .register(&user_id)
         .await
-        .expect("request should have succeeded")
+        .expect("register request should succeed")
         .into_inner();
-    let token: String = response.token;
 
+    let token: String = response.token;
     data.token = Some(token.to_string());
     helpers::assert::assert_token_is_valid(&token);
 
@@ -47,6 +50,27 @@ async fn login(mut data: TestData) -> TestData {
     let actual: String = rows.get("user_id");
 
     assert_eq!(actual, user_id);
+
+    data
+}
+
+async fn authenticate(mut data: TestData) -> TestData {
+    let user_id = data.user_id.clone().unwrap();
+    let client = data.client.clone().unwrap();
+
+    // todo get last seen
+
+    let response: AuthenticateResponse = client
+        .authenticate(&user_id)
+        .await
+        .expect("authenticate should succeed")
+        .into_inner();
+
+    let token: String = response.token;
+    data.token = Some(token.to_string());
+    helpers::assert::assert_token_is_valid(&token);
+
+    // todo get last seen and compare
 
     data
 }

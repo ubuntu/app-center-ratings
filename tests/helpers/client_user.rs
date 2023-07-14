@@ -3,7 +3,7 @@ use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
 
 use protobuf::UserClient as GrpcClient;
-pub use protobuf::{LoginRequest, LoginResponse};
+pub use protobuf::{AuthenticateRequest, AuthenticateResponse, RegisterRequest, RegisterResponse};
 
 use crate::helpers::env::get_server_base_url;
 
@@ -13,6 +13,7 @@ pub mod protobuf {
     tonic::include_proto!("ratings.features.user");
 }
 
+#[derive(Debug, Clone)]
 pub struct UserClient {
     url: String,
 }
@@ -24,10 +25,22 @@ impl UserClient {
         }
     }
 
-    pub async fn login(&self, user_id: &str) -> Result<Response<LoginResponse>, Status> {
+    pub async fn register(&self, user_id: &str) -> Result<Response<RegisterResponse>, Status> {
         let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
         client
-            .login(LoginRequest {
+            .register(RegisterRequest {
+                user_id: user_id.to_string(),
+            })
+            .await
+    }
+
+    pub async fn authenticate(
+        &self,
+        user_id: &str,
+    ) -> Result<Response<AuthenticateResponse>, Status> {
+        let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
+        client
+            .authenticate(AuthenticateRequest {
                 user_id: user_id.to_string(),
             })
             .await

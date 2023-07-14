@@ -11,7 +11,7 @@ async fn blank() {
         let user_id = "";
         let client = UserClient::new();
 
-        match client.login(user_id).await {
+        match client.register(user_id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)
@@ -27,7 +27,7 @@ async fn wrong_length() {
         let user_id = "foobarbazbun";
         let client = UserClient::new();
 
-        match client.login(user_id).await {
+        match client.register(user_id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)
