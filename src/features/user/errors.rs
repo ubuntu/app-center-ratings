@@ -8,6 +8,8 @@ pub enum UserError {
     FailedToCreateUserRecord,
     #[error("failed to delete user by instance id")]
     FailedToDeleteUserRecord,
-    #[error("unknown user no auth error")]
+    #[error("failed to cast vote")]
+    FailedToCastVote,
+    #[error("unknown user error")]
     Unknown,
 }

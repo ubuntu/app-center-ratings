@@ -2,10 +2,10 @@ use crate::features::user::infrastructure::{save_vote_to_db, user_seen};
 
 use super::entities::{User, Vote};
 use super::errors::UserError;
-use super::infrastructure::{create_user_in_db, delete_user_by_user_id};
+use super::infrastructure::{create_user_in_db, delete_user_by_client_hash};
 
-pub async fn register(user_id: &str) -> Result<User, UserError> {
-    let user = User::new(user_id);
+pub async fn register(client_hash: &str) -> Result<User, UserError> {
+    let user = User::new(client_hash);
 
     create_user_in_db(user).await.map_err(|err| {
         tracing::error!("{err:?}");
@@ -13,15 +13,15 @@ pub async fn register(user_id: &str) -> Result<User, UserError> {
     })
 }
 
-pub async fn authenticate(user_id: &str) -> Result<bool, UserError> {
-    user_seen(user_id).await.map_err(|error| {
+pub async fn authenticate(id: &str) -> Result<bool, UserError> {
+    user_seen(id).await.map_err(|error| {
         tracing::error!("{error:?}");
         UserError::InvalidUserId
     })
 }
 
-pub async fn delete_user(user_id: &str) -> Result<(), UserError> {
-    delete_user_by_user_id(user_id)
+pub async fn delete_user(client_hash: &str) -> Result<(), UserError> {
+    delete_user_by_client_hash(client_hash)
         .await
         .map(|rows_affected| ())
         .map_err(|error| {
@@ -36,6 +36,6 @@ pub async fn vote(vote: Vote) -> Result<(), UserError> {
         .map(|rows_affected| ())
         .map_err(|error| {
             tracing::error!("{error:?}");
-            UserError::FailedToDeleteUserRecord
+            UserError::FailedToCastVote
         })
 }

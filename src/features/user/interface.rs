@@ -26,24 +26,24 @@ impl User for UserService {
         &self,
         request: Request<RegisterRequest>,
     ) -> Result<Response<RegisterResponse>, Status> {
-        let RegisterRequest { user_id } = request.into_inner();
+        let RegisterRequest { id } = request.into_inner();
 
-        if !validate_user_id(&user_id) {
-            return Err(Status::invalid_argument("user_id"));
+        if !validate_client_hash(&id) {
+            return Err(Status::invalid_argument("id"));
         }
 
-        match use_cases::register(&user_id).await {
+        match use_cases::register(&id).await {
             Ok(user) => INFRA
                 .get()
                 .expect("INFRA should be initialised")
                 .jwt
-                .encode(user.user_id)
+                .encode(user.client_hash)
                 .map(|token| RegisterResponse { token })
                 .map(|payload| Response::new(payload))
                 .map_err(|error| Status::internal("internal")),
             Err(error) => {
                 tracing::error!("{error:?}");
-                Err(Status::invalid_argument("user_id"))
+                Err(Status::invalid_argument("id"))
             }
         }
     }
@@ -53,40 +53,42 @@ impl User for UserService {
         &self,
         request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        let AuthenticateRequest { user_id } = request.into_inner();
+        let AuthenticateRequest { id } = request.into_inner();
 
-        if !validate_user_id(&user_id) {
-            return Err(Status::invalid_argument("user_id"));
+        if !validate_client_hash(&id) {
+            return Err(Status::invalid_argument("id"));
         }
 
-        match use_cases::authenticate(&user_id).await {
+        match use_cases::authenticate(&id).await {
             Ok(exists) => {
                 if exists {
                     INFRA
                         .get()
                         .expect("INFRA should be initialised")
                         .jwt
-                        .encode(user_id)
+                        .encode(id)
                         .map(|token| AuthenticateResponse { token })
                         .map(|payload| Response::new(payload))
                         .map_err(|error| Status::internal("internal"))
                 } else {
-                    tracing::info!("no record for {user_id}");
+                    tracing::info!("no record for client hash {id}");
                     Err(Status::unauthenticated("invalid credentials"))
                 }
             }
             Err(error) => {
                 tracing::error!("{error:?}");
-                Err(Status::invalid_argument("user_id"))
+                Err(Status::invalid_argument("id"))
             }
         }
     }
 
     #[tracing::instrument]
     async fn delete(&self, request: Request<()>) -> Result<Response<()>, Status> {
-        let Claims { sub: user_id, .. } = get_claims(&request);
+        let Claims {
+            sub: client_hash, ..
+        } = get_claims(&request);
 
-        match use_cases::delete_user(&user_id).await {
+        match use_cases::delete_user(&client_hash).await {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");
@@ -97,11 +99,13 @@ impl User for UserService {
 
     #[tracing::instrument]
     async fn vote(&self, request: Request<VoteRequest>) -> Result<Response<()>, Status> {
-        let Claims { sub: user_id, .. } = get_claims(&request);
+        let Claims {
+            sub: client_hash, ..
+        } = get_claims(&request);
         let request = request.into_inner();
 
         let vote = Vote {
-            user_id,
+            client_hash,
             snap_id: request.snap_id,
             snap_revision: request.snap_revision as u32,
             vote_up: request.vote_up,
@@ -133,8 +137,8 @@ fn get_claims<T>(request: &Request<T>) -> Claims {
         .clone()
 }
 
-pub const EXPECTED_USER_ID_LENGTH: usize = 64;
+pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
 
-fn validate_user_id(user_id: &str) -> bool {
-    user_id.len() == EXPECTED_USER_ID_LENGTH
+fn validate_client_hash(value: &str) -> bool {
+    value.len() == EXPECTED_CLIENT_HASH_LENGTH
 }
