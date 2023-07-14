@@ -5,45 +5,42 @@ package ratings.features.user;
 import "google/protobuf/empty.proto";
 
 service User {
-  rpc Login (LoginRequest) returns (LoginResponse) {}
+  rpc Register (RegisterRequest) returns (RegisterResponse) {}
+  rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Delete (google.protobuf.Empty) returns (google.protobuf.Empty) {}
-  rpc CastVote (CastVoteRequest) returns (google.protobuf.Empty) {}
-  rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
+  rpc Vote (VoteRequest) returns (google.protobuf.Empty) {}
+  rpc ListVotes (ListVotesRequest) returns (ListVotesResponse) {}
 }
 
-message LoginRequest {
+message RegisterRequest {
   string user_id = 1;
 }
 
-message LoginResponse {
+message RegisterResponse {
   string token = 1;
 }
 
-message ListMyVotesRequest {
+message AuthenticateRequest {
+  string user_id = 1;
+}
+
+message AuthenticateResponse {
+  string token = 1;
+}
+
+message ListVotesRequest {
   string app = 1;
 }
 
-message ListMyVotesResponse {
-  string app = 1;
-  string revision = 2;
-  Vote vote = 3;
-  int64 ts = 4;
+message ListVotesResponse {
+  string snap_id = 1;
+  string snap_revision = 2;
+  bool vote_up = 3;
+  int64 timestamp = 4;
 }
 
-message GetMyAppVoteRequest {
-  string app = 1;
-}
-
-message CastVoteRequest {
-  string app = 1;
-  string version = 2;
-  string revision = 3;
-
-  Vote vote = 4;
-}
-
-enum Vote {
-  VOTE_UNSPECIFIED = 0;
-  VOTE_UP = 1;
-  VOTE_DOWN = 2;
+message VoteRequest {
+  string snap_id = 1;
+  int32 snap_revision = 2;
+  bool vote_up = 3;
 }

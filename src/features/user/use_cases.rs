@@ -1,41 +1,41 @@
-use crate::features::user::infrastructure::delete_user_by_user_id;
+use crate::features::user::infrastructure::{save_vote_to_db, user_seen};
 
-use super::entities::{User, UserId};
-use super::{errors::UserError, infrastructure::create_user_in_db};
+use super::entities::{User, Vote};
+use super::errors::UserError;
+use super::infrastructure::{create_user_in_db, delete_user_by_user_id};
 
-pub async fn create_user(user_id: &str) -> Result<UserId, UserError> {
-    tracing::info!("");
-
-    if !validate_user_id(user_id) {
-        return Err(UserError::Invaliduser_id);
-    }
-
+pub async fn register(user_id: &str) -> Result<User, UserError> {
     let user = User::new(user_id);
 
-    create_user_in_db(user)
-        .await
-        .map(|user| user.id)
-        .map_err(|err| {
-            tracing::error!("{err:?}");
-
-            UserError::FailedToCreateUserRecord
-        })
+    create_user_in_db(user).await.map_err(|err| {
+        tracing::error!("{err:?}");
+        UserError::FailedToCreateUserRecord
+    })
 }
-pub async fn delete_user(user_id: &str) -> Result<(), UserError> {
-    tracing::info!("");
 
+pub async fn authenticate(user_id: &str) -> Result<bool, UserError> {
+    user_seen(user_id).await.map_err(|error| {
+        tracing::error!("{error:?}");
+        UserError::InvalidUserId
+    })
+}
+
+pub async fn delete_user(user_id: &str) -> Result<(), UserError> {
     delete_user_by_user_id(user_id)
         .await
         .map(|rows_affected| ())
-        .map_err(|err| {
-            tracing::error!("{err:?}");
+        .map_err(|error| {
+            tracing::error!("{error:?}");
             UserError::FailedToDeleteUserRecord
         })
 }
 
-pub const EXPECTED_user_id_LENGTH: usize = 64;
-pub const TOKEN_LENGTH: usize = 32;
-
-fn validate_user_id(user_id: &str) -> bool {
-    user_id.len() == EXPECTED_user_id_LENGTH
+pub async fn vote(vote: Vote) -> Result<(), UserError> {
+    save_vote_to_db(vote)
+        .await
+        .map(|rows_affected| ())
+        .map_err(|error| {
+            tracing::error!("{error:?}");
+            UserError::FailedToDeleteUserRecord
+        })
 }

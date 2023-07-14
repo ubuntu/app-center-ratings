@@ -13,9 +13,13 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let ctx = ctx.unwrap();
     let uri = &ctx.uri;
 
-    if uri.contains("ratings.features.user.User/Login")
-        || uri.contains("grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo")
-    {
+    let public_paths = [
+        "ratings.features.user.User/Register",
+        "ratings.features.user.User/Authenticate",
+        "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo",
+    ];
+
+    if public_paths.iter().any(|&s| uri.contains(s)) {
         return Ok(req);
     }
 

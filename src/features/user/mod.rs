@@ -1,5 +1,3 @@
-pub use use_cases::TOKEN_LENGTH;
-
 pub mod entities;
 mod errors;
 mod infrastructure;
