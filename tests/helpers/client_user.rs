@@ -25,24 +25,17 @@ impl UserClient {
         }
     }
 
-    pub async fn register(&self, user_id: &str) -> Result<Response<RegisterResponse>, Status> {
+    pub async fn register(&self, id: &str) -> Result<Response<RegisterResponse>, Status> {
         let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
         client
-            .register(RegisterRequest {
-                user_id: user_id.to_string(),
-            })
+            .register(RegisterRequest { id: id.to_string() })
             .await
     }
 
-    pub async fn authenticate(
-        &self,
-        user_id: &str,
-    ) -> Result<Response<AuthenticateResponse>, Status> {
+    pub async fn authenticate(&self, id: &str) -> Result<Response<AuthenticateResponse>, Status> {
         let mut client = GrpcClient::connect(self.url.clone()).await.unwrap();
         client
-            .authenticate(AuthenticateRequest {
-                user_id: user_id.to_string(),
-            })
+            .authenticate(AuthenticateRequest { id: id.to_string() })
             .await
     }
 

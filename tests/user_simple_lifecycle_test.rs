@@ -10,7 +10,7 @@ mod helpers;
 #[derive(Debug, Default)]
 struct TestData {
     client: Option<UserClient>,
-    user_id: Option<String>,
+    id: Option<String>,
     token: Option<String>,
 }
 
@@ -26,12 +26,12 @@ async fn user_simple_lifecycle_test() {
 }
 
 async fn register(mut data: TestData) -> TestData {
-    let user_id: String = helpers::data_faker::rnd_sha_256();
-    data.user_id = Some(user_id.to_string());
+    let id: String = helpers::data_faker::rnd_sha_256();
+    data.id = Some(id.to_string());
 
     let client = data.client.clone().unwrap();
     let response: RegisterResponse = client
-        .register(&user_id)
+        .register(&id)
         .await
         .expect("register request should succeed")
         .into_inner();
@@ -41,27 +41,27 @@ async fn register(mut data: TestData) -> TestData {
     helpers::assert::assert_token_is_valid(&token);
 
     let mut conn = get_repository().await;
-    let rows = sqlx::query("SELECT * FROM users WHERE user_id = $1")
-        .bind(&user_id)
+    let rows = sqlx::query("SELECT * FROM users WHERE client_hash = $1")
+        .bind(&id)
         .fetch_one(&mut *conn)
         .await
         .unwrap();
 
-    let actual: String = rows.get("user_id");
+    let actual: String = rows.get("client_hash");
 
-    assert_eq!(actual, user_id);
+    assert_eq!(actual, id);
 
     data
 }
 
 async fn authenticate(mut data: TestData) -> TestData {
-    let user_id = data.user_id.clone().unwrap();
+    let id = data.id.clone().unwrap();
     let client = data.client.clone().unwrap();
 
     // todo get last seen
 
     let response: AuthenticateResponse = client
-        .authenticate(&user_id)
+        .authenticate(&id)
         .await
         .expect("authenticate should succeed")
         .into_inner();
@@ -80,15 +80,15 @@ async fn delete(data: TestData) -> TestData {
     let client = UserClient::new();
     client.delete(&token.clone()).await.unwrap();
 
-    let user_id = data.user_id.clone().unwrap();
+    let id = data.id.clone().unwrap();
     let mut conn = get_repository().await;
-    let result = sqlx::query("SELECT * FROM users WHERE user_id = $1")
-        .bind(&user_id)
+    let result = sqlx::query("SELECT * FROM users WHERE client_hash = $1")
+        .bind(&id)
         .fetch_one(&mut *conn)
         .await;
 
     let Err(sqlx::Error::RowNotFound) = result else {
-        panic!("The user {} still exists in the database or there was a database error", user_id);
+        panic!("The user {} still exists in the database or there was a database error", id);
     };
 
     data
