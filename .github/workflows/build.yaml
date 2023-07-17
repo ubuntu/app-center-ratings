@@ -23,7 +23,7 @@ jobs:
 
           sudo snap install protobuf --classic
 
-      - name: Build ratings
+      - name: Build binary
         uses: actions-rs/cargo@v1
         with:
           command: build
@@ -33,4 +33,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ratings
-          path: targets/release/ratings
+          path: target/release/ratings
