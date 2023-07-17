@@ -10,6 +10,7 @@ A backend service to support application ratings in the new Ubuntu Software Cent
 import logging
 
 import ops
+import psycopg
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
 
 logger = logging.getLogger(__name__)
@@ -38,6 +39,10 @@ class RatingsCharm(ops.CharmBase):
     def _on_database_created(self, event: DatabaseCreatedEvent):
         """Handle the database creation event."""
         conn_str = f"postgres://{event.username}:{event.password}@{event.endpoints}/ratings"
+
+        self.unit.status = ops.MaintenanceStatus("Creating database tables")
+        self._create_database_tables(conn_str)
+
         self._start_ratings_service(conn_str)
 
     def _start_ratings_service(self, connection_string=None):
@@ -54,6 +59,47 @@ class RatingsCharm(ops.CharmBase):
         else:
             logger.info("Cannot connect to ratings container. Deferring event.")
             self.unit.status = ops.WaitingStatus("Waiting for ratings container")
+
+    def _create_database_tables(self, connection_string):
+        """Create the tables required for the ratings service."""
+        with psycopg.connect(connection_string) as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    CREATE TABLE users (
+                        id SERIAL PRIMARY KEY,
+                        client_hash CHAR(64) NOT NULL UNIQUE, -- sha256($MACHINE_ID$USER)
+                        created TIMESTAMP NOT NULL DEFAULT NOW(),
+                        last_seen TIMESTAMP NOT NULL
+                    )
+                    """
+                )
+                logger.debug("Created users table")
+
+                cur.execute(
+                    """
+                    CREATE TABLE votes (
+                        id SERIAL PRIMARY KEY,
+                        created TIMESTAMP NOT NULL DEFAULT NOW(),
+                        user_id_fk INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                        snap_id CHAR(32) NOT NULL,
+                        snap_revision INT NOT NULL CHECK (snap_revision > 0),
+                        vote_up BOOLEAN NOT NULL
+                    )
+                    """
+                )
+                logger.debug("Created votes table")
+
+                cur.execute(
+                    """
+                    CREATE UNIQUE INDEX idx_votes_unique_user_snap
+                        ON votes (user_id_fk, snap_id, snap_revision)
+                    """
+                )
+                logger.debug("Created idx_votes_unique_user_snap index")
+
+                conn.commit()
+        logger.info("Database tables created successfully")
 
     def _database_connection_string(self) -> str:
         """Report database connection string using info from relation data bag."""
