@@ -1,0 +1,36 @@
+name: Build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build Ratings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Setup Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+
+      - name: Install additional build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libssl-dev pkg-config
+
+          sudo snap install protobuf --classic
+
+      - name: Build ratings
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
+        with:
+          name: ratings
+          path: targets/release/ratings

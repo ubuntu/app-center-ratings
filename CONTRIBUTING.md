@@ -59,20 +59,6 @@ In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susa
 
 Once merged to the main branch, `po` files and any documentation change will be automatically updated. Those are thus not necessary in the pull request itself to minimize diff review.
 
-## Contributing to the code
-
-### Required dependencies
-
-* rust and cargo >= 1.69
-* protobuf-compiler >= 3.21
-* docker >= 24.04
-* docker-compose >= 2.18
-
-### Building and running the binaries
-
-* `cargo build`
-* `cargo run`
-
 ### About the testsuite
 
 The project includes a comprehensive testsuite made of unit and integration tests. All the tests must pass before the review is considered. If you have troubles with the testsuite, feel free to mention it on your PR description.
