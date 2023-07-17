@@ -3,3 +3,6 @@
 /target
 .env
 .DS_STORE
+
+*.rock
+*.nix
