@@ -13,6 +13,10 @@ containers:
   ratings:
     resource: ratings-image
 
+requires:
+  database:
+    interface: postgresql_client
+
 resources:
   # An OCI image resource for each container listed above.
   # You may remove this if your charm will run without a workload sidecar container.
