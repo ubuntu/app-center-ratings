@@ -8,12 +8,14 @@ from pathlib import Path
 
 import pytest
 import yaml
+from pytest import mark
 from pytest_operator.plugin import OpsTest
 
 logger = logging.getLogger(__name__)
 
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
-APP_NAME = METADATA["name"]
+RATINGS = "ratings"
+DB = "db"
 
 
 @pytest.mark.abort_on_fail
@@ -28,8 +30,38 @@ async def test_build_and_deploy(ops_test: OpsTest):
 
     # Deploy the charm and wait for active/idle status
     await asyncio.gather(
-        ops_test.model.deploy(charm, resources=resources, application_name=APP_NAME),
+        ops_test.model.deploy(charm, resources=resources, application_name=RATINGS),
         ops_test.model.wait_for_idle(
-            apps=[APP_NAME], status="active", raise_on_blocked=True, timeout=1000
+            apps=[RATINGS], status="waiting", raise_on_blocked=True, timeout=1000
+        ),
+    )
+
+
+@mark.abort_on_fail
+async def test_database_relation(ops_test: OpsTest):
+    await asyncio.gather(
+        ops_test.model.deploy("postgresql-k8s", channel="14/edge", application_name=DB),
+        ops_test.model.wait_for_idle(
+            apps=[DB], status="active", raise_on_blocked=True, timeout=1000
+        ),
+    )
+
+    await asyncio.gather(
+        ops_test.model.relate(RATINGS, DB),
+        ops_test.model.wait_for_idle(
+            apps=[RATINGS], status="active", raise_on_blocked=True, timeout=1000
+        ),
+    )
+
+
+@mark.abort_on_fail
+async def test_ratings_scale(ops_test: OpsTest):
+    await asyncio.gather(
+        await ops_test.model.applications[RATINGS].scale(2),
+        await ops_test.model.wait_for_idle(
+            apps=[RATINGS],
+            status="active",
+            timeout=1000,
+            wait_for_exact_units=2,
         ),
     )
