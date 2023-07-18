@@ -30,7 +30,7 @@ message AuthenticateResponse {
 }
 
 message ListMyVotesRequest {
-  optional string snap_id_filter = 1;
+  string snap_id_filter = 1;
 }
 
 message ListMyVotesResponse {

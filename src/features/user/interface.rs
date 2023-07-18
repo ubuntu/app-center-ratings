@@ -130,8 +130,13 @@ impl User for UserService {
         let Claims {
             sub: client_hash, ..
         } = get_claims(&request);
-        let request = request.into_inner();
-        let result = use_cases::list_my_votes(client_hash, request.snap_id_filter).await;
+        let ListMyVotesRequest { snap_id_filter } = request.into_inner();
+        let snap_id_filter = if snap_id_filter.is_empty() {
+            None
+        } else {
+            Some(snap_id_filter)
+        };
+        let result = use_cases::list_my_votes(client_hash, snap_id_filter).await;
 
         match result {
             Ok(votes) => {
