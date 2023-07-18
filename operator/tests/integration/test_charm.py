@@ -6,7 +6,10 @@ import asyncio
 import logging
 from pathlib import Path
 
+import grpc
 import pytest
+import ratings_features_user_pb2 as pb2
+import ratings_features_user_pb2_grpc as pb2_grpc
 import yaml
 from pytest import mark
 from pytest_operator.plugin import OpsTest
@@ -65,3 +68,14 @@ async def test_ratings_scale(ops_test: OpsTest):
             wait_for_exact_units=2,
         ),
     )
+
+@mark.abort_on_fail
+async def test_ratings_register_user(ops_test: OpsTest):
+    status = await ops_test.model.get_status()  # noqa: F821
+    address = status["applications"][RATINGS]["public-address"]
+
+    channel = grpc.insecure_channel(f"{address}:18080")
+    stub = pb2_grpc.UserStub(channel)
+    message = pb2.RegisterRequest(id="7060d63f5660924e55fd7e88cbb2046e15e80ed56aa463af57f2741d9f7c98cb")
+    response = stub.Register(message)
+    assert response.token
