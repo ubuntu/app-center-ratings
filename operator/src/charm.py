@@ -12,6 +12,7 @@ import secrets
 
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
+from database import DatabaseConnectionError, DatabaseInitialisationError
 from ratings import Ratings
 
 logger = logging.getLogger(__name__)
@@ -39,12 +40,13 @@ class RatingsCharm(ops.CharmBase):
         if not self._ratings:
             return
 
-        if not self._ratings.database_initialised():
-            self.unit.status = ops.MaintenanceStatus("Initialising database")
-
-            if not self._ratings.create_database_tables():
-                self.unit.status = ops.BlockedStatus("Failed to create database tables")
-                return
+        try:
+            if not self._ratings.ready():
+                self.unit.status = ops.MaintenanceStatus("Initialising database")
+        except (DatabaseConnectionError, DatabaseInitialisationError) as e:
+            logger.error(str(e))
+            self.unit.status = ops.BlockedStatus("Failed to create database tables")
+            return
 
         self._start_ratings()
 

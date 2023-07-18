@@ -8,7 +8,7 @@ from unittest.mock import patch
 import ops
 import ops.testing
 from charm import RatingsCharm
-
+from database import DatabaseInitialisationError
 from ratings import Ratings
 
 DB_RELATION_DATA = {
@@ -21,10 +21,12 @@ DB_RELATION_DATA = {
 
 MOCK_RATINGS = Ratings("postgres://username:password@postgres:5432/ratings", "deadbeef")
 
+
 class MockDatabaseEvent:
     def __init__(self, id, name="database"):
         self.name = name
         self.id = id
+
 
 def init_db_relation(harness) -> id:
     """Reduce repetition in setting up relation with Postgres."""
@@ -64,7 +66,7 @@ class TestCharm(unittest.TestCase):
         )
 
     @patch("charm.RatingsCharm._ratings", MOCK_RATINGS)
-    @patch("ratings.Ratings.database_initialised", lambda x: True)
+    @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_pebble_ready_sets_correct_plan(self):
         init_db_relation(self.harness)
         self.harness.container_pebble_ready("ratings")
@@ -88,7 +90,7 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.get_container_pebble_plan("ratings").to_dict(), expected)
 
     @patch("charm.RatingsCharm._ratings", MOCK_RATINGS)
-    @patch("ratings.Ratings.database_initialised", lambda x: True)
+    @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_pebble_ready_waits_for_container(self):
         init_db_relation(self.harness)
         self.harness.set_can_connect("ratings", False)
@@ -97,7 +99,6 @@ class TestCharm(unittest.TestCase):
             self.harness.model.unit.status, ops.WaitingStatus("Waiting for ratings container")
         )
 
-    @patch("charm.DatabaseRequires.is_resource_created", lambda x: False)
     def test_ratings_database_created_ratings_not_initialised(self):
         rel_id = init_db_relation(self.harness)
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
@@ -106,19 +107,17 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(plan, {})
 
     @patch("charm.DatabaseRequires.is_resource_created", lambda x: True)
-    @patch("ratings.Ratings.database_initialised", lambda x: False)
-    @patch("ratings.Ratings.create_database_tables", lambda x: False)
-    def test_ratings_database_created_database_not_initialised_fail_create_tables(self):
+    @patch("ratings.Ratings.ready")
+    def test_ratings_database_created_database_not_initialised_fail_create_tables(self, db_init):
         rel_id = init_db_relation(self.harness)
+        db_init.side_effect = DatabaseInitialisationError
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
         self.assertEqual(
             self.harness.model.unit.status, ops.BlockedStatus("Failed to create database tables")
         )
 
     @patch("charm.DatabaseRequires.is_resource_created", lambda x: True)
-    @patch("ratings.Ratings.database_initialised", lambda x: True)
-    @patch("ratings.Ratings.create_database_tables", lambda x: True)
-    @patch("charm.RatingsCharm._ratings", MOCK_RATINGS)
+    @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_database_created_database_success(self):
         rel_id = init_db_relation(self.harness)
         self.harness.set_can_connect("ratings", True)
