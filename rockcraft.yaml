@@ -14,11 +14,11 @@ description: |
 run_user: _daemon_
 
 environment:
-  ADDRESS: 0.0.0.0
-  APP: ratings
-  ENV: dev
-  PORT: 18080
-  RUST_LOG: info
+  APP_ENV: dev
+  APP_HOST: 0.0.0.0
+  APP_LOG_LEVEL: info
+  APP_NAME: ratings
+  APP_PORT: 18080
 
 services:
   ratings:

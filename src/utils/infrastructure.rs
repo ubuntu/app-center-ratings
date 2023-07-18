@@ -22,11 +22,12 @@ impl Debug for Infrastructure {
 }
 
 pub async fn init() {
-    let uri = env::get_postgres_uri();
+    let uri = env::get_config().postgres_uri.clone();
+    let uri = uri.as_str();
 
     let postgres = PgPoolOptions::new()
         .max_connections(5)
-        .connect(uri.as_str())
+        .connect(uri)
         .await
         .unwrap();
     let postgres = Arc::new(postgres);

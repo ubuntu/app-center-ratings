@@ -40,8 +40,9 @@ pub struct Jwt {
 
 impl Jwt {
     pub fn new() -> Self {
-        let secret = env::get_jwt_secret();
+        let secret = env::get_config().jwt_secret.clone();
         let secret = secret.as_str();
+
         let encoding_key =
             EncodingKey::from_base64_secret(secret).expect("failed to load jwt secret");
         let decoding_key =

@@ -10,7 +10,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .init();
     tracing::info!("Starting Ubuntu App Rating Service");
-    utils::env::print_env_if_dev();
     utils::infrastructure::init().await;
     app::build_and_run().await;
 
