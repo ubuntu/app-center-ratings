@@ -30,11 +30,11 @@ class Ratings:
                     "command": "/bin/ratings",
                     "startup": "enabled",
                     "environment": {
-                        "ENV": "dev",
+                        "APP_ENV": "dev",
                         # TODO: Replace this placeholder
-                        "JWT_SECRET": "deadbeef",
-                        "POSTGRES": self.connection_string,
-                        "RUST_LOG": "info",
+                        "APP_JWT_SECRET": "deadbeef",
+                        "APP_POSTGRES_URI": self.connection_string,
+                        "APP_LOG_LEVEL": "info",
                     },
                 }
             },

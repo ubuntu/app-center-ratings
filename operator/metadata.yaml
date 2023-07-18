@@ -27,4 +27,4 @@ resources:
     # The upstream-source field is ignored by Juju. It is included here as a reference
     # so the integration testing suite knows which image to deploy during testing. This field
     # is also used by the 'canonical/charming-actions' Github action for automated releasing.
-    upstream-source: ghcr.io/tim-hm/ratings:main-58f0074
+    upstream-source: ghcr.io/tim-hm/ratings:main-30f3983
