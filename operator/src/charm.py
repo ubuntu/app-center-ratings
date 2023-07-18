@@ -8,6 +8,7 @@ A backend service to support application ratings in the new Ubuntu Software Cent
 """
 
 import logging
+import secrets
 
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
@@ -24,11 +25,7 @@ class RatingsCharm(ops.CharmBase):
 
         self._container = self.unit.get_container("ratings")
         self._database = DatabaseRequires(self, relation_name="database", database_name="ratings")
-        self._ratings = None
-
-        if self._database.is_resource_created():
-            connection_string = self._db_connection_string()
-            self._ratings = Ratings(connection_string)
+        self._ratings_svc = None
 
         self.framework.observe(self.on.ratings_pebble_ready, self._on_ratings_pebble_ready)
         self.framework.observe(self._database.on.database_created, self._on_database_created)
@@ -39,6 +36,9 @@ class RatingsCharm(ops.CharmBase):
 
     def _on_database_created(self, _: DatabaseCreatedEvent):
         """Handle the database creation event."""
+        if not self._ratings:
+            return
+
         if not self._ratings.database_initialised():
             self.unit.status = ops.MaintenanceStatus("Initialising database")
 
@@ -54,8 +54,8 @@ class RatingsCharm(ops.CharmBase):
             self.unit.status = ops.WaitingStatus("Waiting for database relation")
             return
 
-        if self._ratings is None or not self._ratings.database_initialised():
-            self.unit.status = ops.WaitingStatus("Waiting for database initialisation")
+        if not (self._ratings and self._ratings.ready()):
+            self.unit.status = ops.WaitingStatus("Ratings not yet initialised")
             return
 
         if self._container.can_connect():
@@ -65,16 +65,52 @@ class RatingsCharm(ops.CharmBase):
         else:
             self.unit.status = ops.WaitingStatus("Waiting for ratings container")
 
+    @property
+    def _ratings(self):
+        """Ratings property that is truthy only when pre-conditions are met."""
+        if self._ratings_svc:
+            return self._ratings_svc
+
+        if self._database.is_resource_created():
+            connection_string = self._db_connection_string()
+            jwt_secret = self._jwt_secret()
+            self._ratings_svc = Ratings(connection_string, jwt_secret)
+
+        return self._ratings_svc
+
     def _db_connection_string(self) -> str:
         """Report database connection string using info from relation databag."""
-        relation_id = self._database.relations[0].id
-        data = self._database.fetch_relation_data()[relation_id]
+        relation = self.model.get_relation("database")
+        if not relation:
+            return ""
 
+        data = self._database.fetch_relation_data()[relation.id]
         username = data.get("username")
         password = data.get("password")
         endpoints = data.get("endpoints")
 
         return f"postgres://{username}:{password}@{endpoints}/ratings"
+
+    def _jwt_secret(self) -> str:
+        """Report the apps JWT secret; create one if it doesn't exist."""
+        # If the peer relation is not ready, just return an empty string
+        relation = self.model.get_relation("ratings-peers")
+        if not relation:
+            return ""
+
+        # If the secret already exists, grab its content and return it
+        secret_id = relation.data[self.app].get("jwt-secret-id", None)
+
+        if secret_id:
+            secret = self.model.get_secret(id=secret_id)
+            return secret.peek_content().get("jwt-secret")
+        else:
+            logger.info("Creating a new JWT secret")
+            content = {"jwt-secret": secrets.token_hex(24)}
+            secret = self.app.add_secret(content)
+            # Store the secret id in the peer relation for other units if required
+            relation.data[self.app]["jwt-secret-id"] = secret.id
+            return content["jwt-secret"]
 
 
 if __name__ == "__main__":  # pragma: nocover

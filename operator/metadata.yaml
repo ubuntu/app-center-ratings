@@ -18,6 +18,10 @@ requires:
     interface: postgresql_client
     limit: 1
 
+peers:
+  ratings-peers:
+    interface: ratings_peers
+
 resources:
   # An OCI image resource for each container listed above.
   # You may remove this if your charm will run without a workload sidecar container.
