@@ -67,7 +67,7 @@ pub(crate) async fn save_vote_to_db(vote: Vote) -> Result<u64, sqlx::Error> {
         INSERT INTO votes (user_id_fk, snap_id, snap_revision, vote_up)
         VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, $4)
         ON CONFLICT (user_id_fk, snap_id, snap_revision)
-        DO UPDATE SET vote_up = EXCLUDED.vote_up, created = NOW();
+        DO UPDATE SET vote_up = EXCLUDED.vote_up;
         "#,
     )
     .bind(vote.client_hash)
@@ -79,4 +79,49 @@ pub(crate) async fn save_vote_to_db(vote: Vote) -> Result<u64, sqlx::Error> {
     .rows_affected();
 
     Ok(rows_affected)
+}
+
+pub(crate) async fn find_user_votes(
+    client_hash: String,
+    snap_id_filter: Option<String>,
+) -> Result<Vec<Vote>, sqlx::Error> {
+    let mut pool = get_repository().await?;
+
+    let rows = sqlx::query(
+        r#"
+                SELECT
+                    votes.id,
+                    votes.created,
+                    votes.snap_id,
+                    votes.snap_revision,
+                    votes.vote_up
+                FROM
+                    users
+                INNER JOIN
+                    votes
+                ON
+                    users.id = votes.user_id_fk
+                WHERE
+                    users.client_hash = $1
+                AND
+                    ($2 IS NULL OR votes.snap_id = $2);
+            "#,
+    )
+    .bind(client_hash.clone())
+    .bind(snap_id_filter)
+    .fetch_all(&mut *pool)
+    .await?;
+
+    let votes: Vec<Vote> = rows
+        .into_iter()
+        .map(|row| Vote {
+            client_hash: client_hash.clone(),
+            snap_id: row.get("snap_id"),
+            snap_revision: row.get::<i32, _>("snap_revision") as u32,
+            vote_up: row.get("vote_up"),
+            timestamp: row.get("created"),
+        })
+        .collect();
+
+    Ok(votes)
 }

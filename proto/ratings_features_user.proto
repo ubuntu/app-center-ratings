@@ -3,13 +3,14 @@ syntax = "proto3";
 package ratings.features.user;
 
 import "google/protobuf/empty.proto";
+import "google/protobuf/timestamp.proto";
 
 service User {
   rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
   rpc Delete (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Vote (VoteRequest) returns (google.protobuf.Empty) {}
-  rpc ListVotes (ListVotesRequest) returns (ListVotesResponse) {}
+  rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
 }
 
 message RegisterRequest {
@@ -28,15 +29,19 @@ message AuthenticateResponse {
   string token = 1;
 }
 
-message ListVotesRequest {
-  string app = 1;
+message ListMyVotesRequest {
+  optional string snap_id_filter = 1;
 }
 
-message ListVotesResponse {
+message ListMyVotesResponse {
+  repeated Vote votes = 1;
+}
+
+message Vote {
   string snap_id = 1;
-  string snap_revision = 2;
+  int32 snap_revision = 2;
   bool vote_up = 3;
-  int64 timestamp = 4;
+  google.protobuf.Timestamp timestamp = 4;
 }
 
 message VoteRequest {

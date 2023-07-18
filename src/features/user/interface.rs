@@ -1,3 +1,4 @@
+use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
@@ -9,7 +10,7 @@ use super::service::UserService;
 use super::use_cases;
 
 use self::protobuf::{
-    AuthenticateRequest, AuthenticateResponse, ListVotesRequest, ListVotesResponse,
+    AuthenticateRequest, AuthenticateResponse, ListMyVotesRequest, ListMyVotesResponse,
     RegisterRequest, RegisterResponse, User, VoteRequest,
 };
 
@@ -92,7 +93,7 @@ impl User for UserService {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");
-                Ok(Response::new(()))
+                Err(Status::unknown("Internal server error"))
             }
         }
     }
@@ -109,23 +110,40 @@ impl User for UserService {
             snap_id: request.snap_id,
             snap_revision: request.snap_revision as u32,
             vote_up: request.vote_up,
+            timestamp: OffsetDateTime::now_utc(),
         };
 
         match use_cases::vote(vote).await {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");
-                Ok(Response::new(()))
+                Err(Status::unknown("Internal server error"))
             }
         }
     }
 
     #[tracing::instrument]
-    async fn list_votes(
+    async fn list_my_votes(
         &self,
-        request: Request<ListVotesRequest>,
-    ) -> Result<Response<ListVotesResponse>, Status> {
-        todo!()
+        request: Request<ListMyVotesRequest>,
+    ) -> Result<Response<ListMyVotesResponse>, Status> {
+        let Claims {
+            sub: client_hash, ..
+        } = get_claims(&request);
+        let request = request.into_inner();
+        let result = use_cases::list_my_votes(client_hash, request.snap_id_filter).await;
+
+        match result {
+            Ok(votes) => {
+                let votes = votes.into_iter().map(|vote| vote.into_dto()).collect();
+                let payload = ListMyVotesResponse { votes };
+                Ok(Response::new(payload))
+            }
+            Err(error) => {
+                tracing::error!("{error:?}");
+                Err(Status::unknown("Internal server error"))
+            }
+        }
     }
 }
 

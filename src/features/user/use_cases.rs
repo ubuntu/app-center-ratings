@@ -1,4 +1,4 @@
-use crate::features::user::infrastructure::{save_vote_to_db, user_seen};
+use crate::features::user::infrastructure::{find_user_votes, save_vote_to_db, user_seen};
 
 use super::entities::{User, Vote};
 use super::errors::UserError;
@@ -37,5 +37,17 @@ pub async fn vote(vote: Vote) -> Result<(), UserError> {
         .map_err(|error| {
             tracing::error!("{error:?}");
             UserError::FailedToCastVote
+        })
+}
+
+pub async fn list_my_votes(
+    client_hash: String,
+    snap_id_filter: Option<String>,
+) -> Result<Vec<Vote>, UserError> {
+    find_user_votes(client_hash, snap_id_filter)
+        .await
+        .map_err(|error| {
+            tracing::error!("{error:?}");
+            UserError::Unknown
         })
 }

@@ -1,6 +1,8 @@
 use sqlx::FromRow;
 use time::OffsetDateTime;
 
+use super::interface::protobuf;
+
 pub type ClientHash = String;
 
 #[derive(Debug, Clone, FromRow)]
@@ -29,4 +31,21 @@ pub struct Vote {
     pub snap_id: String,
     pub snap_revision: u32,
     pub vote_up: bool,
+    pub timestamp: OffsetDateTime,
+}
+
+impl Vote {
+    pub(crate) fn into_dto(self) -> protobuf::Vote {
+        let timestamp = Some(prost_types::Timestamp {
+            seconds: self.timestamp.unix_timestamp(),
+            nanos: 0,
+        });
+
+        protobuf::Vote {
+            snap_id: self.snap_id,
+            snap_revision: self.snap_revision as i32,
+            vote_up: self.vote_up,
+            timestamp,
+        }
+    }
 }
