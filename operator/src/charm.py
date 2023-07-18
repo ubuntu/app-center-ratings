@@ -12,7 +12,9 @@ import secrets
 
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
+from charms.observability_libs.v1.kubernetes_service_patch import KubernetesServicePatch
 from database import DatabaseConnectionError, DatabaseInitialisationError
+from lightkube.models.core_v1 import ServicePort
 from ratings import Ratings
 
 logger = logging.getLogger(__name__)
@@ -23,6 +25,9 @@ class RatingsCharm(ops.CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self.service_patcher = KubernetesServicePatch(
+            self, [ServicePort(18080, name=f"{self.app.name}")]
+        )
 
         self._container = self.unit.get_container("ratings")
         self._database = DatabaseRequires(self, relation_name="database", database_name="ratings")
