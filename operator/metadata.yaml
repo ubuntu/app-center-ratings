@@ -16,6 +16,7 @@ containers:
 requires:
   database:
     interface: postgresql_client
+    limit: 1
 
 resources:
   # An OCI image resource for each container listed above.
@@ -26,4 +27,4 @@ resources:
     # The upstream-source field is ignored by Juju. It is included here as a reference
     # so the integration testing suite knows which image to deploy during testing. This field
     # is also used by the 'canonical/charming-actions' Github action for automated releasing.
-    upstream-source: ratings:0.0.1
+    upstream-source: ghcr.io/tim-hm/ratings:main-58f0074
