@@ -73,6 +73,7 @@ async def test_ratings_scale(ops_test: OpsTest):
         ),
     )
 
+
 @mark.abort_on_fail
 async def test_ratings_register_user(ops_test: OpsTest):
     """End-to-end test to ensure the app can interact with the database."""
@@ -81,9 +82,12 @@ async def test_ratings_register_user(ops_test: OpsTest):
 
     channel = grpc.insecure_channel(f"{address}:18080")
     stub = pb2_grpc.UserStub(channel)
-    message = pb2.RegisterRequest(id="7060d63f5660924e55fd7e88cbb2046e15e80ed56aa463af57f2741d9f7c98cb")
+    message = pb2.RegisterRequest(
+        id="7060d63f5660924e55fd7e88cbb2046e15e80ed56aa463af57f2741d9f7c98cb"
+    )
     response = stub.Register(message)
     assert response.token
+
 
 @pytest.mark.abort_on_fail
 async def test_ingress_traefik_k8s(ops_test):
@@ -105,7 +109,9 @@ async def test_ingress_traefik_k8s(ops_test):
     await ops_test.model.wait_for_idle(apps=[RATINGS, TRAEFIK], status="active", timeout=1000)
 
     result = await _retrieve_proxied_endpoints(ops_test, TRAEFIK)
-    assert result.get(RATINGS, None) == {"url": f"http://{ops_test.model_name}-{RATINGS}.foo.bar:80/"}
+    assert result.get(RATINGS, None) == {
+        "url": f"http://{ops_test.model_name}-{RATINGS}.foo.bar:80/"
+    }
 
 
 async def _retrieve_proxied_endpoints(ops_test, traefik_application_name):
@@ -116,4 +122,3 @@ async def _retrieve_proxied_endpoints(ops_test, traefik_application_name):
     result = await ops_test.model.get_action_output(action.id)
 
     return json.loads(result["proxied-endpoints"])
-
