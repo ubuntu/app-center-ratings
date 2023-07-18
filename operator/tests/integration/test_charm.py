@@ -3,6 +3,7 @@
 # See LICENSE file for licensing details.
 
 import asyncio
+import json
 import logging
 from pathlib import Path
 
@@ -19,6 +20,7 @@ logger = logging.getLogger(__name__)
 METADATA = yaml.safe_load(Path("./metadata.yaml").read_text())
 RATINGS = "ratings"
 DB = "db"
+TRAEFIK = "traefik"
 
 
 @pytest.mark.abort_on_fail
@@ -42,6 +44,7 @@ async def test_build_and_deploy(ops_test: OpsTest):
 
 @mark.abort_on_fail
 async def test_database_relation(ops_test: OpsTest):
+    """Test that the charm"""
     await asyncio.gather(
         ops_test.model.deploy("postgresql-k8s", channel="14/edge", application_name=DB),
         ops_test.model.wait_for_idle(
@@ -50,7 +53,7 @@ async def test_database_relation(ops_test: OpsTest):
     )
 
     await asyncio.gather(
-        ops_test.model.relate(RATINGS, DB),
+        ops_test.model.integrate(RATINGS, DB),
         ops_test.model.wait_for_idle(
             apps=[RATINGS], status="active", raise_on_blocked=True, timeout=1000
         ),
@@ -60,8 +63,8 @@ async def test_database_relation(ops_test: OpsTest):
 @mark.abort_on_fail
 async def test_ratings_scale(ops_test: OpsTest):
     await asyncio.gather(
-        await ops_test.model.applications[RATINGS].scale(2),
-        await ops_test.model.wait_for_idle(
+        ops_test.model.applications[RATINGS].scale(2),
+        ops_test.model.wait_for_idle(
             apps=[RATINGS],
             status="active",
             timeout=1000,
@@ -79,3 +82,35 @@ async def test_ratings_register_user(ops_test: OpsTest):
     message = pb2.RegisterRequest(id="7060d63f5660924e55fd7e88cbb2046e15e80ed56aa463af57f2741d9f7c98cb")
     response = stub.Register(message)
     assert response.token
+
+@pytest.mark.abort_on_fail
+async def test_ingress_traefik_k8s(ops_test):
+    await asyncio.gather(
+        ops_test.model.deploy(
+            "traefik-k8s",
+            application_name=TRAEFIK,
+            channel="edge",
+            config={"routing_mode": "subdomain", "external_hostname": "foo.bar"},
+            trust=True,
+        ),
+        ops_test.model.wait_for_idle(apps=[TRAEFIK], status="active", timeout=1000),
+    )
+
+    # Create the relation
+    await ops_test.model.add_relation(f"{RATINGS}:ingress", TRAEFIK)
+    # Wait for the two apps to quiesce
+    await ops_test.model.wait_for_idle(apps=[RATINGS, TRAEFIK], status="active", timeout=1000)
+
+    result = await _retrieve_proxied_endpoints(ops_test, TRAEFIK)
+    assert result.get(RATINGS, None) == {"url": f"http://{ops_test.model_name}-{RATINGS}.foo.bar:80/"}
+
+
+async def _retrieve_proxied_endpoints(ops_test, traefik_application_name):
+    traefik_application = ops_test.model.applications[traefik_application_name]
+    traefik_first_unit = next(iter(traefik_application.units))
+    action = await traefik_first_unit.run_action("show-proxied-endpoints")
+    await action.wait()
+    result = await ops_test.model.get_action_output(action.id)
+
+    return json.loads(result["proxied-endpoints"])
+

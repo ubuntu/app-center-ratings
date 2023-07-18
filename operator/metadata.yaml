@@ -17,6 +17,9 @@ requires:
   database:
     interface: postgresql_client
     limit: 1
+  ingress:
+    interface: ingress
+    limit: 1
 
 peers:
   ratings-peers:
