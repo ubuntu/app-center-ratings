@@ -44,7 +44,7 @@ async def test_build_and_deploy(ops_test: OpsTest):
 
 @mark.abort_on_fail
 async def test_database_relation(ops_test: OpsTest):
-    """Test that the charm"""
+    """Test that the charm can be successfully related to PostgreSQL."""
     await asyncio.gather(
         ops_test.model.deploy("postgresql-k8s", channel="14/edge", application_name=DB),
         ops_test.model.wait_for_idle(
@@ -62,6 +62,7 @@ async def test_database_relation(ops_test: OpsTest):
 
 @mark.abort_on_fail
 async def test_ratings_scale(ops_test: OpsTest):
+    """Test that the charm can be scaled out and still talk to the database."""
     await asyncio.gather(
         ops_test.model.applications[RATINGS].scale(2),
         ops_test.model.wait_for_idle(
@@ -74,6 +75,7 @@ async def test_ratings_scale(ops_test: OpsTest):
 
 @mark.abort_on_fail
 async def test_ratings_register_user(ops_test: OpsTest):
+    """End-to-end test to ensure the app can interact with the database."""
     status = await ops_test.model.get_status()  # noqa: F821
     address = status["applications"][RATINGS]["public-address"]
 
@@ -85,6 +87,7 @@ async def test_ratings_register_user(ops_test: OpsTest):
 
 @pytest.mark.abort_on_fail
 async def test_ingress_traefik_k8s(ops_test):
+    """Test that the charm can be integrated with the Traefik ingress."""
     await asyncio.gather(
         ops_test.model.deploy(
             "traefik-k8s",
