@@ -35,7 +35,7 @@ async def test_build_and_deploy(ops_test: OpsTest):
 
     # Deploy the charm and wait for active/idle status
     await asyncio.gather(
-        ops_test.model.deploy(charm, resources=resources, application_name=RATINGS),
+        ops_test.model.deploy(charm, resources=resources, application_name=RATINGS, trust=True),
         ops_test.model.wait_for_idle(
             apps=[RATINGS], status="waiting", raise_on_blocked=True, timeout=1000
         ),
@@ -46,7 +46,9 @@ async def test_build_and_deploy(ops_test: OpsTest):
 async def test_database_relation(ops_test: OpsTest):
     """Test that the charm can be successfully related to PostgreSQL."""
     await asyncio.gather(
-        ops_test.model.deploy("postgresql-k8s", channel="14/edge", application_name=DB),
+        ops_test.model.deploy(
+            "postgresql-k8s", channel="14/edge", application_name=DB, trust=True
+        ),
         ops_test.model.wait_for_idle(
             apps=[DB], status="active", raise_on_blocked=True, timeout=1000
         ),
