@@ -1,26 +1,23 @@
-<!--
-Avoid using this README file for information that is maintained or published elsewhere, e.g.:
+# Ubuntu Ratings Service Operator
 
-* metadata.yaml > published on Charmhub
-* documentation > published on (or linked to from) Charmhub
-* detailed contribution guide > documentation or CONTRIBUTING.md
+This is an operator that enables the Ubuntu Software Centre backend ratings service to run on
+Kubernetes with Juju, integrating with PostgreSQL for its database, and Traefik to provide ingress.
 
-Use links instead.
--->
+## Getting Started
 
-# operator
+First ensure that you have an appropriate [development setup](https://juju.is/docs/sdk/dev-setup) for Juju.
 
-Charmhub package name: operator-template
-More information: https://charmhub.io/operator
+```shell
+charmcraft pack
 
-Describe your charm in one or two sentences.
+juju add-model ratings
 
-## Other resources
+image="$(yq '.resources."ratings-image"."upstream-source"' metadata.yaml)"
 
-<!-- If your charm is documented somewhere else other than Charmhub, provide a link separately. -->
+juju deploy ./ubuntu-software-ratings_ubuntu-22.04-amd64.charm ratings \
+    --resource ratings-image="$image"
 
-- [Read more](https://example.com)
+juju deploy postgresql-k8s postgres --channel latest/edge
 
-- [Contributing](CONTRIBUTING.md) <!-- or link to other contribution documentation -->
-
-- See the [Juju SDK documentation](https://juju.is/docs/sdk) for more information about developing and improving charms.
+juju relate ratings postgresql
+```
