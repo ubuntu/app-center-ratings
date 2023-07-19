@@ -1,0 +1,37 @@
+# This file populates the Overview on Charmhub.
+# See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
+
+name: ubuntu-software-ratings
+display-name: Ubuntu Software Ratings
+
+summary: Ubuntu App Ratings Service
+
+description: |
+  Backend service to support application ratings in the new Ubuntu Software Centre.
+
+containers:
+  ratings:
+    resource: ratings-image
+
+requires:
+  database:
+    interface: postgresql_client
+    limit: 1
+  ingress:
+    interface: ingress
+    limit: 1
+
+peers:
+  ratings-peers:
+    interface: ratings_peers
+
+resources:
+  # An OCI image resource for each container listed above.
+  # You may remove this if your charm will run without a workload sidecar container.
+  ratings-image:
+    type: oci-image
+    description: OCI image for ratings
+    # The upstream-source field is ignored by Juju. It is included here as a reference
+    # so the integration testing suite knows which image to deploy during testing. This field
+    # is also used by the 'canonical/charming-actions' Github action for automated releasing.
+    upstream-source: ghcr.io/tim-hm/ratings:main-30f3983
