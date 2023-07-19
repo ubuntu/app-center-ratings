@@ -13,9 +13,7 @@ import secrets
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
 from charms.observability_libs.v1.kubernetes_service_patch import KubernetesServicePatch
-from charms.traefik_k8s.v2.ingress import (
-    IngressPerAppRequirer,
-)
+from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from database import DatabaseConnectionError, DatabaseInitialisationError
 from lightkube.models.core_v1 import ServicePort
 from ratings import Ratings
@@ -28,16 +26,20 @@ class RatingsCharm(ops.CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
+        self._container = self.unit.get_container("ratings")
+        self._ratings_svc = None
 
-        self.service_patcher = KubernetesServicePatch(
-            self, [ServicePort(18080, name=f"{self.app.name}")]
+        # Ensure that the Kubernetes service is patched to use the correct port
+        service_port = ServicePort(18080, name=self.app.name)
+        self._service_patcher = KubernetesServicePatch(self, [service_port])
+
+        # Initialise the integration with Ingress providers (Traefik/nginx)
+        self._ingress = IngressPerAppRequirer(
+            self, host=f"{self.app.name}.{self.model.name}.svc.cluster.local", port=18080
         )
 
-        self.ingress = IngressPerAppRequirer(self, port=18080)
-
-        self._container = self.unit.get_container("ratings")
+        # Initialise the integration with PostgreSQL
         self._database = DatabaseRequires(self, relation_name="database", database_name="ratings")
-        self._ratings_svc = None
 
         self.framework.observe(self.on.ratings_pebble_ready, self._on_ratings_pebble_ready)
         self.framework.observe(self._database.on.database_created, self._on_database_created)
