@@ -162,5 +162,5 @@ class TestCharm(unittest.TestCase):
 
     @patch("charm.DatabaseRequires.is_resource_created", lambda x: True)
     @patch("charm.DatabaseRequires.fetch_relation_data", lambda x: {0: DB_RELATION_DATA})
-    def test_ratings_property_already_initialised(self):
+    def test_ratings_property_not_initialised(self):
         self.assertIsInstance(self.harness.charm._ratings, Ratings)

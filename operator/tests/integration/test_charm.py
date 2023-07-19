@@ -9,8 +9,8 @@ from pathlib import Path
 
 import grpc
 import pytest
-import ratings_features_user_pb2 as pb2
-import ratings_features_user_pb2_grpc as pb2_grpc
+import ratings_api.ratings_features_user_pb2 as pb2
+import ratings_api.ratings_features_user_pb2_grpc as pb2_grpc
 import yaml
 from pytest import mark
 from pytest_operator.plugin import OpsTest
