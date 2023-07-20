@@ -38,7 +38,6 @@ def init_db_relation(harness) -> id:
 
 
 class TestCharm(unittest.TestCase):
-    @patch("charm.KubernetesServicePatch", lambda x, y: None)
     def setUp(self):
         self.harness = ops.testing.Harness(RatingsCharm)
         self.addCleanup(self.harness.cleanup)

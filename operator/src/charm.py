@@ -12,10 +12,8 @@ import secrets
 
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
-from charms.observability_libs.v1.kubernetes_service_patch import KubernetesServicePatch
 from charms.traefik_k8s.v2.ingress import IngressPerAppRequirer
 from database import DatabaseConnectionError, DatabaseInitialisationError
-from lightkube.models.core_v1 import ServicePort
 from ratings import Ratings
 
 logger = logging.getLogger(__name__)
@@ -28,10 +26,6 @@ class RatingsCharm(ops.CharmBase):
         super().__init__(*args)
         self._container = self.unit.get_container("ratings")
         self._ratings_svc = None
-
-        # Ensure that the Kubernetes service is patched to use the correct port
-        service_port = ServicePort(18080, name=self.app.name)
-        self._service_patcher = KubernetesServicePatch(self, [service_port])
 
         # Initialise the integration with Ingress providers (Traefik/nginx)
         self._ingress = IngressPerAppRequirer(
@@ -76,6 +70,7 @@ class RatingsCharm(ops.CharmBase):
         if self._container.can_connect():
             self._container.add_layer("ratings", self._ratings.pebble_layer(), combine=True)
             self._container.replan()
+            self.unit.open_port(protocol="tcp", port=18080)
             self.unit.status = ops.ActiveStatus()
         else:
             self.unit.status = ops.WaitingStatus("Waiting for ratings container")
