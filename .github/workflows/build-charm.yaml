@@ -39,6 +39,11 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
+      # Do some preemptive setup for the ingress integration test so that our
+      # bogus dns name resolves properly.
+      - name: Setup hosts for tests
+        run: |
+          echo "10.64.140.43 testing-ratings.foo.bar" | sudo tee -a /etc/hosts
       - name: Setup operator environment
         uses: charmed-kubernetes/actions-operator@main
         with:
@@ -46,7 +51,8 @@ jobs:
           channel: 1.27-strict/stable
           juju-channel: 3.2/stable
           microk8s-group: snap_microk8s
+          microk8s-addons: "hostpath-storage dns metallb:10.64.140.43-10.64.140.43"
       - name: Run integration tests
         run: |
           cd operator
-          tox -e integration
+          tox -e integration -- --model=testing
