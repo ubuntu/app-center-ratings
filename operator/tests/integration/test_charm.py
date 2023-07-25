@@ -5,6 +5,8 @@
 import asyncio
 import json
 import logging
+import os
+import secrets
 from pathlib import Path
 
 import grpc
@@ -84,9 +86,7 @@ async def test_ratings_register_user(ops_test: OpsTest):
 
     channel = grpc.insecure_channel(f"{address}:18080")
     stub = pb2_grpc.UserStub(channel)
-    message = pb2.RegisterRequest(
-        id="7060d63f5660924e55fd7e88cbb2046e15e80ed56aa463af57f2741d9f7c98cb"
-    )
+    message = pb2.RegisterRequest(id=secrets.token_hex(32))
     response = stub.Register(message)
     assert response.token
 
@@ -106,14 +106,30 @@ async def test_ingress_traefik_k8s(ops_test):
     )
 
     # Create the relation
-    await ops_test.model.add_relation(f"{RATINGS}:ingress", TRAEFIK)
+    await ops_test.model.integrate(f"{RATINGS}:ingress", TRAEFIK)
     # Wait for the two apps to quiesce
     await ops_test.model.wait_for_idle(apps=[RATINGS, TRAEFIK], status="active", timeout=1000)
 
     result = await _retrieve_proxied_endpoints(ops_test, TRAEFIK)
-    assert result.get(RATINGS, None) == {
-        "url": f"http://{ops_test.model_name}-{RATINGS}.foo.bar:80/"
-    }
+    assert result.get(RATINGS, None) == {"url": f"http://{ops_test.model_name}-{RATINGS}.foo.bar/"}
+
+
+@pytest.mark.skipif(
+    (not os.environ.get("GITHUB_ACTION", "")),
+    reason="""This test requires host configuration which might not be present on your machine.
+
+    If you know what you're doing, run `export GITHUB_ACTION=Foo` or similar prior to running
+    `tox -e integration`.
+    """,
+)
+async def test_ratings_register_user_through_ingress(ops_test: OpsTest):
+    """End-to-end test to ensure the app can be interacted with from behind Traefik."""
+    address = f"{ops_test.model_name}-{RATINGS}.foo.bar:80"
+    channel = grpc.insecure_channel(address)
+    stub = pb2_grpc.UserStub(channel)
+    message = pb2.RegisterRequest(id=secrets.token_hex(32))
+    response = stub.Register(message)
+    assert response.token
 
 
 async def _retrieve_proxied_endpoints(ops_test, traefik_application_name):
