@@ -29,7 +29,10 @@ class RatingsCharm(ops.CharmBase):
 
         # Initialise the integration with Ingress providers (Traefik/nginx)
         self._ingress = IngressPerAppRequirer(
-            self, host=f"{self.app.name}.{self.model.name}.svc.cluster.local", port=18080
+            self,
+            host=f"{self.app.name}.{self.model.name}.svc.cluster.local",
+            port=18080,
+            scheme=lambda: "h2c",
         )
 
         # Initialise the integration with PostgreSQL
