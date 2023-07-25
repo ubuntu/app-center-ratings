@@ -29,6 +29,7 @@ impl UserClient {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn authenticate(
         &self,
         id: &str,
@@ -39,6 +40,7 @@ impl UserClient {
             .await
     }
 
+    #[allow(dead_code)]
     pub async fn vote(&self, token: &str, ballet: pb::VoteRequest) -> Result<Response<()>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
             .unwrap()
@@ -47,12 +49,13 @@ impl UserClient {
             .unwrap();
         let mut client = pb::UserClient::with_interceptor(channel, move |mut req: Request<()>| {
             let header: MetadataValue<_> = format!("Bearer {token}").parse().unwrap();
-            req.metadata_mut().insert("authorization", header.clone());
+            req.metadata_mut().insert("authorization", header);
             Ok(req)
         });
         client.vote(ballet).await
     }
 
+    #[allow(dead_code)]
     pub async fn delete(&self, token: &str) -> Result<Response<()>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
             .unwrap()
@@ -61,7 +64,7 @@ impl UserClient {
             .unwrap();
         let mut client = pb::UserClient::with_interceptor(channel, move |mut req: Request<()>| {
             let header: MetadataValue<_> = format!("Bearer {token}").parse().unwrap();
-            req.metadata_mut().insert("authorization", header.clone());
+            req.metadata_mut().insert("authorization", header);
             Ok(req)
         });
 

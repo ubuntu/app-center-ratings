@@ -15,8 +15,8 @@ pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
         "#,
     )
     .bind(&user.client_hash)
-    .bind(&user.last_seen)
-    .bind(&user.created)
+    .bind(user.last_seen)
+    .bind(user.created)
     .fetch_one(&mut *pool)
     .await?
     .try_get("id")

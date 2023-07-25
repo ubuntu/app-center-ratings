@@ -18,8 +18,10 @@ struct TestData {
 #[tokio::test]
 async fn user_simple_lifecycle_test() {
     with_lifecycle(async {
-        let mut data = TestData::default();
-        data.client = Some(UserClient::new());
+        let data = TestData {
+            client: Some(UserClient::new()),
+            ..Default::default()
+        };
 
         register(data)
             .then(authenticate)
@@ -80,19 +82,19 @@ async fn authenticate(mut data: TestData) -> TestData {
     data
 }
 
-async fn vote(mut data: TestData) -> TestData {
+async fn vote(data: TestData) -> TestData {
     let id = data.id.clone().unwrap();
     let token = data.token.clone().unwrap();
     let client = data.client.clone().unwrap();
 
-    let expected_snap_id = "r4LxMVp7zWramXsJQAKdamxy6TAWlaDD".to_string();
+    let expected_snap_id = "r4LxMVp7zWramXsJQAKdamxy6TAWlaDD";
     let expected_snap_revision = 111;
     let expected_vote_up = true;
 
     let ballet = VoteRequest {
-        snap_id: expected_snap_id.clone(),
-        snap_revision: expected_snap_revision.clone(),
-        vote_up: expected_vote_up.clone(),
+        snap_id: expected_snap_id.to_string(),
+        snap_revision: expected_snap_revision,
+        vote_up: expected_vote_up,
     };
 
     client
@@ -111,8 +113,8 @@ async fn vote(mut data: TestData) -> TestData {
     "#,
     )
     .bind(&id)
-    .bind(&expected_snap_id)
-    .bind(&expected_snap_revision)
+    .bind(expected_snap_id)
+    .bind(expected_snap_revision)
     .fetch_one(&mut *conn)
     .await
     .unwrap();

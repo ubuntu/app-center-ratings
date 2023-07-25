@@ -28,6 +28,7 @@ pub async fn init() {
         .expect("infrastructure should be initialised");
 }
 
+#[allow(dead_code)]
 pub async fn get_repository() -> PoolConnection<Postgres> {
     let infra = TEST_INFRA
         .get()

@@ -40,7 +40,7 @@ where
         self.inner.poll_ready(cx)
     }
 
-    fn call(&mut self, mut req: hyper::Request<Body>) -> Self::Future {
+    fn call(&mut self, req: hyper::Request<Body>) -> Self::Future {
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
 

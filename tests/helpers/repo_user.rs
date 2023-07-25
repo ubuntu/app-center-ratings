@@ -1,5 +1,6 @@
 use ratings::features::user::entities::User;
 
-pub async fn get_user(id: &str) -> Option<User> {
+#[allow(dead_code)]
+pub async fn get_user(_id: &str) -> Option<User> {
     todo!()
 }

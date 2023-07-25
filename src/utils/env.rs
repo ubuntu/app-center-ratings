@@ -20,7 +20,7 @@ pub fn init() {
     dotenv().ok();
     match envy::prefixed("APP_").from_env::<Config>() {
         Ok(config) => {
-            if config.env != "PRD".to_string() {
+            if config.env != "PRD" {
                 info!("App config {:#?}", config);
             }
             CONFIG.set(config).expect("Failed to set CONFIG");

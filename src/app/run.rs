@@ -9,7 +9,7 @@ use crate::utils;
 use super::interfaces::routes::{build_reflection_service, build_servers};
 use super::interfaces::{authentication::authentication, middleware::ContextMiddlewareLayer};
 
-pub async fn build_and_run() {
+pub async fn run() {
     let layer = ServiceBuilder::new()
         .timeout(Duration::from_secs(30))
         .layer(ContextMiddlewareLayer::default())

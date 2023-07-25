@@ -2,8 +2,9 @@ use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sha2::{Digest, Sha256};
 
+#[allow(dead_code)]
 pub fn rnd_sha_256() -> String {
-    let mut rng = rand::thread_rng();
+    let rng = rand::thread_rng();
     let data: String = rng
         .sample_iter(&Alphanumeric)
         .take(100)
