@@ -15,6 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
+          components: rustfmt
 
       - name: Install additional build dependencies
         run: |
@@ -22,6 +23,12 @@ jobs:
           sudo apt-get install -y libssl-dev pkg-config
 
           sudo snap install protobuf --classic
+
+      - name: Check code format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --check
 
       - name: Build binary
         uses: actions-rs/cargo@v1
