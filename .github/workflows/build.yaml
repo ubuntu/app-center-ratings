@@ -15,7 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          components: rustfmt
+          components: clippy, rustfmt
 
       - name: Install additional build dependencies
         run: |
@@ -29,6 +29,12 @@ jobs:
         with:
           command: fmt
           args: --check
+
+      - name: Lint code
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- --deny warnings
 
       - name: Build binary
         uses: actions-rs/cargo@v1
