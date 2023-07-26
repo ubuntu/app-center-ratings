@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use once_cell::sync::OnceCell;
 use sqlx::pool::PoolConnection;
-use sqlx::{postgres::PgPoolOptions, Acquire, PgPool, Postgres};
+use sqlx::{postgres::PgPoolOptions, PgPool, Postgres};
 
 use crate::utils::env;
 use crate::utils::jwt::Jwt;

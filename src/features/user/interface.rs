@@ -40,8 +40,8 @@ impl User for UserService {
                 .jwt
                 .encode(user.client_hash)
                 .map(|token| RegisterResponse { token })
-                .map(|payload| Response::new(payload))
-                .map_err(|error| Status::internal("internal")),
+                .map(Response::new)
+                .map_err(|_| Status::internal("internal")),
             Err(error) => {
                 tracing::error!("{error:?}");
                 Err(Status::invalid_argument("id"))
@@ -69,8 +69,8 @@ impl User for UserService {
                         .jwt
                         .encode(id)
                         .map(|token| AuthenticateResponse { token })
-                        .map(|payload| Response::new(payload))
-                        .map_err(|error| Status::internal("internal"))
+                        .map(Response::new)
+                        .map_err(|_| Status::internal("internal"))
                 } else {
                     tracing::info!("no record for client hash {id}");
                     Err(Status::unauthenticated("invalid credentials"))

@@ -1,4 +1,4 @@
 pub mod authentication;
-pub mod routes;
-pub mod middleware;
 mod errors;
+pub mod middleware;
+pub mod routes;

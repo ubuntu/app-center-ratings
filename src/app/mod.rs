@@ -1,5 +1,5 @@
-pub use app::build_and_run;
+pub use run::run;
 
-mod app;
 mod context;
 mod interfaces;
+mod run;

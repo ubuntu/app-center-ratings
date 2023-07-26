@@ -1,16 +1,13 @@
 use ratings::utils::jwt::Jwt;
 
+#[allow(dead_code)]
 pub fn assert_token_is_valid(value: &str) {
     let jwt = Jwt::new();
-    jwt.decode(value).expect("value should be a valid jwt");
+    assert!(jwt.decode(value).is_ok(), "value should be a valid jwt");
 }
 
+#[allow(dead_code)]
 pub fn assert_token_is_not_valid(value: &str) {
     let jwt = Jwt::new();
-    match jwt.decode(value) {
-        Ok(_) => {
-            panic!("expected invalid jwt")
-        }
-        Err(_) => {}
-    }
+    assert!(jwt.decode(value).is_err(), "expected invalid jwt");
 }

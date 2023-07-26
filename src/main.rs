@@ -11,7 +11,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .init();
     tracing::info!("Starting Ubuntu App Rating Service");
     utils::infrastructure::init().await;
-    app::build_and_run().await;
+    app::run().await;
 
     Ok(())
 }

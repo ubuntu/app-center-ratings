@@ -72,3 +72,9 @@ impl Jwt {
             })
     }
 }
+
+impl Default for Jwt {
+    fn default() -> Self {
+        Self::new()
+    }
+}

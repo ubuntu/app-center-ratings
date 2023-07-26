@@ -23,7 +23,7 @@ pub async fn authenticate(id: &str) -> Result<bool, UserError> {
 pub async fn delete_user(client_hash: &str) -> Result<(), UserError> {
     delete_user_by_client_hash(client_hash)
         .await
-        .map(|rows_affected| ())
+        .map(|_| ())
         .map_err(|error| {
             tracing::error!("{error:?}");
             UserError::FailedToDeleteUserRecord
@@ -31,13 +31,10 @@ pub async fn delete_user(client_hash: &str) -> Result<(), UserError> {
 }
 
 pub async fn vote(vote: Vote) -> Result<(), UserError> {
-    save_vote_to_db(vote)
-        .await
-        .map(|rows_affected| ())
-        .map_err(|error| {
-            tracing::error!("{error:?}");
-            UserError::FailedToCastVote
-        })
+    save_vote_to_db(vote).await.map(|_| ()).map_err(|error| {
+        tracing::error!("{error:?}");
+        UserError::FailedToCastVote
+    })
 }
 
 pub async fn list_my_votes(
