@@ -14,3 +14,23 @@ concurrency:
 jobs:
   build-test:
     uses: ./.github/workflows/build-charm.yaml
+
+  release-to-charmhub:
+    name: Release to CharmHub
+    needs:
+      - build-test
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Select charmhub channel
+        uses: canonical/charming-actions/channel@2.3.0
+        id: channel
+      - name: Upload charm to charmhub
+        uses: canonical/charming-actions/upload-charm@2.3.0
+        with:
+          credentials: "${{ secrets.CHARMHUB_TOKEN }}"
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+          channel: "${{ steps.channel.outputs.name }}"
