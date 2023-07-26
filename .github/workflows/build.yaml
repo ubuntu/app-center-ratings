@@ -14,7 +14,8 @@ jobs:
       - name: Setup Rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: 1.69.0
+          components: clippy, rustfmt
 
       - name: Install additional build dependencies
         run: |
@@ -22,6 +23,18 @@ jobs:
           sudo apt-get install -y libssl-dev pkg-config
 
           sudo snap install protobuf --classic
+
+      - name: Check code format
+        uses: actions-rs/cargo@v1
+        with:
+          command: fmt
+          args: --check
+
+      - name: Lint code
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          args: -- --deny warnings
 
       - name: Build binary
         uses: actions-rs/cargo@v1
