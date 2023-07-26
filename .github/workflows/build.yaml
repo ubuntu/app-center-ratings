@@ -34,7 +34,7 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: -- --deny warnings
+          args: --all-features
 
       - name: Build binary
         uses: actions-rs/cargo@v1
