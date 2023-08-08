@@ -113,17 +113,19 @@ class RatingsCharm(ops.CharmBase):
 
         # If the secret already exists, grab its content and return it
         secret_id = relation.data[self.app].get("jwt-secret-id", None)
-
         if secret_id:
             secret = self.model.get_secret(id=secret_id)
             return secret.peek_content().get("jwt-secret")
-        else:
+
+        if self.unit.is_leader():
             logger.info("Creating a new JWT secret")
             content = {"jwt-secret": secrets.token_hex(24)}
             secret = self.app.add_secret(content)
             # Store the secret id in the peer relation for other units if required
             relation.data[self.app]["jwt-secret-id"] = secret.id
             return content["jwt-secret"]
+        else:
+            return ""
 
 
 if __name__ == "__main__":  # pragma: nocover
