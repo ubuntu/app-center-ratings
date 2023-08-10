@@ -1,9 +1,11 @@
 use time::OffsetDateTime;
+
 use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
 
-use crate::utils::{infrastructure::INFRA, jwt::Claims};
+use crate::app::AppContext;
+use crate::utils::jwt::Claims;
 
 use super::entities::Vote;
 use super::service::UserService;
@@ -27,16 +29,16 @@ impl User for UserService {
         &self,
         request: Request<RegisterRequest>,
     ) -> Result<Response<RegisterResponse>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let RegisterRequest { id } = request.into_inner();
 
-        if !validate_client_hash(&id) {
+        if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
             return Err(Status::invalid_argument("id"));
         }
 
-        match use_cases::register(&id).await {
-            Ok(user) => INFRA
-                .get()
-                .expect("INFRA should be initialised")
+        match use_cases::register(&app_ctx, &id).await {
+            Ok(user) => app_ctx
+                .infrastructure()
                 .jwt
                 .encode(user.client_hash)
                 .map(|token| RegisterResponse { token })
@@ -54,18 +56,18 @@ impl User for UserService {
         &self,
         request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let AuthenticateRequest { id } = request.into_inner();
 
-        if !validate_client_hash(&id) {
+        if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
             return Err(Status::invalid_argument("id"));
         }
 
-        match use_cases::authenticate(&id).await {
+        match use_cases::authenticate(&app_ctx, &id).await {
             Ok(exists) => {
                 if exists {
-                    INFRA
-                        .get()
-                        .expect("INFRA should be initialised")
+                    app_ctx
+                        .infrastructure()
                         .jwt
                         .encode(id)
                         .map(|token| AuthenticateResponse { token })
@@ -85,11 +87,12 @@ impl User for UserService {
 
     #[tracing::instrument]
     async fn delete(&self, request: Request<()>) -> Result<Response<()>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let Claims {
             sub: client_hash, ..
-        } = get_claims(&request);
+        } = claims(&request);
 
-        match use_cases::delete_user(&client_hash).await {
+        match use_cases::delete_user(&app_ctx, &client_hash).await {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");
@@ -100,9 +103,10 @@ impl User for UserService {
 
     #[tracing::instrument]
     async fn vote(&self, request: Request<VoteRequest>) -> Result<Response<()>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let Claims {
             sub: client_hash, ..
-        } = get_claims(&request);
+        } = claims(&request);
         let request = request.into_inner();
 
         let vote = Vote {
@@ -113,7 +117,7 @@ impl User for UserService {
             timestamp: OffsetDateTime::now_utc(),
         };
 
-        match use_cases::vote(vote).await {
+        match use_cases::vote(&app_ctx, vote).await {
             Ok(_) => Ok(Response::new(())),
             Err(error) => {
                 tracing::error!("{error:?}");
@@ -127,16 +131,17 @@ impl User for UserService {
         &self,
         request: Request<ListMyVotesRequest>,
     ) -> Result<Response<ListMyVotesResponse>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let Claims {
             sub: client_hash, ..
-        } = get_claims(&request);
+        } = claims(&request);
         let ListMyVotesRequest { snap_id_filter } = request.into_inner();
         let snap_id_filter = if snap_id_filter.is_empty() {
             None
         } else {
             Some(snap_id_filter)
         };
-        let result = use_cases::list_my_votes(client_hash, snap_id_filter).await;
+        let result = use_cases::list_my_votes(&app_ctx, client_hash, snap_id_filter).await;
 
         match result {
             Ok(votes) => {
@@ -152,7 +157,7 @@ impl User for UserService {
     }
 }
 
-fn get_claims<T>(request: &Request<T>) -> Claims {
+fn claims<T>(request: &Request<T>) -> Claims {
     request
         .extensions()
         .get::<Claims>()
@@ -161,7 +166,3 @@ fn get_claims<T>(request: &Request<T>) -> Claims {
 }
 
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
-
-fn validate_client_hash(value: &str) -> bool {
-    value.len() == EXPECTED_CLIENT_HASH_LENGTH
-}

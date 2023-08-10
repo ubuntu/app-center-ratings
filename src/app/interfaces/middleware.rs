@@ -5,20 +5,32 @@ use hyper::Body;
 use tonic::body::BoxBody;
 use tower::Layer;
 
-use crate::app::context::Context;
+use crate::app::context::{AppContext, RequestContext};
 
-#[derive(Clone, Default)]
-pub struct ContextMiddlewareLayer;
+#[derive(Clone)]
+pub struct ContextMiddlewareLayer {
+    app_ctx: AppContext,
+}
+
+impl ContextMiddlewareLayer {
+    pub fn new(ctx: AppContext) -> ContextMiddlewareLayer {
+        ContextMiddlewareLayer { app_ctx: ctx }
+    }
+}
 
 impl<S> Layer<S> for ContextMiddlewareLayer {
     type Service = ContextMiddleware<S>;
     fn layer(&self, service: S) -> Self::Service {
-        ContextMiddleware { inner: service }
+        ContextMiddleware {
+            app_ctx: self.app_ctx.clone(),
+            inner: service,
+        }
     }
 }
 
 #[derive(Clone)]
 pub struct ContextMiddleware<S> {
+    app_ctx: AppContext,
     inner: S,
 }
 
@@ -43,13 +55,17 @@ where
     fn call(&mut self, req: hyper::Request<Body>) -> Self::Future {
         let clone = self.inner.clone();
         let mut inner = std::mem::replace(&mut self.inner, clone);
+        let app_ctx = self.app_ctx.clone();
 
         Box::pin(async move {
-            let uri = req.uri().clone().to_string();
-            let context = Context { uri, claims: None };
+            let req_ctx = RequestContext {
+                uri: req.uri().to_string(),
+                claims: None,
+            };
 
             let mut req = req;
-            req.extensions_mut().insert(context);
+            req.extensions_mut().insert(app_ctx);
+            req.extensions_mut().insert(req_ctx);
 
             let response = inner.call(req).await?;
             Ok(response)

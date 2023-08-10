@@ -1,17 +1,14 @@
 use http::header;
 use tonic::{Request, Status};
 
-use crate::app::context::Context;
-use crate::utils::infrastructure::INFRA;
+use crate::app::context::AppContext;
+use crate::app::RequestContext;
 
 pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
-    let ctx = req.extensions().get::<Context>();
+    let app_ctx = req.extensions().get::<AppContext>().unwrap().clone();
 
-    if ctx.is_none() {
-        return Err(Status::unknown("no request context"));
-    }
-    let ctx = ctx.unwrap();
-    let uri = &ctx.uri;
+    let req_ctx = req.extensions().get::<RequestContext>().unwrap().clone();
+    let uri = &req_ctx.uri;
 
     let public_paths = [
         "ratings.features.user.User/Register",
@@ -34,7 +31,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     }
 
     let token = raw[1];
-    let infra = INFRA.get().expect("INFRA should be initialised");
+    let infra = app_ctx.infrastructure();
     match infra.jwt.decode(token) {
         Ok(claim) => {
             let mut req = req;

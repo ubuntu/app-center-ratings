@@ -1,3 +1,6 @@
-pub mod env;
-pub mod infrastructure;
+mod config;
+mod infrastructure;
 pub mod jwt;
+
+pub use config::Config;
+pub use infrastructure::Infrastructure;

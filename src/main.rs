@@ -4,14 +4,16 @@ mod utils;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    utils::env::init();
+    let config = utils::Config::load()?;
+
     tracing_subscriber::fmt()
         .with_max_level(tracing::Level::INFO)
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .init();
+
     tracing::info!("Starting Ubuntu App Rating Service");
-    utils::infrastructure::init().await;
-    app::run().await;
+
+    app::run(config).await?;
 
     Ok(())
 }

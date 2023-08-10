@@ -5,7 +5,7 @@
 
 -- Stage 1
 
---CREATE DATABASE ratings;
+-- CREATE DATABASE IF EXISTS ratings;
 
 -- Stage 2
 

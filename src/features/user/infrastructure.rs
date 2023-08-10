@@ -1,11 +1,13 @@
+use crate::app::AppContext;
 use sqlx::Row;
-
-use crate::utils::infrastructure::get_repository;
 
 use super::entities::{User, Vote};
 
-pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
-    let mut pool = get_repository().await?;
+pub(crate) async fn create_user_in_db(
+    app_ctx: &AppContext,
+    user: User,
+) -> Result<User, sqlx::Error> {
+    let mut pool = app_ctx.infrastructure().get_repository().await?;
 
     let user_with_id = sqlx::query(
         r#"
@@ -25,8 +27,11 @@ pub(crate) async fn create_user_in_db(user: User) -> Result<User, sqlx::Error> {
     Ok(user_with_id)
 }
 
-pub(crate) async fn user_seen(client_hash: &str) -> Result<bool, sqlx::Error> {
-    let mut pool = get_repository().await?;
+pub(crate) async fn user_seen(
+    app_ctx: &AppContext,
+    client_hash: &str,
+) -> Result<bool, sqlx::Error> {
+    let mut pool = app_ctx.infrastructure().get_repository().await?;
 
     let result = sqlx::query(
         r#"
@@ -42,8 +47,11 @@ pub(crate) async fn user_seen(client_hash: &str) -> Result<bool, sqlx::Error> {
     Ok(result.rows_affected() == 1)
 }
 
-pub(crate) async fn delete_user_by_client_hash(client_hash: &str) -> Result<u64, sqlx::Error> {
-    let mut pool = get_repository().await?;
+pub(crate) async fn delete_user_by_client_hash(
+    app_ctx: &AppContext,
+    client_hash: &str,
+) -> Result<u64, sqlx::Error> {
+    let mut pool = app_ctx.infrastructure().get_repository().await?;
 
     let rows_deleted = sqlx::query(
         r#"
@@ -59,8 +67,8 @@ pub(crate) async fn delete_user_by_client_hash(client_hash: &str) -> Result<u64,
     Ok(rows_deleted)
 }
 
-pub(crate) async fn save_vote_to_db(vote: Vote) -> Result<u64, sqlx::Error> {
-    let mut pool = get_repository().await?;
+pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, sqlx::Error> {
+    let mut pool = app_ctx.infrastructure().get_repository().await?;
 
     let rows_affected = sqlx::query(
         r#"
@@ -82,10 +90,11 @@ pub(crate) async fn save_vote_to_db(vote: Vote) -> Result<u64, sqlx::Error> {
 }
 
 pub(crate) async fn find_user_votes(
+    app_ctx: &AppContext,
     client_hash: String,
     snap_id_filter: Option<String>,
 ) -> Result<Vec<Vote>, sqlx::Error> {
-    let mut pool = get_repository().await?;
+    let mut pool = app_ctx.infrastructure().get_repository().await?;
 
     let rows = sqlx::query(
         r#"

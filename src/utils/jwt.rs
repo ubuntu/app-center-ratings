@@ -6,8 +6,6 @@ use thiserror::Error;
 use time::{Duration, OffsetDateTime};
 use tracing::error;
 
-use crate::utils::env;
-
 static JWT_EXPIRY_IN_DAYS: i64 = 1;
 
 #[derive(Error, Debug)]
@@ -39,19 +37,14 @@ pub struct Jwt {
 }
 
 impl Jwt {
-    pub fn new() -> Self {
-        let secret = env::get_config().jwt_secret.clone();
-        let secret = secret.as_str();
+    pub fn new(secret: &str) -> Result<Self, jsonwebtoken::errors::Error> {
+        let encoding_key = EncodingKey::from_base64_secret(secret)?;
+        let decoding_key = DecodingKey::from_base64_secret(secret)?;
 
-        let encoding_key =
-            EncodingKey::from_base64_secret(secret).expect("failed to load jwt secret");
-        let decoding_key =
-            DecodingKey::from_base64_secret(secret).expect("failed to load jwt secret");
-
-        Self {
+        Ok(Self {
             encoding_key,
             decoding_key,
-        }
+        })
     }
 
     pub fn encode(&self, sub: String) -> Result<String, JwtError> {
@@ -70,11 +63,5 @@ impl Jwt {
                 error!("{e:?}");
                 JwtError::InvalidShape
             })
-    }
-}
-
-impl Default for Jwt {
-    fn default() -> Self {
-        Self::new()
     }
 }

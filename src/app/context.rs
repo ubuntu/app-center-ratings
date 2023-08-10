@@ -1,7 +1,38 @@
+use std::sync::Arc;
+
 use crate::utils::jwt::Claims;
+use crate::utils::Config;
+use crate::utils::Infrastructure;
+
+#[derive(Debug, Clone)]
+pub struct AppContext(Arc<AppContextInner>);
+
+impl AppContext {
+    pub fn new(config: &Config, infra: Infrastructure) -> Self {
+        let inner = AppContextInner {
+            infra,
+            config: config.clone(),
+        };
+        Self(Arc::new(inner))
+    }
+
+    pub fn infrastructure(&self) -> &Infrastructure {
+        &self.0.infra
+    }
+
+    pub fn config(&self) -> &Config {
+        &self.0.config
+    }
+}
 
 #[derive(Debug)]
-pub struct Context {
+struct AppContextInner {
+    infra: Infrastructure,
+    config: Config,
+}
+
+#[derive(Debug, Clone)]
+pub struct RequestContext {
     pub uri: String,
     pub claims: Option<Claims>,
 }
