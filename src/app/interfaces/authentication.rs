@@ -1,5 +1,6 @@
 use http::header;
 use tonic::{Request, Status};
+use tracing::error;
 
 use crate::app::context::AppContext;
 use crate::app::RequestContext;
@@ -21,13 +22,17 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     }
 
     let Some(header) = req.metadata().get(header::AUTHORIZATION.as_str()) else {
-        return Err(Status::unauthenticated("missing authz header"));
+        let error = Err(Status::unauthenticated("missing authz header"));
+        error!("{error:?}");
+        return error;
     };
 
     let raw: Vec<&str> = header.to_str().unwrap_or("").split_whitespace().collect();
 
     if raw.len() != 2 {
-        return Err(Status::unauthenticated("invalid authz token"));
+        let error = Err(Status::unauthenticated("invalid authz token"));
+        error!("{error:?}");
+        return error;
     }
 
     let token = raw[1];
@@ -38,6 +43,10 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
             req.extensions_mut().insert(claim);
             Ok(req)
         }
-        Err(_) => Err(Status::unauthenticated("invalid authz token")),
+        Err(_) => {
+            let error = Err(Status::unauthenticated("invalid authz token"));
+            error!("{error:?}");
+            error
+        }
     }
 }

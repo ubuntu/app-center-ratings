@@ -3,6 +3,7 @@ use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
+use tracing::error;
 
 use crate::app::AppContext;
 use crate::utils::jwt::Claims;
@@ -31,9 +32,10 @@ impl User for UserService {
     ) -> Result<Response<RegisterResponse>, Status> {
         let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let RegisterRequest { id } = request.into_inner();
-
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
-            return Err(Status::invalid_argument("id"));
+            let error = Err(Status::invalid_argument("id"));
+            error!("{error:?}");
+            return error;
         }
 
         match use_cases::register(&app_ctx, &id).await {
@@ -44,10 +46,7 @@ impl User for UserService {
                 .map(|token| RegisterResponse { token })
                 .map(Response::new)
                 .map_err(|_| Status::internal("internal")),
-            Err(error) => {
-                tracing::error!("{error:?}");
-                Err(Status::invalid_argument("id"))
-            }
+            Err(_error) => Err(Status::invalid_argument("id")),
         }
     }
 
@@ -78,10 +77,7 @@ impl User for UserService {
                     Err(Status::unauthenticated("invalid credentials"))
                 }
             }
-            Err(error) => {
-                tracing::error!("{error:?}");
-                Err(Status::invalid_argument("id"))
-            }
+            Err(_error) => Err(Status::invalid_argument("id")),
         }
     }
 
@@ -94,10 +90,7 @@ impl User for UserService {
 
         match use_cases::delete_user(&app_ctx, &client_hash).await {
             Ok(_) => Ok(Response::new(())),
-            Err(error) => {
-                tracing::error!("{error:?}");
-                Err(Status::unknown("Internal server error"))
-            }
+            Err(_error) => Err(Status::unknown("Internal server error")),
         }
     }
 
@@ -119,10 +112,7 @@ impl User for UserService {
 
         match use_cases::vote(&app_ctx, vote).await {
             Ok(_) => Ok(Response::new(())),
-            Err(error) => {
-                tracing::error!("{error:?}");
-                Err(Status::unknown("Internal server error"))
-            }
+            Err(_error) => Err(Status::unknown("Internal server error")),
         }
     }
 
@@ -149,10 +139,7 @@ impl User for UserService {
                 let payload = ListMyVotesResponse { votes };
                 Ok(Response::new(payload))
             }
-            Err(error) => {
-                tracing::error!("{error:?}");
-                Err(Status::unknown("Internal server error"))
-            }
+            Err(_error) => Err(Status::unknown("Internal server error")),
         }
     }
 }

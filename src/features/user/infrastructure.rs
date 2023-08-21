@@ -1,15 +1,20 @@
-use crate::app::AppContext;
+use crate::{app::AppContext, features::user::errors::UserError};
 use sqlx::Row;
+use tracing::error;
 
 use super::entities::{User, Vote};
 
-pub(crate) async fn create_user_in_db(
-    app_ctx: &AppContext,
-    user: User,
-) -> Result<User, sqlx::Error> {
-    let mut pool = app_ctx.infrastructure().get_repository().await?;
+pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Result<User, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .get_repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToCreateUserRecord
+        })?;
 
-    let user_with_id = sqlx::query(
+    let result = sqlx::query(
         r#"
         INSERT INTO users (client_hash, created, last_seen)
         VALUES ($1, $2, $2)
@@ -20,18 +25,32 @@ pub(crate) async fn create_user_in_db(
     .bind(user.last_seen)
     .bind(user.created)
     .fetch_one(&mut *pool)
-    .await?
-    .try_get("id")
-    .map(|id| User { id, ..user })?;
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::FailedToCreateUserRecord
+    })?;
+
+    let user_with_id = result
+        .try_get("id")
+        .map(|id| User { id, ..user })
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToCreateUserRecord
+        })?;
 
     Ok(user_with_id)
 }
 
-pub(crate) async fn user_seen(
-    app_ctx: &AppContext,
-    client_hash: &str,
-) -> Result<bool, sqlx::Error> {
-    let mut pool = app_ctx.infrastructure().get_repository().await?;
+pub(crate) async fn user_seen(app_ctx: &AppContext, client_hash: &str) -> Result<bool, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .get_repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::InvalidUserId
+        })?;
 
     let result = sqlx::query(
         r#"
@@ -42,7 +61,11 @@ pub(crate) async fn user_seen(
     )
     .bind(client_hash)
     .execute(&mut *pool)
-    .await?;
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::InvalidUserId
+    })?;
 
     Ok(result.rows_affected() == 1)
 }
@@ -50,10 +73,17 @@ pub(crate) async fn user_seen(
 pub(crate) async fn delete_user_by_client_hash(
     app_ctx: &AppContext,
     client_hash: &str,
-) -> Result<u64, sqlx::Error> {
-    let mut pool = app_ctx.infrastructure().get_repository().await?;
+) -> Result<u64, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .get_repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToDeleteUserRecord
+        })?;
 
-    let rows_deleted = sqlx::query(
+    let rows = sqlx::query(
         r#"
         DELETE FROM users
         WHERE client_hash = $1
@@ -61,16 +91,26 @@ pub(crate) async fn delete_user_by_client_hash(
     )
     .bind(client_hash)
     .execute(&mut *pool)
-    .await?
-    .rows_affected();
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::FailedToDeleteUserRecord
+    })?;
 
-    Ok(rows_deleted)
+    Ok(rows.rows_affected())
 }
 
-pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, sqlx::Error> {
-    let mut pool = app_ctx.infrastructure().get_repository().await?;
+pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .get_repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToCastVote
+        })?;
 
-    let rows_affected = sqlx::query(
+    let result = sqlx::query(
         r#"
         INSERT INTO votes (user_id_fk, snap_id, snap_revision, vote_up)
         VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, $4)
@@ -83,20 +123,30 @@ pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<
     .bind(vote.snap_revision as i32)
     .bind(vote.vote_up)
     .execute(&mut *pool)
-    .await?
-    .rows_affected();
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::FailedToCastVote
+    })?;
 
-    Ok(rows_affected)
+    Ok(result.rows_affected())
 }
 
 pub(crate) async fn find_user_votes(
     app_ctx: &AppContext,
     client_hash: String,
     snap_id_filter: Option<String>,
-) -> Result<Vec<Vote>, sqlx::Error> {
-    let mut pool = app_ctx.infrastructure().get_repository().await?;
+) -> Result<Vec<Vote>, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .get_repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::Unknown
+        })?;
 
-    let rows = sqlx::query(
+    let result = sqlx::query(
         r#"
                 SELECT
                     votes.id,
@@ -119,9 +169,13 @@ pub(crate) async fn find_user_votes(
     .bind(client_hash.clone())
     .bind(snap_id_filter)
     .fetch_all(&mut *pool)
-    .await?;
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::Unknown
+    })?;
 
-    let votes: Vec<Vote> = rows
+    let votes: Vec<Vote> = result
         .into_iter()
         .map(|row| Vote {
             client_hash: client_hash.clone(),
