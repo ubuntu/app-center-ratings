@@ -1,8 +1,7 @@
 use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
-
-use crate::helpers::env::get_server_base_url;
+use tracing::info;
 
 pub mod pb {
     pub use self::user_client::UserClient;
@@ -16,13 +15,14 @@ pub struct UserClient {
 }
 
 impl UserClient {
-    pub fn new() -> Self {
+    pub fn new(socket: &str) -> Self {
         Self {
-            url: get_server_base_url(),
+            url: format!("http://{socket}/"),
         }
     }
 
     pub async fn register(&self, id: &str) -> Result<Response<pb::RegisterResponse>, Status> {
+        info!("URL: {:?}", self.url.clone());
         let mut client = pb::UserClient::connect(self.url.clone()).await.unwrap();
         client
             .register(pb::RegisterRequest { id: id.to_string() })

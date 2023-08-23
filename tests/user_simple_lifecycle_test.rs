@@ -1,28 +1,48 @@
 use futures::FutureExt;
-use sqlx::Row;
+use ratings::app::AppContext;
+use ratings::utils::{self, Infrastructure};
+use sqlx::pool::PoolConnection;
+use sqlx::{Postgres, Row};
 
 use crate::helpers::client_user::pb::{AuthenticateResponse, RegisterResponse, VoteRequest};
 use crate::helpers::client_user::UserClient;
-use crate::helpers::infrastructure::get_repository;
 use crate::helpers::with_lifecycle::with_lifecycle;
+
+use utils::Config;
 
 mod helpers;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 struct TestData {
     client: Option<UserClient>,
     id: Option<String>,
     token: Option<String>,
+    app_ctx: AppContext,
+}
+
+impl TestData {
+    async fn repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
+        self.app_ctx.clone().infrastructure().get_repository().await
+    }
+
+    fn socket(&self) -> String {
+        self.app_ctx.config().get_socket()
+    }
 }
 
 #[tokio::test]
-async fn user_simple_lifecycle_test() {
+async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
+    let config = Config::load()?;
+    let infra = Infrastructure::new(&config).await?;
+    let app_ctx = AppContext::new(&config, infra);
+
     with_lifecycle(async {
         let data = TestData {
-            client: Some(UserClient::new()),
-            ..Default::default()
+            client: Some(UserClient::new(&config.get_socket())),
+            app_ctx,
+            id: None,
+            token: None,
         };
-
         register(data)
             .then(authenticate)
             .then(vote)
@@ -30,6 +50,7 @@ async fn user_simple_lifecycle_test() {
             .await;
     })
     .await;
+    Ok(())
 }
 
 async fn register(mut data: TestData) -> TestData {
@@ -45,9 +66,10 @@ async fn register(mut data: TestData) -> TestData {
 
     let token: String = response.token;
     data.token = Some(token.to_string());
-    helpers::assert::assert_token_is_valid(&token);
+    helpers::assert::assert_token_is_valid(&token, &data.app_ctx.config().jwt_secret);
 
-    let mut conn = get_repository().await;
+    let mut conn = data.repository().await.unwrap();
+
     let rows = sqlx::query("SELECT * FROM users WHERE client_hash = $1")
         .bind(&id)
         .fetch_one(&mut *conn)
@@ -75,7 +97,7 @@ async fn authenticate(mut data: TestData) -> TestData {
 
     let token: String = response.token;
     data.token = Some(token.to_string());
-    helpers::assert::assert_token_is_valid(&token);
+    helpers::assert::assert_token_is_valid(&token, &data.app_ctx.config().jwt_secret);
 
     // todo get last seen and compare
 
@@ -103,7 +125,8 @@ async fn vote(data: TestData) -> TestData {
         .expect("vote should succeed")
         .into_inner();
 
-    let mut conn = get_repository().await;
+    let mut conn = data.repository().await.unwrap();
+
     let result = sqlx::query(
         r#"
         SELECT votes.*
@@ -132,11 +155,13 @@ async fn vote(data: TestData) -> TestData {
 
 async fn delete(data: TestData) -> TestData {
     let token = data.token.clone().unwrap();
-    let client = UserClient::new();
+    let client = UserClient::new(&data.socket());
     client.delete(&token.clone()).await.unwrap();
 
     let id = data.id.clone().unwrap();
-    let mut conn = get_repository().await;
+
+    let mut conn = data.repository().await.unwrap();
+
     let result = sqlx::query("SELECT * FROM users WHERE client_hash = $1")
         .bind(&id)
         .fetch_one(&mut *conn)
