@@ -28,7 +28,7 @@ impl Infrastructure {
         Ok(Infrastructure { postgres, jwt })
     }
 
-    pub async fn get_repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
+    pub async fn repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
         self.postgres.acquire().await
     }
 }

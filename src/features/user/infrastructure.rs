@@ -7,7 +7,7 @@ use super::entities::{User, Vote};
 pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Result<User, UserError> {
     let mut pool = app_ctx
         .infrastructure()
-        .get_repository()
+        .repository()
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -45,7 +45,7 @@ pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Resul
 pub(crate) async fn user_seen(app_ctx: &AppContext, client_hash: &str) -> Result<bool, UserError> {
     let mut pool = app_ctx
         .infrastructure()
-        .get_repository()
+        .repository()
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -76,7 +76,7 @@ pub(crate) async fn delete_user_by_client_hash(
 ) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()
-        .get_repository()
+        .repository()
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -103,7 +103,7 @@ pub(crate) async fn delete_user_by_client_hash(
 pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()
-        .get_repository()
+        .repository()
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -139,7 +139,7 @@ pub(crate) async fn find_user_votes(
 ) -> Result<Vec<Vote>, UserError> {
     let mut pool = app_ctx
         .infrastructure()
-        .get_repository()
+        .repository()
         .await
         .map_err(|error| {
             error!("{error:?}");

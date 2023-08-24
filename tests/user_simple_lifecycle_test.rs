@@ -22,11 +22,11 @@ struct TestData {
 
 impl TestData {
     async fn repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
-        self.app_ctx.clone().infrastructure().get_repository().await
+        self.app_ctx.clone().infrastructure().repository().await
     }
 
     fn socket(&self) -> String {
-        self.app_ctx.config().get_socket()
+        self.app_ctx.config().socket()
     }
 }
 
@@ -38,7 +38,7 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
 
     with_lifecycle(async {
         let data = TestData {
-            client: Some(UserClient::new(&config.get_socket())),
+            client: Some(UserClient::new(&config.socket())),
             app_ctx,
             id: None,
             token: None,

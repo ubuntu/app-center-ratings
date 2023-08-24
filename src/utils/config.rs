@@ -18,7 +18,7 @@ impl Config {
         envy::prefixed("APP_").from_env::<Config>()
     }
 
-    pub fn get_socket(&self) -> String {
+    pub fn socket(&self) -> String {
         let Config { port, host, .. } = self;
         format!("{host}:{port}")
     }

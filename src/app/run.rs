@@ -25,7 +25,7 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
         .add_service(build_reflection_service());
     let server = build_servers(server);
 
-    let socket: SocketAddr = config.get_socket().parse()?;
+    let socket: SocketAddr = config.socket().parse()?;
     info!("Binding to {socket}");
     server.serve(socket).await?;
 

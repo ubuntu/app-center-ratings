@@ -12,7 +12,7 @@ async fn blank() -> Result<(), Box<dyn std::error::Error>> {
 
     with_lifecycle(async {
         let id = "";
-        let client = UserClient::new(&config.get_socket());
+        let client = UserClient::new(&config.socket());
 
         match client.register(id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
@@ -31,7 +31,7 @@ async fn wrong_length() -> Result<(), Box<dyn std::error::Error>> {
 
     with_lifecycle(async {
         let client_hash = "foobarbazbun";
-        let client = UserClient::new(&config.get_socket());
+        let client = UserClient::new(&config.socket());
 
         match client.register(client_hash).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
