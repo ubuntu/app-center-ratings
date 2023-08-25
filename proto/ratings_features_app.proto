@@ -3,15 +3,28 @@ syntax = "proto3";
 package ratings.features.app;
 
 service App {
-  rpc GetVotes (GetVotesRequest) returns (GetVotesResponse) {}
+  rpc GetRating (GetRatingRequest) returns (GetRatingResponse) {}
 }
 
-message GetVotesRequest {
-  string app = 1;
+message GetRatingRequest {
+  string snap_id = 1;
 }
 
-message GetVotesResponse {
-  string app = 1;
-  uint64 total_up_votes = 2;
-  uint64 total_down_votes = 3;
+message GetRatingResponse {
+  Rating rating = 1;
+}
+
+message Rating {
+  string snap_id = 1;
+  uint64 total_votes = 2;
+  RatingsBand ratings_band = 3;
+}
+
+enum RatingsBand {
+  VeryGood = 0;
+  GOOD = 1;
+  NEUTRAL = 2;
+  POOR = 3;
+  VERY_POOR = 4;
+  INSUFFICIENT_VOTES = 5;
 }
