@@ -1,10 +1,7 @@
 use ratings::utils::Config;
 use tonic::Code;
 
-use crate::helpers::client_user::UserClient;
-use crate::helpers::with_lifecycle::with_lifecycle;
-
-mod helpers;
+use super::super::helpers::{client_user::UserClient, with_lifecycle::with_lifecycle};
 
 #[tokio::test]
 async fn blank() -> Result<(), Box<dyn std::error::Error>> {

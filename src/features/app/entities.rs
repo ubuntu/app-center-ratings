@@ -21,11 +21,11 @@ pub struct Rating {
 
 impl Rating {
     pub fn new(snap_id: String, votes: Vec<Vote>) -> Self {
-        let total_votes = &votes.len();
+        let total_votes = votes.len();
         let ratings_band = calculate_band(votes);
         Self {
             snap_id,
-            total_votes: *total_votes as u64,
+            total_votes: total_votes as u64,
             ratings_band,
         }
     }
@@ -79,4 +79,38 @@ fn confidence_interval_lower_bound(positve_ratings: usize, total_ratings: usize)
     ((phat + (z * z) / (2.0 * n))
         - z * f64::sqrt((phat * (1.0 - phat) + ((z * z) / (4.0 * n))) / n))
         / (1.0 + (z * z) / n)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_zero() {
+        let lower_bound = confidence_interval_lower_bound(0, 0);
+        assert_eq!(
+            lower_bound, 0.0,
+            "Lower bound should be 0.0 when there are 0 votes"
+        );
+    }
+
+    #[test]
+    fn test_lb_approaches_true_ratio() {
+        let ratio: f64 = 0.9;
+        let mut last_lower_bound = 0.0;
+
+        for total_ratings in (100..1000).step_by(100) {
+            let positive_ratings = (total_ratings as f64 * ratio).round() as usize;
+            let new_lower_bound = confidence_interval_lower_bound(positive_ratings, total_ratings);
+            let raw_positive_ratio = positive_ratings as f64 / total_ratings as f64;
+
+            // As the total ratings increase, the new lower bound should be closer to the raw positive ratio.
+            assert!(
+                (raw_positive_ratio - new_lower_bound).abs() <= (raw_positive_ratio - last_lower_bound).abs(),
+                "As the number of votes goes up, the lower bound should get closer to the raw positive ratio."
+            );
+
+            last_lower_bound = new_lower_bound;
+        }
+    }
 }

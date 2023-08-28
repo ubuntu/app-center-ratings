@@ -1,34 +1,15 @@
+use crate::helpers;
+use crate::helpers::test_data::TestData;
+
+use super::super::helpers::client_user::pb::{AuthenticateResponse, RegisterResponse, VoteRequest};
+use super::super::helpers::client_user::UserClient;
+use super::super::helpers::with_lifecycle::with_lifecycle;
 use futures::FutureExt;
 use ratings::app::AppContext;
 use ratings::utils::{self, Infrastructure};
-use sqlx::pool::PoolConnection;
-use sqlx::{Postgres, Row};
-
-use crate::helpers::client_user::pb::{AuthenticateResponse, RegisterResponse, VoteRequest};
-use crate::helpers::client_user::UserClient;
-use crate::helpers::with_lifecycle::with_lifecycle;
+use sqlx::Row;
 
 use utils::Config;
-
-mod helpers;
-
-#[derive(Debug)]
-struct TestData {
-    client: Option<UserClient>,
-    id: Option<String>,
-    token: Option<String>,
-    app_ctx: AppContext,
-}
-
-impl TestData {
-    async fn repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
-        self.app_ctx.clone().infrastructure().repository().await
-    }
-
-    fn socket(&self) -> String {
-        self.app_ctx.config().socket()
-    }
-}
 
 #[tokio::test]
 async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
@@ -38,10 +19,12 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
 
     with_lifecycle(async {
         let data = TestData {
-            client: Some(UserClient::new(&config.socket())),
+            user_client: Some(UserClient::new(&config.socket())),
             app_ctx,
             id: None,
             token: None,
+            app_client: None,
+            snap_id: None,
         };
         register(data)
             .then(authenticate)
@@ -57,7 +40,7 @@ async fn register(mut data: TestData) -> TestData {
     let id: String = helpers::data_faker::rnd_sha_256();
     data.id = Some(id.to_string());
 
-    let client = data.client.clone().unwrap();
+    let client = data.user_client.clone().unwrap();
     let response: RegisterResponse = client
         .register(&id)
         .await
@@ -85,7 +68,7 @@ async fn register(mut data: TestData) -> TestData {
 
 async fn authenticate(mut data: TestData) -> TestData {
     let id = data.id.clone().unwrap();
-    let client = data.client.clone().unwrap();
+    let client = data.user_client.clone().unwrap();
 
     // todo get last seen
 
@@ -107,7 +90,7 @@ async fn authenticate(mut data: TestData) -> TestData {
 async fn vote(data: TestData) -> TestData {
     let id = data.id.clone().unwrap();
     let token = data.token.clone().unwrap();
-    let client = data.client.clone().unwrap();
+    let client = data.user_client.clone().unwrap();
 
     let expected_snap_id = "r4LxMVp7zWramXsJQAKdamxy6TAWlaDD";
     let expected_snap_revision = 111;

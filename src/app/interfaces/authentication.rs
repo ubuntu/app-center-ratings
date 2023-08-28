@@ -43,9 +43,9 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
             req.extensions_mut().insert(claim);
             Ok(req)
         }
-        Err(_) => {
-            let error = Err(Status::unauthenticated("invalid authz token"));
+        Err(error) => {
             error!("{error:?}");
+            let error = Err(Status::unauthenticated("Failed to decode token."));
             error
         }
     }
