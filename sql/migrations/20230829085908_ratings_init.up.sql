@@ -1,4 +1,3 @@
---
 -- Create database and then execute the second set of commands when connected
 -- to the ratings database
 --
@@ -8,6 +7,7 @@
 -- CREATE DATABASE IF EXISTS ratings;
 
 -- Stage 2
+--
 
 CREATE TABLE users (
    id SERIAL PRIMARY KEY,
@@ -31,8 +31,6 @@ CREATE TABLE votes (
 -- can't vote more than once for the same snap revision.
 CREATE UNIQUE INDEX idx_votes_unique_user_snap ON votes (user_id_fk, snap_id, snap_revision);
 
--- Permissions
-CREATE USER service WITH PASSWORD 'covfefe!1';
 GRANT ALL PRIVILEGES ON TABLE users TO service;
 GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO service;
 GRANT ALL PRIVILEGES ON TABLE votes TO service;

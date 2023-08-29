@@ -10,6 +10,7 @@ pub struct Config {
     pub name: String,
     pub port: u16,
     pub postgres_uri: String,
+    pub migration_postgres_uri: String,
 }
 
 impl Config {

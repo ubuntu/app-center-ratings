@@ -6,7 +6,7 @@ use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use futures::FutureExt;
 use ratings::app::AppContext;
-use ratings::utils::{self, Infrastructure};
+use ratings::utils::{self, Infrastructure, Migrator};
 use sqlx::Row;
 
 use utils::Config;
@@ -16,22 +16,27 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
     let config = Config::load()?;
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
+    let migrator = Migrator::new(&config.migration_postgres_uri).await?;
 
-    with_lifecycle(async {
-        let data = TestData {
-            user_client: Some(UserClient::new(&config.socket())),
-            app_ctx,
-            id: None,
-            token: None,
-            app_client: None,
-            snap_id: None,
-        };
-        register(data)
-            .then(authenticate)
-            .then(vote)
-            .then(delete)
-            .await;
-    })
+    let data = TestData {
+        user_client: Some(UserClient::new(&config.socket())),
+        app_ctx,
+        id: None,
+        token: None,
+        app_client: None,
+        snap_id: None,
+    };
+
+    with_lifecycle(
+        async {
+            register(data.clone())
+                .then(authenticate)
+                .then(vote)
+                .then(delete)
+                .await;
+        },
+        migrator,
+    )
     .await;
     Ok(())
 }

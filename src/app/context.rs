@@ -7,6 +7,7 @@ use crate::utils::Infrastructure;
 #[derive(Debug, Clone)]
 pub struct AppContext(Arc<AppContextInner>);
 
+#[allow(dead_code)]
 impl AppContext {
     pub fn new(config: &Config, infra: Infrastructure) -> Self {
         let inner = AppContextInner {
@@ -25,6 +26,7 @@ impl AppContext {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct AppContextInner {
     infra: Infrastructure,

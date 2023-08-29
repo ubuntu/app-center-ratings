@@ -1,7 +1,7 @@
 use futures::FutureExt;
 use ratings::{
     app::AppContext,
-    utils::{Config, Infrastructure},
+    utils::{Config, Infrastructure, Migrator},
 };
 
 use super::super::helpers::with_lifecycle::with_lifecycle;
@@ -19,17 +19,22 @@ async fn app_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
 
-    with_lifecycle(async {
-        let data = TestData {
-            user_client: Some(UserClient::new(&config.socket())),
-            app_ctx,
-            id: None,
-            token: None,
-            app_client: Some(AppClient::new(&config.socket())),
-            snap_id: Some(data_faker::rnd_id()),
-        };
-        vote_once(data).then(vote_up).await;
-    })
+    let migrator = Migrator::new(&config.migration_postgres_uri).await?;
+    let data = TestData {
+        user_client: Some(UserClient::new(&config.socket())),
+        app_ctx,
+        id: None,
+        token: None,
+        app_client: Some(AppClient::new(&config.socket())),
+        snap_id: Some(data_faker::rnd_id()),
+    };
+
+    with_lifecycle(
+        async {
+            vote_once(data.clone()).then(vote_up).await;
+        },
+        migrator,
+    )
     .await;
     Ok(())
 }
