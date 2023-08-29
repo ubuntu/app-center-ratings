@@ -21,7 +21,7 @@ message Rating {
 }
 
 enum RatingsBand {
-  VeryGood = 0;
+  VERY_GOOD = 0;
   GOOD = 1;
   NEUTRAL = 2;
   POOR = 3;

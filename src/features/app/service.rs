@@ -4,6 +4,6 @@ use super::interface::app_server::AppServer;
 pub struct AppService;
 
 pub fn build_service() -> AppServer<AppService> {
-    let service = AppService::default();
+    let service = AppService;
     AppServer::new(service)
 }

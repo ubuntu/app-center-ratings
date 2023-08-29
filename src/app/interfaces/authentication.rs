@@ -45,8 +45,7 @@ pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
         }
         Err(error) => {
             error!("{error:?}");
-            let error = Err(Status::unauthenticated("Failed to decode token."));
-            error
+            Err(Status::unauthenticated("Failed to decode token."))
         }
     }
 }

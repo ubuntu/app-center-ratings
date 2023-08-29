@@ -4,6 +4,6 @@ use super::interface::user_server::UserServer;
 pub struct UserService;
 
 pub fn build_service() -> UserServer<UserService> {
-    let service = UserService::default();
+    let service = UserService;
     UserServer::new(service)
 }

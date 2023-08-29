@@ -106,7 +106,7 @@ async fn vote_up(data: TestData) -> TestData {
 
     let actual_snap_id = result.snap_id;
     let actual_total_votes = result.total_votes;
-    let actual_ratings_band = result.ratings_band as i32;
+    let actual_ratings_band = result.ratings_band;
 
     assert_eq!(data.snap_id.clone().unwrap(), actual_snap_id);
     assert_eq!(expected_total_votes, actual_total_votes);

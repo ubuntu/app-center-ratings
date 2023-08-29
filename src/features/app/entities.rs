@@ -2,6 +2,8 @@ use sqlx::FromRow;
 
 use super::interface::protobuf;
 
+const INSUFFICIENT_VOTES_QUANTITY: usize = 25;
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RatingsBand {
     VeryGood = 0,
@@ -10,6 +12,27 @@ pub enum RatingsBand {
     Poor = 3,
     VeryPoor = 4,
     InsufficientVotes = 5,
+}
+
+impl RatingsBand {
+    const GOOD_UPPER: f64 = 0.8;
+    const NEUTRAL_UPPER: f64 = 0.55;
+    const POOR_UPPER: f64 = 0.45;
+    const VERY_POOR_UPPER: f64 = 0.2;
+
+    pub fn from_value(value: f64) -> RatingsBand {
+        if value > Self::GOOD_UPPER {
+            RatingsBand::VeryGood
+        } else if value <= Self::GOOD_UPPER && value > Self::NEUTRAL_UPPER {
+            RatingsBand::Good
+        } else if value <= Self::NEUTRAL_UPPER && value > Self::POOR_UPPER {
+            RatingsBand::Neutral
+        } else if value <= Self::POOR_UPPER && value > Self::VERY_POOR_UPPER {
+            RatingsBand::Poor
+        } else {
+            RatingsBand::VeryPoor
+        }
+    }
 }
 
 #[derive(Debug, Clone, FromRow)]
@@ -46,7 +69,7 @@ pub struct Vote {
 
 fn calculate_band(votes: Vec<Vote>) -> RatingsBand {
     let total_ratings = votes.len();
-    if total_ratings < 25 {
+    if total_ratings < INSUFFICIENT_VOTES_QUANTITY {
         return RatingsBand::InsufficientVotes;
     }
     let positive_ratings = votes
@@ -56,29 +79,42 @@ fn calculate_band(votes: Vec<Vote>) -> RatingsBand {
         .len();
     let adjusted_ratio = confidence_interval_lower_bound(positive_ratings, total_ratings);
 
-    if adjusted_ratio > 0.8 {
-        return RatingsBand::VeryGood;
-    } else if adjusted_ratio <= 0.8 && adjusted_ratio > 0.55 {
-        return RatingsBand::Good;
-    } else if adjusted_ratio <= 0.55 && adjusted_ratio > 0.45 {
-        return RatingsBand::Neutral;
-    } else if adjusted_ratio <= 0.45 && adjusted_ratio > 0.2 {
-        return RatingsBand::Poor;
-    } else {
-        return RatingsBand::VeryPoor;
-    }
+    RatingsBand::from_value(adjusted_ratio)
 }
 
-fn confidence_interval_lower_bound(positve_ratings: usize, total_ratings: usize) -> f64 {
+fn confidence_interval_lower_bound(positive_ratings: usize, total_ratings: usize) -> f64 {
     if total_ratings == 0 {
         return 0.0;
     }
-    let z: f64 = 1.96; // hardcoded for a ~95% confidence
-    let n: f64 = total_ratings as f64;
-    let phat = positve_ratings as f64 / n;
-    ((phat + (z * z) / (2.0 * n))
-        - z * f64::sqrt((phat * (1.0 - phat) + ((z * z) / (4.0 * n))) / n))
-        / (1.0 + (z * z) / n)
+
+    // Lower Bound of Wilson Score Confidence Interval for Ranking Snaps
+    //
+    // Purpose:
+    // Provides a conservative adjusted rating for a Snap by offsetting the
+    // actual ratio of positive votes. It penalizes Snaps with fewer ratings
+    // more heavily to produce an adjusted ranking that approaches the mean as
+    // ratings increase.
+    //
+    // Algorithm:
+    // Starts with the observed proportion of positive ratings, adjusts it based on
+    // total ratings, and incorporates a 95% confidence interval Z-score for
+    // uncertainty.
+    //
+    // References:
+    // - https://www.evanmiller.org/how-not-to-sort-by-average-rating.html
+    // - https://en.wikipedia.org/wiki/Binomial_proportion_confidence_interval#Wilson_score_interval
+
+    let z_score: f64 = 1.96; // hardcoded for a ~95% confidence
+    let total_ratings = total_ratings as f64;
+    let positive_ratings_ratio = positive_ratings as f64 / total_ratings;
+    ((positive_ratings_ratio + (z_score * z_score) / (2.0 * total_ratings))
+        - z_score
+            * f64::sqrt(
+                (positive_ratings_ratio * (1.0 - positive_ratings_ratio)
+                    + ((z_score * z_score) / (4.0 * total_ratings)))
+                    / total_ratings,
+            ))
+        / (1.0 + (z_score * z_score) / total_ratings)
 }
 
 #[cfg(test)]
@@ -112,5 +148,27 @@ mod tests {
 
             last_lower_bound = new_lower_bound;
         }
+    }
+
+    #[test]
+    fn test_insufficient_votes() {
+        let votes = vec![Vote { vote_up: true }];
+        let band = calculate_band(votes);
+        assert_eq!(
+            band,
+            RatingsBand::InsufficientVotes,
+            "Should return InsufficientVotes when not enough votes exist for a given Snap."
+        )
+    }
+
+    #[test]
+    fn test_sufficient_votes() {
+        let votes = vec![Vote { vote_up: true }; INSUFFICIENT_VOTES_QUANTITY];
+        let band = calculate_band(votes);
+        assert_eq!(
+            band,
+            RatingsBand::VeryGood,
+            "Should return very good for a sufficient number of all positive votes."
+        )
     }
 }

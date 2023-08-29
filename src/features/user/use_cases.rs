@@ -16,19 +16,13 @@ pub async fn authenticate(app_ctx: &AppContext, id: &str) -> Result<bool, UserEr
 
 pub async fn delete_user(app_ctx: &AppContext, client_hash: &str) -> Result<(), UserError> {
     let result = delete_user_by_client_hash(app_ctx, client_hash).await;
-
-    if let Err(error) = result {
-        return Err(error);
-    }
+    result?;
     Ok(())
 }
 
 pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
     let result = save_vote_to_db(app_ctx, vote).await;
-
-    if let Err(error) = result {
-        return Err(error);
-    }
+    result?;
     Ok(())
 }
 
