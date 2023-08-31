@@ -28,19 +28,11 @@ class MockDatabaseEvent:
         self.id = id
 
 
-def init_db_relation(harness) -> id:
-    """Reduce repetition in setting up relation with Postgres."""
-    harness.set_leader(True)
-    rel_id = harness.add_relation("database", "postgresql")
-    harness.add_relation_unit(rel_id, "postgresql/0")
-    harness.update_relation_data(rel_id, "postgresql/0", DB_RELATION_DATA)
-    return rel_id
-
-
 class TestCharm(unittest.TestCase):
     def setUp(self):
         self.harness = ops.testing.Harness(RatingsCharm)
         self.addCleanup(self.harness.cleanup)
+        self.harness.set_leader(True)
         self.harness.begin()
 
     def test_ratings_pebble_ready_no_relation(self):
@@ -53,13 +45,13 @@ class TestCharm(unittest.TestCase):
         )
 
     def test_ratings_sets_database_name_on_database_relation(self):
-        rel_id = init_db_relation(self.harness)
+        rel_id = self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.container_pebble_ready("ratings")
         app_data = self.harness.get_relation_data(rel_id, self.harness.charm.app.name)
         self.assertEqual(app_data, {"database": "ratings"})
 
     def test_ratings_pebble_ready_waits_for_db_initialisation(self):
-        init_db_relation(self.harness)
+        self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.container_pebble_ready("ratings")
         self.assertEqual(
             self.harness.model.unit.status, ops.WaitingStatus("Ratings not yet initialised")
@@ -68,7 +60,7 @@ class TestCharm(unittest.TestCase):
     @patch("charm.RatingsCharm._ratings", MOCK_RATINGS)
     @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_pebble_ready_sets_correct_plan(self):
-        init_db_relation(self.harness)
+        self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.container_pebble_ready("ratings")
         self.assertEqual(self.harness.model.unit.status, ops.ActiveStatus())
         expected = {
@@ -92,7 +84,7 @@ class TestCharm(unittest.TestCase):
     @patch("charm.RatingsCharm._ratings", MOCK_RATINGS)
     @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_pebble_ready_waits_for_container(self):
-        init_db_relation(self.harness)
+        self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.set_can_connect("ratings", False)
         self.harness.charm.on.ratings_pebble_ready.emit(SimpleNamespace(workload="foo"))
         self.assertEqual(
@@ -100,7 +92,7 @@ class TestCharm(unittest.TestCase):
         )
 
     def test_ratings_database_created_ratings_not_initialised(self):
-        rel_id = init_db_relation(self.harness)
+        rel_id = self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
         self.harness.set_can_connect("ratings", True)
         plan = self.harness.get_container_pebble_plan("ratings").to_dict()
@@ -109,7 +101,7 @@ class TestCharm(unittest.TestCase):
     @patch("charm.DatabaseRequires.is_resource_created", lambda x: True)
     @patch("ratings.Ratings.ready")
     def test_ratings_database_created_database_not_initialised_fail_create_tables(self, db_init):
-        rel_id = init_db_relation(self.harness)
+        rel_id = self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         db_init.side_effect = DatabaseInitialisationError
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
         self.assertEqual(
@@ -119,7 +111,7 @@ class TestCharm(unittest.TestCase):
     @patch("charm.DatabaseRequires.is_resource_created", lambda x: True)
     @patch("ratings.Ratings.ready", lambda x: True)
     def test_ratings_database_created_database_success(self):
-        rel_id = init_db_relation(self.harness)
+        rel_id = self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.set_can_connect("ratings", True)
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
         self.assertEqual(self.harness.model.unit.status, ops.ActiveStatus())
@@ -129,28 +121,24 @@ class TestCharm(unittest.TestCase):
 
     @patch("charm.DatabaseRequires.fetch_relation_data", lambda x: {0: DB_RELATION_DATA})
     def test_ratings_db_connection_string(self):
-        init_db_relation(self.harness)
+        self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         expected = "postgres://username:password@postgres:5432/ratings"
         self.assertEqual(self.harness.charm._db_connection_string(), expected)
 
     def test_ratings_jwt_secret_no_relation(self):
-        self.harness.set_leader(True)
         new_secret = self.harness.charm._jwt_secret()
         self.assertEqual(new_secret, "")
 
     def test_ratings_jwt_secret_create(self):
-        self.harness.set_leader(True)
         self.harness.add_relation("ratings-peers", "ubuntu-software-ratings")
         new_secret = self.harness.charm._jwt_secret()
         self.assertEqual(len(new_secret), 48)
 
     def test_ratings_jwt_secret_from_peer_data(self):
-        self.harness.set_leader(True)
         content = {"jwt-secret": "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef"}
         secret_id = self.harness.add_model_secret(owner=self.harness.charm.app, content=content)
-        rel_id = self.harness.add_relation("ratings-peers", "ubuntu-software-ratings")
-        self.harness.update_relation_data(
-            rel_id, self.harness.charm.app.name, {"jwt-secret-id": secret_id}
+        self.harness.add_relation(
+            "ratings-peers", "ubuntu-software-ratings", app_data={"jwt-secret-id": secret_id}
         )
         secret = self.harness.charm._jwt_secret()
         self.assertEqual(secret, content["jwt-secret"])
