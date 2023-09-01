@@ -5,12 +5,14 @@ use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::utils::{Config, Infrastructure};
+use crate::utils::{Config, Infrastructure, Migrator};
 
 use super::interfaces::routes::{build_reflection_service, build_servers};
 use super::interfaces::{authentication::authentication, middleware::ContextMiddlewareLayer};
 
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
+    let migrator = Migrator::new(&config.migration_postgres_uri).await?;
+    migrator.run().await?;
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
 

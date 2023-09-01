@@ -1,0 +1,15 @@
+#!/bin/bash
+set -e
+
+# Create users and databases
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "postgres" <<-EOSQL
+    CREATE USER $MIGRATION_USER WITH PASSWORD '$MIGRATION_PASSWORD';
+    CREATE USER $SERVICE_USER WITH PASSWORD '$SERVICE_PASSWORD';
+    CREATE DATABASE $RATINGS_DB;
+EOSQL
+
+# Set permissions on the new database
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$RATINGS_DB" <<-EOSQL
+    GRANT CONNECT ON DATABASE $RATINGS_DB TO $MIGRATION_USER;
+    GRANT USAGE, CREATE ON SCHEMA public TO $MIGRATION_USER;
+EOSQL

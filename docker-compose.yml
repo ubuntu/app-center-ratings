@@ -3,12 +3,18 @@ version: '3'
 services:
 
   postgres:
-    image: postgres
+    build: ./docker/database
     restart: always
     ports:
-      - 5432:5432
+      - "5433:5432"
     environment:
-      - POSTGRES_PASSWORD=postgres
+      POSTGRES_USER: ${DOCKER_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD}
+      MIGRATION_USER: ${DOCKER_MIGRATION_USER}
+      MIGRATION_PASSWORD: ${DOCKER_MIGRATION_PASSWORD}
+      SERVICE_USER: ${DOCKER_SERVICE_USER}
+      SERVICE_PASSWORD: ${DOCKER_SERVICE_PASSWORD}
+      RATINGS_DB: ${DOCKER_RATINGS_DB}
 
   redis:
     image: redis

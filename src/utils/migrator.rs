@@ -4,7 +4,7 @@ use std::sync::Arc;
 
 use sqlx::{postgres::PgPoolOptions, PgPool};
 
-const MIGRATIONS_PATH: &str = "sql/migrations";
+const MIGRATIONS_PATH: &str = "./sql/migrations";
 
 #[derive(Clone)]
 pub struct Migrator {

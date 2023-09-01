@@ -1,0 +1,52 @@
+[tasks.docker-up]
+script = [
+  "docker compose up --detach",
+  "sleep 3",
+]
+
+[tasks.run-server]
+script = [
+  "cargo run &",
+  "echo $! > server.pid",
+]
+
+[tasks.run-tests]
+script = [
+  "cargo test",
+  "sleep 1"
+]
+
+[tasks.wait-for-server]
+script = [
+  "until nc -z -v -w5 localhost 8080; do",
+  "  echo 'Waiting for server to start on port 8080...'",
+  "  sleep 1",
+  "done"
+]
+
+[tasks.kill-server]
+script = [
+  "kill $(cat server.pid)",
+  "rm server.pid"
+]
+
+[tasks.docker-down]
+script = [
+  "docker compose down"
+]
+
+[tasks.full-test]
+dependencies = [
+  "docker-up",
+  "run-server",
+  "wait-for-server",
+  "run-tests",
+  "kill-server",
+  "docker-down"
+]
+
+[tasks.full-clean]
+script = [
+  "docker rmi ratings-postgres && docker rmi redis",
+  "cargo clean"
+]
