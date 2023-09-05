@@ -23,7 +23,7 @@ jobs:
       - build-rock
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Fetch ROCK artifact
         uses: actions/download-artifact@v3
