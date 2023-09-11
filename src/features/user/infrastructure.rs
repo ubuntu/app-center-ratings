@@ -4,7 +4,10 @@ use tracing::error;
 
 use super::entities::{User, Vote};
 
-pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Result<User, UserError> {
+pub(crate) async fn create_or_seen_user(
+    app_ctx: &AppContext,
+    user: User,
+) -> Result<User, UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -17,13 +20,13 @@ pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Resul
     let result = sqlx::query(
         r#"
         INSERT INTO users (client_hash, created, last_seen)
-        VALUES ($1, $2, $2)
-        RETURNING id
+        VALUES ($1, NOW(), NOW())
+        ON CONFLICT (client_hash)
+        DO UPDATE SET last_seen = NOW()
+        RETURNING id;
         "#,
     )
     .bind(&user.client_hash)
-    .bind(user.last_seen)
-    .bind(user.created)
     .fetch_one(&mut *pool)
     .await
     .map_err(|error| {
@@ -40,34 +43,6 @@ pub(crate) async fn create_user_in_db(app_ctx: &AppContext, user: User) -> Resul
         })?;
 
     Ok(user_with_id)
-}
-
-pub(crate) async fn user_seen(app_ctx: &AppContext, client_hash: &str) -> Result<bool, UserError> {
-    let mut pool = app_ctx
-        .infrastructure()
-        .repository()
-        .await
-        .map_err(|error| {
-            error!("{error:?}");
-            UserError::InvalidUserId
-        })?;
-
-    let result = sqlx::query(
-        r#"
-            UPDATE users
-            SET last_seen = NOW()
-            WHERE client_hash = $1;
-        "#,
-    )
-    .bind(client_hash)
-    .execute(&mut *pool)
-    .await
-    .map_err(|error| {
-        error!("{error:?}");
-        UserError::InvalidUserId
-    })?;
-
-    Ok(result.rows_affected() == 1)
 }
 
 pub(crate) async fn delete_user_by_client_hash(

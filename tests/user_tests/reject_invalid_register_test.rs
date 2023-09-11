@@ -11,7 +11,7 @@ async fn blank() -> Result<(), Box<dyn std::error::Error>> {
         let id = "";
         let client = UserClient::new(&config.socket());
 
-        match client.register(id).await {
+        match client.authenticate(id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)
@@ -30,7 +30,7 @@ async fn wrong_length() -> Result<(), Box<dyn std::error::Error>> {
         let client_hash = "foobarbazbun";
         let client = UserClient::new(&config.socket());
 
-        match client.register(client_hash).await {
+        match client.authenticate(client_hash).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
             Err(status) => {
                 assert_eq!(status.code(), Code::InvalidArgument)

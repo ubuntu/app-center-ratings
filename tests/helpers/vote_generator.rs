@@ -1,4 +1,4 @@
-use super::super::helpers::client_user::pb::{AuthenticateResponse, RegisterResponse, VoteRequest};
+use super::super::helpers::client_user::pb::{AuthenticateResponse, VoteRequest};
 use super::test_data::TestData;
 use crate::helpers;
 
@@ -23,8 +23,8 @@ async fn register_and_vote(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let client = data.user_client.clone().unwrap();
     let id: String = helpers::data_faker::rnd_sha_256();
-    let response: RegisterResponse = client
-        .register(&id)
+    let response: AuthenticateResponse = client
+        .authenticate(&id)
         .await
         .expect("register request should succeed")
         .into_inner();

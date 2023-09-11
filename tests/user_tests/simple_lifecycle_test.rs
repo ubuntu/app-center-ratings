@@ -1,7 +1,7 @@
 use crate::helpers;
 use crate::helpers::test_data::TestData;
 
-use super::super::helpers::client_user::pb::{AuthenticateResponse, RegisterResponse, VoteRequest};
+use super::super::helpers::client_user::pb::{AuthenticateResponse, VoteRequest};
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use futures::FutureExt;
@@ -27,25 +27,21 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
     };
 
     with_lifecycle(async {
-        register(data.clone())
-            .then(authenticate)
-            .then(vote)
-            .then(delete)
-            .await;
+        authenticate(data.clone()).then(vote).then(delete).await;
     })
     .await;
     Ok(())
 }
 
-async fn register(mut data: TestData) -> TestData {
+async fn authenticate(mut data: TestData) -> TestData {
     let id: String = helpers::data_faker::rnd_sha_256();
     data.id = Some(id.to_string());
 
     let client = data.user_client.clone().unwrap();
-    let response: RegisterResponse = client
-        .register(&id)
+    let response: AuthenticateResponse = client
+        .authenticate(&id)
         .await
-        .expect("register request should succeed")
+        .expect("authentication request should succeed")
         .into_inner();
 
     let token: String = response.token;
@@ -63,27 +59,6 @@ async fn register(mut data: TestData) -> TestData {
     let actual: String = rows.get("client_hash");
 
     assert_eq!(actual, id);
-
-    data
-}
-
-async fn authenticate(mut data: TestData) -> TestData {
-    let id = data.id.clone().unwrap();
-    let client = data.user_client.clone().unwrap();
-
-    // todo get last seen
-
-    let response: AuthenticateResponse = client
-        .authenticate(&id)
-        .await
-        .expect("authenticate should succeed")
-        .into_inner();
-
-    let token: String = response.token;
-    data.token = Some(token.to_string());
-    helpers::assert::assert_token_is_valid(&token, &data.app_ctx.config().jwt_secret);
-
-    // todo get last seen and compare
 
     data
 }

@@ -6,19 +6,11 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 service User {
-  rpc Register (RegisterRequest) returns (RegisterResponse) {}
   rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
+
   rpc Delete (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Vote (VoteRequest) returns (google.protobuf.Empty) {}
   rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
-}
-
-message RegisterRequest {
-  string id = 1;
-}
-
-message RegisterResponse {
-  string token = 1;
 }
 
 message AuthenticateRequest {

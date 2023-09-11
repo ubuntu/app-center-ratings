@@ -3,7 +3,6 @@ use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 
 pub use protobuf::user_server;
-use tracing::error;
 
 use crate::app::AppContext;
 use crate::utils::jwt::Claims;
@@ -13,8 +12,8 @@ use super::service::UserService;
 use super::use_cases;
 
 use self::protobuf::{
-    AuthenticateRequest, AuthenticateResponse, ListMyVotesRequest, ListMyVotesResponse,
-    RegisterRequest, RegisterResponse, User, VoteRequest,
+    AuthenticateRequest, AuthenticateResponse, ListMyVotesRequest, ListMyVotesResponse, User,
+    VoteRequest,
 };
 
 pub mod protobuf {
@@ -26,31 +25,6 @@ pub mod protobuf {
 #[tonic::async_trait]
 impl User for UserService {
     #[tracing::instrument]
-    async fn register(
-        &self,
-        request: Request<RegisterRequest>,
-    ) -> Result<Response<RegisterResponse>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
-        let RegisterRequest { id } = request.into_inner();
-        if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
-            let error = Err(Status::invalid_argument("id"));
-            error!("{error:?}");
-            return error;
-        }
-
-        match use_cases::register(&app_ctx, &id).await {
-            Ok(user) => app_ctx
-                .infrastructure()
-                .jwt
-                .encode(user.client_hash)
-                .map(|token| RegisterResponse { token })
-                .map(Response::new)
-                .map_err(|_| Status::internal("internal")),
-            Err(_error) => Err(Status::invalid_argument("id")),
-        }
-    }
-
-    #[tracing::instrument]
     async fn authenticate(
         &self,
         request: Request<AuthenticateRequest>,
@@ -59,24 +33,21 @@ impl User for UserService {
         let AuthenticateRequest { id } = request.into_inner();
 
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
-            return Err(Status::invalid_argument("id"));
+            let error = format!(
+                "Client hash must be of length {:?}",
+                EXPECTED_CLIENT_HASH_LENGTH,
+            );
+            return Err(Status::invalid_argument(error));
         }
 
         match use_cases::authenticate(&app_ctx, &id).await {
-            Ok(exists) => {
-                if exists {
-                    app_ctx
-                        .infrastructure()
-                        .jwt
-                        .encode(id)
-                        .map(|token| AuthenticateResponse { token })
-                        .map(Response::new)
-                        .map_err(|_| Status::internal("internal"))
-                } else {
-                    tracing::info!("no record for client hash {id}");
-                    Err(Status::unauthenticated("invalid credentials"))
-                }
-            }
+            Ok(user) => app_ctx
+                .infrastructure()
+                .jwt
+                .encode(user.client_hash)
+                .map(|token| AuthenticateResponse { token })
+                .map(Response::new)
+                .map_err(|_| Status::internal("internal")),
             Err(_error) => Err(Status::invalid_argument("id")),
         }
     }

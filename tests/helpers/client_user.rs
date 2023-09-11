@@ -1,8 +1,6 @@
 use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
-use tracing::info;
-
 pub mod pb {
     pub use self::user_client::UserClient;
 
@@ -19,14 +17,6 @@ impl UserClient {
         Self {
             url: format!("http://{socket}/"),
         }
-    }
-
-    pub async fn register(&self, id: &str) -> Result<Response<pb::RegisterResponse>, Status> {
-        info!("URL: {:?}", self.url.clone());
-        let mut client = pb::UserClient::connect(self.url.clone()).await.unwrap();
-        client
-            .register(pb::RegisterRequest { id: id.to_string() })
-            .await
     }
 
     #[allow(dead_code)]
