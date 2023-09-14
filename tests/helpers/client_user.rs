@@ -1,6 +1,8 @@
 use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
+
+use self::pb::GetSnapVotesResponse;
 pub mod pb {
     pub use self::user_client::UserClient;
 
@@ -43,6 +45,25 @@ impl UserClient {
             Ok(req)
         });
         client.vote(ballet).await
+    }
+
+    #[allow(dead_code)]
+    pub async fn get_snap_votes(
+        &self,
+        token: &str,
+        request: pb::GetSnapVotesRequest,
+    ) -> Result<Response<GetSnapVotesResponse>, Status> {
+        let channel = Endpoint::from_shared(self.url.clone())
+            .unwrap()
+            .connect()
+            .await
+            .unwrap();
+        let mut client = pb::UserClient::with_interceptor(channel, move |mut req: Request<()>| {
+            let header: MetadataValue<_> = format!("Bearer {token}").parse().unwrap();
+            req.metadata_mut().insert("authorization", header);
+            Ok(req)
+        });
+        client.get_snap_votes(request).await
     }
 
     #[allow(dead_code)]

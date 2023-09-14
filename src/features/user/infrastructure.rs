@@ -75,6 +75,63 @@ pub(crate) async fn delete_user_by_client_hash(
     Ok(rows.rows_affected())
 }
 
+pub(crate) async fn get_snap_votes_by_client_hash(
+    app_ctx: &AppContext,
+    snap_id: String,
+    client_hash: String,
+) -> Result<Vec<Vote>, UserError> {
+    let mut pool = app_ctx
+        .infrastructure()
+        .repository()
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToGetUserVote
+        })?;
+
+    let result = sqlx::query(
+        r#"
+                SELECT
+                    votes.id,
+                    votes.created,
+                    votes.snap_id,
+                    votes.snap_revision,
+                    votes.vote_up
+                FROM
+                    users
+                INNER JOIN
+                    votes
+                ON
+                    users.id = votes.user_id_fk
+                WHERE
+                    users.client_hash = $1
+                AND
+                    votes.snap_id = $2
+        "#,
+    )
+    .bind(client_hash.clone())
+    .bind(snap_id)
+    .fetch_all(&mut *pool)
+    .await
+    .map_err(|error| {
+        error!("{error:?}");
+        UserError::Unknown
+    })?;
+
+    let votes: Vec<Vote> = result
+        .into_iter()
+        .map(|row| Vote {
+            client_hash: client_hash.clone(),
+            snap_id: row.get("snap_id"),
+            snap_revision: row.get::<i32, _>("snap_revision") as u32,
+            vote_up: row.get("vote_up"),
+            timestamp: row.get("created"),
+        })
+        .collect();
+
+    Ok(votes)
+}
+
 pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()

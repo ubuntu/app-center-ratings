@@ -11,6 +11,7 @@ service User {
   rpc Delete (google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc Vote (VoteRequest) returns (google.protobuf.Empty) {}
   rpc ListMyVotes (ListMyVotesRequest) returns (ListMyVotesResponse) {}
+  rpc GetSnapVotes(GetSnapVotesRequest) returns (GetSnapVotesResponse) {}
 }
 
 message AuthenticateRequest {
@@ -26,6 +27,14 @@ message ListMyVotesRequest {
 }
 
 message ListMyVotesResponse {
+  repeated Vote votes = 1;
+}
+
+message GetSnapVotesRequest {
+  string snap_id = 1;
+}
+
+message GetSnapVotesResponse {
   repeated Vote votes = 1;
 }
 

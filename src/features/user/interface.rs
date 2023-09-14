@@ -12,8 +12,8 @@ use super::service::UserService;
 use super::use_cases;
 
 use self::protobuf::{
-    AuthenticateRequest, AuthenticateResponse, ListMyVotesRequest, ListMyVotesResponse, User,
-    VoteRequest,
+    AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
+    ListMyVotesRequest, ListMyVotesResponse, User, VoteRequest,
 };
 
 pub mod protobuf {
@@ -108,6 +108,30 @@ impl User for UserService {
             Ok(votes) => {
                 let votes = votes.into_iter().map(|vote| vote.into_dto()).collect();
                 let payload = ListMyVotesResponse { votes };
+                Ok(Response::new(payload))
+            }
+            Err(_error) => Err(Status::unknown("Internal server error")),
+        }
+    }
+
+    #[tracing::instrument]
+    async fn get_snap_votes(
+        &self,
+        request: Request<GetSnapVotesRequest>,
+    ) -> Result<Response<GetSnapVotesResponse>, Status> {
+        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+        let Claims {
+            sub: client_hash, ..
+        } = claims(&request);
+
+        let GetSnapVotesRequest { snap_id } = request.into_inner();
+
+        let result = use_cases::get_snap_votes(&app_ctx, snap_id, client_hash).await;
+
+        match result {
+            Ok(votes) => {
+                let votes = votes.into_iter().map(|vote| vote.into_dto()).collect();
+                let payload = GetSnapVotesResponse { votes };
                 Ok(Response::new(payload))
             }
             Err(_error) => Err(Status::unknown("Internal server error")),

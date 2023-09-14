@@ -3,7 +3,9 @@ use crate::features::user::infrastructure::{find_user_votes, save_vote_to_db};
 
 use super::entities::{User, Vote};
 use super::errors::UserError;
-use super::infrastructure::{create_or_seen_user, delete_user_by_client_hash};
+use super::infrastructure::{
+    create_or_seen_user, delete_user_by_client_hash, get_snap_votes_by_client_hash,
+};
 
 pub async fn authenticate(app_ctx: &AppContext, id: &str) -> Result<User, UserError> {
     let user = User::new(id);
@@ -20,6 +22,14 @@ pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
     let result = save_vote_to_db(app_ctx, vote).await;
     result?;
     Ok(())
+}
+
+pub async fn get_snap_votes(
+    app_ctx: &AppContext,
+    snap_id: String,
+    client_hash: String,
+) -> Result<Vec<Vote>, UserError> {
+    get_snap_votes_by_client_hash(app_ctx, snap_id, client_hash).await
 }
 
 pub async fn list_my_votes(
