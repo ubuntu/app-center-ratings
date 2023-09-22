@@ -1,0 +1,2 @@
+pull-and-rebuild:
+  description: "Pull the latest code from GitHub and rebuild the application"

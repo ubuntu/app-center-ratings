@@ -1,0 +1,22 @@
+# This file populates the Overview on Charmhub.
+# See https://juju.is/docs/sdk/metadata-reference for a checklist and guidance.
+
+name: ubuntu-software-ratings
+display-name: Ubuntu Software Ratings
+
+summary: Ubuntu App Ratings Service
+
+description: |
+  Backend service to support application ratings in the new Ubuntu Software Centre.
+
+assumes:
+  - juju >= 3.1
+
+requires:
+  database:
+    interface: postgresql_client
+    limit: 1
+
+peers:
+  ratings-peers:
+    interface: ratings_peers

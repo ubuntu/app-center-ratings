@@ -1,0 +1,29 @@
+options:
+  app-env:
+    type: string
+    default: "dev"
+    description: "Application environment."
+  app-host:
+    type: string
+    default: "0.0.0.0"
+  app-jwt-secret:
+    type: string
+    default: "deadbeef"
+  app-log-level:
+    type: string
+    default: "info"
+  app-name:
+    type: string
+    default: "ratings"
+  app-port:
+    type: int
+    default: 443
+  app-repo:
+    type: string
+    default: "https://github.com/matthew-hagemann/app-center-ratings"
+  app-postgres-uri:
+    type: string
+    default: "postgresql://service:covfefe!1@localhost:5433/ratings"
+  app-migration-postgres-uri:
+    type: string
+    default: "postgresql://migration_user:strongpassword@localhost:5433/ratings"

@@ -31,8 +31,9 @@ CREATE TABLE votes (
 -- can't vote more than once for the same snap revision.
 CREATE UNIQUE INDEX idx_votes_unique_user_snap ON votes (user_id_fk, snap_id, snap_revision);
 
-GRANT ALL PRIVILEGES ON TABLE users TO service;
-GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO service;
-GRANT ALL PRIVILEGES ON TABLE votes TO service;
-GRANT USAGE, SELECT ON SEQUENCE votes_id_seq TO service;
-GRANT CONNECT ON DATABASE ratings TO service;
+-- Grant privileges to the user currently running the script
+GRANT ALL PRIVILEGES ON TABLE users TO CURRENT_USER;
+GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO CURRENT_USER;
+GRANT ALL PRIVILEGES ON TABLE votes TO CURRENT_USER;
+GRANT USAGE, SELECT ON SEQUENCE votes_id_seq TO CURRENT_USER;
+GRANT CONNECT ON DATABASE ratings TO CURRENT_USER;

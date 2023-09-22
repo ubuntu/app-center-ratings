@@ -17,7 +17,7 @@ image="$(yq '.resources."ratings-image"."upstream-source"' metadata.yaml)"
 juju deploy ./ubuntu-software-ratings_ubuntu-22.04-amd64.charm ratings \
     --resource ratings-image="$image"
 
-juju deploy postgresql-k8s postgres --channel latest/edge
+juju deploy postgresql --channel edge 
 
 juju relate ratings postgresql
 ```
