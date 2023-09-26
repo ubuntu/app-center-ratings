@@ -27,3 +27,6 @@ options:
   app-migration-postgres-uri:
     type: string
     default: "postgresql://migration_user:strongpassword@localhost:5433/ratings"
+  squid-proxy-url:
+    type: string
+    default: ""

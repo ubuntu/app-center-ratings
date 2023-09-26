@@ -65,9 +65,17 @@ class RatingsCharm(ops.CharmBase):
         # Install what is avalible via apt
         self._install_apt_packages(["curl", "git", "gcc", "libssl-dev", "pkg-config","protobuf-compiler"])
 
+        # Ensure squid proxy, done after apt to not interfere
+        proxy_url = self.config["squid-proxy-url"]
+        if proxy_url:
+            os.environ['HTTP_PROXY'] = proxy_url
+            os.environ['HTTPS_PROXY'] = proxy_url
+
+
         # curl minial rust toolchain
         try:
             check_output("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal", shell=True)
+
         except CalledProcessError as e:
             logger.error(f"Curl command failed with error code {e.returncode}")
             self.unit.status = BlockedStatus("Curl command failed")
@@ -112,6 +120,12 @@ class RatingsCharm(ops.CharmBase):
         if not self._stored.repo:
             self._stored.repo = self.config["app-repo"]
 
+        # Ensure squid proxy
+        proxy_url = self.config["squid-proxy-url"]
+        if proxy_url:
+            os.environ['HTTP_PROXY'] = proxy_url
+            os.environ['HTTPS_PROXY'] = proxy_url
+
         # Fetch the code using git
         Repo.clone_from(self._stored.repo, APP_PATH, branch='vm-charm')
 
@@ -125,7 +139,6 @@ class RatingsCharm(ops.CharmBase):
     def _on_database_created(self, _: DatabaseCreatedEvent):
         """Handle the database creation event."""
         logger.info("Database created event triggered.")
-        logger.info("Starting ratings service.")
         self._setup_application()
         self._render_systemd_unit()
         self._start_ratings()
