@@ -5,7 +5,7 @@ on:
     branches:
       - main
     paths:
-      - operator/**
+      - k8s_operator/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

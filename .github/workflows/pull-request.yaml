@@ -3,7 +3,7 @@ name: Pull Request
 on:
   pull_request:
     paths-ignore:
-      - operator/**
+      - k8s_operator/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
