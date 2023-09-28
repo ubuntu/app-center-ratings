@@ -65,10 +65,7 @@ class RatingsCharm(ops.CharmBase):
         self._install_apt_packages(["curl", "git", "gcc", "libssl-dev", "pkg-config","protobuf-compiler"])
 
         # Ensure squid proxy, done after apt to not interfere
-        proxy_url = self.config["squid-proxy-url"]
-        if proxy_url:
-            os.environ['HTTP_PROXY'] = proxy_url
-            os.environ['HTTPS_PROXY'] = proxy_url
+        self._set_squid_proxy()
 
         # Curl minial rust toolchain
         try:
@@ -120,10 +117,7 @@ class RatingsCharm(ops.CharmBase):
             self._stored.repo = self.config["app-repo"]
 
         # Ensure squid proxy
-        proxy_url = self.config["squid-proxy-url"]
-        if proxy_url:
-            os.environ['HTTP_PROXY'] = proxy_url
-            os.environ['HTTPS_PROXY'] = proxy_url
+        self._set_squid_proxy()
 
         # Fetch the code using git
         try:
@@ -237,6 +231,9 @@ class RatingsCharm(ops.CharmBase):
         """Pull new code and rebuild the application."""
         event.set_results({"status": "pulling and rebuilding"})
         try:
+
+            self._set_squid_proxy()
+
             # Pull new code
             repo = Repo(APP_PATH)
             repo.remotes.origin.pull()
@@ -251,6 +248,14 @@ class RatingsCharm(ops.CharmBase):
         except Exception as e:
             event.fail(f"Failed: {str(e)}")
             self.unit.status = BlockedStatus(f"Pull and rebuild failed: {str(e)}")
+
+    def _set_squid_proxy(self):
+        """Set Squid proxy environment variables if configured."""
+        proxy_url = self.config["squid-proxy-url"]
+        if proxy_url:
+            os.environ['HTTP_PROXY'] = proxy_url
+            os.environ['HTTPS_PROXY'] = proxy_url
+
 
 
 if __name__ == "__main__":  # pragma: nocover
