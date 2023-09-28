@@ -13,9 +13,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     tracing::info!("Starting Ubuntu App Rating Service");
 
-    tracing::info!("Config I have: {:?}", config);
-    tracing::info!("I have been update again, yippie!");
-
     app::run(config).await?;
 
     Ok(())

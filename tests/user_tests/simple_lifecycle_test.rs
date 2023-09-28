@@ -127,7 +127,10 @@ async fn delete(data: TestData) -> TestData {
         .await;
 
     let Err(sqlx::Error::RowNotFound) = result else {
-        panic!("The user {} still exists in the database or there was a database error", id);
+        panic!(
+            "The user {} still exists in the database or there was a database error",
+            id
+        );
     };
 
     data
