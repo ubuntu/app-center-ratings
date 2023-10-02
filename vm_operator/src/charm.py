@@ -43,14 +43,12 @@ class RatingsCharm(ops.CharmBase):
 
         # Initialise the integration with PostgreSQL
         self._database = DatabaseRequires(self, relation_name="database", database_name="ratings")
-
         self.framework.observe(self._database.on.database_created, self._on_database_created)
         self.framework.observe(self.on.install, self._on_install)
         self._stored.set_default(repo="", port="", conn_str="", install_completed=False)
         self.framework.observe(self.on.start, self._on_start)
         self.framework.observe(self.on.pull_and_rebuild_action, self._on_pull_and_rebuild)
 
-        # self.framework.observe(self.on.config_changed, self._on_config_changed)
     def _on_start(self, _):
         """Start the workload."""
         # Enable and start the "ratings" systemd unit
@@ -80,6 +78,9 @@ class RatingsCharm(ops.CharmBase):
 
     def _render_systemd_unit(self):
         """Render the systemd unit file for the application."""
+        if not self._stored.port:
+            self._stored.port = self.config["app-port"]
+
         with open("templates/ratings-service.j2", "r") as t:
             template = Template(t.read())
 
@@ -95,7 +96,7 @@ class RatingsCharm(ops.CharmBase):
             app_jwt_secret=jwt_secret,
             app_log_level=self.config["app-log-level"],
             app_name=self.config["app-name"],
-            app_port=self.config["app-port"],
+            app_port=self._stored.port,
             app_postgres_uri=connection_string,
             app_migration_postgres_uri=connection_string
         )
@@ -161,7 +162,7 @@ class RatingsCharm(ops.CharmBase):
         try:
             logger.info("Resuming systemd service for ratings.")
             systemd.service_resume("ratings")
-            self.unit.open_port(protocol="tcp", port=443)
+            self.unit.open_port(protocol="tcp", port=self.config["app-port"])
             self.unit.status = ops.ActiveStatus()
             logger.info("Ratings service started successfully.")
         except Exception as e:

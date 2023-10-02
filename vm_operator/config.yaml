@@ -29,4 +29,4 @@ options:
     default: "postgresql://migration_user:strongpassword@localhost:5433/ratings"
   squid-proxy-url:
     type: string
-    default: ""
+    default: "http://proxy.example.com"
