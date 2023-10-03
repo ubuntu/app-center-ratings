@@ -8,21 +8,20 @@ A backend service to support application ratings in the new Ubuntu Software Cent
 """
 
 import logging
+import os
 import secrets
+import shutil
+from os import environ
+from pathlib import Path
+from subprocess import CalledProcessError, check_output
 
 import ops
-
-from pathlib import Path
-from git import Repo
-import shutil
-from charms.operator_libs_linux.v0 import apt, systemd
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
-from ops.model import MaintenanceStatus, BlockedStatus, ActiveStatus
-from ops.framework import StoredState
-from subprocess import check_output, CalledProcessError
-import os
-from os import environ
+from charms.operator_libs_linux.v0 import apt, systemd
+from git import Repo
 from jinja2 import Template
+from ops.framework import StoredState
+from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
 
 logger = logging.getLogger(__name__)
 
@@ -61,14 +60,19 @@ class RatingsCharm(ops.CharmBase):
         self.unit.status = MaintenanceStatus("Installing rustc, cargo and other dependencies")
 
         # Install via apt
-        self._install_apt_packages(["curl", "git", "gcc", "libssl-dev", "pkg-config","protobuf-compiler"])
+        self._install_apt_packages(
+            ["curl", "git", "gcc", "libssl-dev", "pkg-config", "protobuf-compiler"]
+        )
 
         # Ensure squid proxy, done after apt to not interfere
         self._set_squid_proxy()
 
         # Curl minial rust toolchain
         try:
-            check_output("curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal", shell=True)
+            check_output(
+                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal",
+                shell=True,
+            )
             self._stored.install_completed = True
             self.unit.status = MaintenanceStatus("Installation complete, waiting for database.")
 
@@ -93,7 +97,7 @@ class RatingsCharm(ops.CharmBase):
             app_jwt_secret=jwt_secret,
             app_log_level=self.config["app-log-level"],
             app_postgres_uri=connection_string,
-            app_migration_postgres_uri=connection_string
+            app_migration_postgres_uri=connection_string,
         )
         with open(UNIT_PATH, "w+") as t:
             t.write(rendered)
@@ -117,7 +121,7 @@ class RatingsCharm(ops.CharmBase):
 
         # Fetch the code using git
         try:
-            Repo.clone_from(self._stored.repo, APP_PATH, branch='vm-charm')
+            Repo.clone_from(self._stored.repo, APP_PATH, branch="vm-charm")
             self.unit.status = MaintenanceStatus("Code fetched, building now.")
         except Exception as e:
             logger.error(f"Git clone failed: {str(e)}")
@@ -227,7 +231,6 @@ class RatingsCharm(ops.CharmBase):
         """Pull new code and rebuild the application."""
         event.set_results({"status": "pulling and rebuilding"})
         try:
-
             self._set_squid_proxy()
 
             # Pull new code
@@ -249,9 +252,8 @@ class RatingsCharm(ops.CharmBase):
         """Set Squid proxy environment variables if configured."""
         proxy_url = self.config["squid-proxy-url"]
         if proxy_url:
-            os.environ['HTTP_PROXY'] = proxy_url
-            os.environ['HTTPS_PROXY'] = proxy_url
-
+            os.environ["HTTP_PROXY"] = proxy_url
+            os.environ["HTTPS_PROXY"] = proxy_url
 
 
 if __name__ == "__main__":  # pragma: nocover

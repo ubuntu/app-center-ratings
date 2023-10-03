@@ -1,21 +1,21 @@
+import os
 import unittest
-
-import logging
 from pathlib import Path
 from unittest import mock
-from unittest.mock import Mock, call, mock_open, patch
+from unittest.mock import call, mock_open, patch
+
+from charm import APP_PATH, CARGO_PATH, UNIT_PATH, RatingsCharm
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent
-from charm import RatingsCharm, UNIT_PATH, APP_PATH, CARGO_PATH
-from charms.operator_libs_linux.v0 import apt, systemd
+from charms.operator_libs_linux.v0 import apt
 from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus, WaitingStatus
-import os
-from os import environ
 from ops.testing import Harness
+
 
 class MockDatabaseEvent:
     def __init__(self, id, name="database"):
         self.name = name
         self.id = id
+
 
 DB_RELATION_DATA = {
     "database": "ratings",
@@ -48,6 +48,7 @@ ExecStopPost = /bin/rm -rf /srv/app/run
 [Install]
 WantedBy = multi-user.target"""
 
+
 class TestCharm(unittest.TestCase):
     def setUp(self):
         self.harness = Harness(RatingsCharm)
@@ -58,9 +59,12 @@ class TestCharm(unittest.TestCase):
     def test_on_install(self, _install):
         self.harness.charm.on.install.emit()
         self.assertEqual(
-            self.harness.charm.unit.status, MaintenanceStatus("Installation complete, waiting for database.")
+            self.harness.charm.unit.status,
+            MaintenanceStatus("Installation complete, waiting for database."),
         )
-        _install.assert_called_with(["curl", "git", "gcc", "libssl-dev", "pkg-config","protobuf-compiler"])
+        _install.assert_called_with(
+            ["curl", "git", "gcc", "libssl-dev", "pkg-config", "protobuf-compiler"]
+        )
 
     @mock.patch("charms.operator_libs_linux.v0.systemd.service_resume")
     def test_on_start(self, _resume):
@@ -129,10 +133,15 @@ class TestCharm(unittest.TestCase):
         _rmtree.assert_called_with("/srv/app")
 
         # Check we set the stored repository where none exists
-        self.assertEqual(self.harness.charm._stored.repo, "https://github.com/matthew-hagemann/app-center-ratings")
+        self.assertEqual(
+            self.harness.charm._stored.repo,
+            "https://github.com/matthew-hagemann/app-center-ratings",
+        )
 
         # Ensure we clone the repo
-        _clone.assert_called_with("https://github.com/matthew-hagemann/app-center-ratings", APP_PATH,branch='vm-charm')
+        _clone.assert_called_with(
+            "https://github.com/matthew-hagemann/app-center-ratings", APP_PATH, branch="vm-charm"
+        )
 
         # Check that cargo build was called correctly
         self.assertEqual(
@@ -222,13 +231,17 @@ class TestCharm(unittest.TestCase):
     def test_ratings_database_created_database_success(self):
         rel_id = self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
         self.harness.charm._database.on.database_created.emit(MockDatabaseEvent(id=rel_id))
-        self.assertEqual(self.harness.model.unit.status, WaitingStatus("Waiting for install to complete."))
+        self.assertEqual(
+            self.harness.model.unit.status, WaitingStatus("Waiting for install to complete.")
+        )
 
     @mock.patch("charms.operator_libs_linux.v0.systemd.service_resume")
     def test_start_ratings(self, _resume):
         # If no relation, wait on relation
         self.harness.charm._start_ratings()
-        self.assertEqual(self.harness.charm.unit.status, WaitingStatus('Waiting for database relation'))
+        self.assertEqual(
+            self.harness.charm.unit.status, WaitingStatus("Waiting for database relation")
+        )
 
         # If the relation is set, open the ports and restart the service
         self.harness.add_relation("database", "postgresql", unit_data=DB_RELATION_DATA)
@@ -239,7 +252,7 @@ class TestCharm(unittest.TestCase):
 
         # Check the ports have been opened
         opened_ports = {(p.protocol, p.port) for p in self.harness.charm.unit.opened_ports()}
-        self.assertEqual(opened_ports, {('tcp', 443)})
+        self.assertEqual(opened_ports, {("tcp", 443)})
 
         # Check status is active
         self.assertEqual(self.harness.charm.unit.status, ActiveStatus())
@@ -266,14 +279,13 @@ class TestCharm(unittest.TestCase):
     @mock.patch("charms.operator_libs_linux.v0.systemd.service_restart")
     @mock.patch("charm.check_output")
     @mock.patch("charm.Repo")
-    def test_on_pull_and_rebuild(self, _MockRepo, _check, _restart):
-
+    def test_on_pull_and_rebuild(self, _mock_repo, _check, _restart):
         # Can't mock chain in the @mock.patch, so set up chaining manually for pull
         mock_pull = mock.Mock()
         mock_origin = mock.Mock(pull=mock_pull)
         mock_remotes = mock.Mock(origin=mock_origin)
 
-        _MockRepo.return_value.remotes = mock_remotes  # Set up mock chaining
+        _mock_repo.return_value.remotes = mock_remotes  # Set up mock chaining
 
         # Create event mock
         mock_event = mock.Mock()
@@ -300,4 +312,6 @@ class TestCharm(unittest.TestCase):
 
         _restart.assert_called_with("ratings")
 
-        self.assertEqual(self.harness.charm.unit.status, ActiveStatus("Successfully pulled and rebuilt."))
+        self.assertEqual(
+            self.harness.charm.unit.status, ActiveStatus("Successfully pulled and rebuilt.")
+        )
