@@ -78,7 +78,7 @@ class TestCharm(unittest.TestCase):
     def test_render_systemd_unit(self, _chmod, _reload):
         # Create a mock for the `open` method, set the return value of `read` to
         # the contents of the systemd unit template
-        with open("../../templates/ratings-service.j2", "r") as f:
+        with open("templates/ratings-service.j2", "r") as f:
             m = mock_open(read_data=f.read())
 
         # Patch the `open` method with our mock

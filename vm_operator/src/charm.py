@@ -59,7 +59,7 @@ class RatingsCharm(ops.CharmBase):
         """Install prerequisites for the application."""
         self.unit.status = MaintenanceStatus("Installing rustc, cargo and other dependencies")
 
-        # Install what is avalible via apt
+        # Install via apt
         self._install_apt_packages(["curl", "git", "gcc", "libssl-dev", "pkg-config","protobuf-compiler"])
 
         # Ensure squid proxy, done after apt to not interfere

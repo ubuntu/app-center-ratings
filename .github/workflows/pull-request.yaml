@@ -3,7 +3,7 @@ name: Pull Request
 on:
   pull_request:
     paths-ignore:
-      - k8s_operator/**
+      - vm_operator/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,6 +12,3 @@ concurrency:
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
-
-  build-rock:
-    uses: ./.github/workflows/build-rock.yaml
