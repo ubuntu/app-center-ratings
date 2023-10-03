@@ -4,11 +4,8 @@ After=network.target
 
 [Service]
 Environment="APP_ENV={{ app_env }}"
-Environment="APP_HOST={{ app_host }}"
 Environment="APP_JWT_SECRET={{ app_jwt_secret }}"
 Environment="APP_LOG_LEVEL={{ app_log_level }}"
-Environment="APP_NAME={{ app_name }}"
-Environment="APP_PORT={{ app_port }}"
 Environment="APP_POSTGRES_URI={{ app_postgres_uri }}"
 Environment="APP_MIGRATION_POSTGRES_URI={{ app_migration_postgres_uri }}"
 WorkingDirectory = {{ project_root }}

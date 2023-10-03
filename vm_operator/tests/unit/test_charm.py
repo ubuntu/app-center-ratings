@@ -31,11 +31,8 @@ After=network.target
 
 [Service]
 Environment="APP_ENV=dev"
-Environment="APP_HOST=0.0.0.0"
 Environment="APP_JWT_SECRET="
 Environment="APP_LOG_LEVEL=info"
-Environment="APP_NAME=ratings"
-Environment="APP_PORT=443"
 Environment="APP_POSTGRES_URI="
 Environment="APP_MIGRATION_POSTGRES_URI="
 WorkingDirectory = /srv/app
@@ -92,8 +89,6 @@ class TestCharm(unittest.TestCase):
 
         # Check the unit path is correct
         self.assertEqual(UNIT_PATH, Path("/etc/systemd/system/ratings.service"))
-        # Check the state was updated with the port from the config
-        self.assertEqual(self.harness.charm._stored.port, self.harness.charm.config["app-port"])
         # Check the template is opened read-only in the first call to open
         self.assertEqual(m.call_args_list[0][0], ("templates/ratings-service.j2", "r"))
         # Check the systemd unit file is opened with "w+" mode in the second call to open
@@ -104,19 +99,6 @@ class TestCharm(unittest.TestCase):
         _chmod.assert_called_with(UNIT_PATH, 0o755)
         # Check that systemd is reloaded to register the changes to the unit
         _reload.assert_called_once()
-
-        # Now check that any existing port in state is respected
-        # Patch the `open` method with our mock
-        with patch("builtins.open", m, create=True):
-            # Ensure the stored value is clear to test it's set properly
-            self.harness.charm._stored.port = 8080
-            # Mock the return value of the `check_call`
-            _reload.return_value = 0
-            # Call the method
-            self.harness.charm._render_systemd_unit()
-        # Ensure the rendered template is adjusted to take into consideration the port
-        m.return_value.write.assert_called_with(RENDERED_SYSTEMD_UNIT.replace("APP_PORT=443", "APP_PORT=8080"))
-        self.assertEqual(self.harness.charm._stored.port, 8080)
 
     @mock.patch.dict(os.environ, {}, clear=True)
     @mock.patch("charm.check_output")

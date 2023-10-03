@@ -30,6 +30,7 @@ logger = logging.getLogger(__name__)
 APP_PATH = Path("/srv/app")
 UNIT_PATH = Path("/etc/systemd/system/ratings.service")
 CARGO_PATH = Path(environ.get("HOME", "/root")) / ".cargo/bin/cargo"
+APP_PORT = 443
 
 
 class RatingsCharm(ops.CharmBase):
@@ -78,9 +79,6 @@ class RatingsCharm(ops.CharmBase):
 
     def _render_systemd_unit(self):
         """Render the systemd unit file for the application."""
-        if not self._stored.port:
-            self._stored.port = self.config["app-port"]
-
         with open("templates/ratings-service.j2", "r") as t:
             template = Template(t.read())
 
@@ -92,11 +90,8 @@ class RatingsCharm(ops.CharmBase):
         rendered = template.render(
             project_root=APP_PATH,
             app_env=self.config["app-env"],
-            app_host=self.config["app-host"],
             app_jwt_secret=jwt_secret,
             app_log_level=self.config["app-log-level"],
-            app_name=self.config["app-name"],
-            app_port=self._stored.port,
             app_postgres_uri=connection_string,
             app_migration_postgres_uri=connection_string
         )
@@ -162,7 +157,7 @@ class RatingsCharm(ops.CharmBase):
         try:
             logger.info("Resuming systemd service for ratings.")
             systemd.service_resume("ratings")
-            self.unit.open_port(protocol="tcp", port=self.config["app-port"])
+            self.unit.open_port(protocol="tcp", port=APP_PORT)
             self.unit.status = ops.ActiveStatus()
             logger.info("Ratings service started successfully.")
         except Exception as e:
