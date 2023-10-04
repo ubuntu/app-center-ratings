@@ -1,4 +1,4 @@
-[tasks.docker-up]
+[tasks.db-up]
 script = [
   "docker compose up --detach",
   "sleep 3",
@@ -30,23 +30,21 @@ script = [
   "rm server.pid"
 ]
 
-[tasks.docker-down]
+[tasks.db-down]
 script = [
   "docker compose down"
 ]
 
 [tasks.full-test]
 dependencies = [
-  "docker-up",
   "run-server",
   "wait-for-server",
   "run-tests",
-  "kill-server",
-  "docker-down"
+  "kill-server"
 ]
 
 [tasks.full-clean]
 script = [
-  "docker rmi ratings-postgres && docker rmi redis",
+  "docker rmi ratings-postgres --force && docker rmi redis --force",
   "cargo clean"
 ]
