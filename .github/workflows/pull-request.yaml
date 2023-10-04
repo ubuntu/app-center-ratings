@@ -12,3 +12,5 @@ concurrency:
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
+  cla:
+    uses: ./.github/workflows/cla.yaml

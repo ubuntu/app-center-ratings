@@ -12,3 +12,5 @@ concurrency:
 jobs:
   build-test:
     uses: ./.github/workflows/build-charm.yaml
+  cla:
+    uses: ./.github/workflows/cla.yaml
