@@ -11,4 +11,4 @@ options:
     default: "https://github.com/matthew-hagemann/app-center-ratings"
   squid-proxy-url:
     type: string
-    default: "http://proxy.example.com"
+    default: ""

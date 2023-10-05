@@ -30,6 +30,8 @@ APP_PATH = Path("/srv/app")
 UNIT_PATH = Path("/etc/systemd/system/ratings.service")
 CARGO_PATH = Path(environ.get("HOME", "/root")) / ".cargo/bin/cargo"
 APP_PORT = 443
+APP_NAME = "ratings"
+APP_HOST = "0.0.0.0"
 
 
 class RatingsCharm(ops.CharmBase):
@@ -94,8 +96,11 @@ class RatingsCharm(ops.CharmBase):
         rendered = template.render(
             project_root=APP_PATH,
             app_env=self.config["app-env"],
+            app_host=APP_HOST,
             app_jwt_secret=jwt_secret,
             app_log_level=self.config["app-log-level"],
+            app_name=APP_NAME,
+            app_port=APP_PORT,
             app_postgres_uri=connection_string,
             app_migration_postgres_uri=connection_string,
         )

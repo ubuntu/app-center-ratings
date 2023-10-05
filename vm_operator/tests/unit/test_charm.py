@@ -31,8 +31,11 @@ After=network.target
 
 [Service]
 Environment="APP_ENV=dev"
+Environment="APP_HOST=0.0.0.0"
 Environment="APP_JWT_SECRET="
 Environment="APP_LOG_LEVEL=info"
+Environment="APP_NAME=ratings"
+Environment="APP_PORT=443"
 Environment="APP_POSTGRES_URI="
 Environment="APP_MIGRATION_POSTGRES_URI="
 WorkingDirectory = /srv/app
@@ -120,10 +123,6 @@ class TestCharm(unittest.TestCase):
         self.assertEqual(self.harness.charm._stored.repo, self.harness.charm.config["app-repo"])
 
         self.assertEqual(APP_PATH, Path("/srv/app"))
-
-        # Check squid proxy is set correctly
-        self.assertEqual(os.environ.get("HTTP_PROXY"), "http://proxy.example.com")
-        self.assertEqual(os.environ.get("HTTPS_PROXY"), "http://proxy.example.com")
 
         # Ensure we set the charm status correctly
         self.assertEqual(
@@ -294,10 +293,6 @@ class TestCharm(unittest.TestCase):
 
         # Run the handler
         self.harness.charm._on_pull_and_rebuild(mock_event)
-
-        # Check squid proxy is set correctly
-        self.assertEqual(os.environ.get("HTTP_PROXY"), "http://proxy.example.com")
-        self.assertEqual(os.environ.get("HTTPS_PROXY"), "http://proxy.example.com")
 
         # Ensure we clone the repo
         mock_pull.assert_called()

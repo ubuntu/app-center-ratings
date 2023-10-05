@@ -29,3 +29,25 @@ jobs:
         run: |
           cd vm_operator
           tox -e unit
+
+  integration-test:
+    name: Integration tests
+    runs-on: ubuntu-22.04
+    needs:
+      - lint
+      - unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup hosts for tests
+        run: |
+          echo "10.64.140.43 testing-ratings.foo.bar" | sudo tee -a /etc/hosts
+      - name: Setup operator environment
+        uses: charmed-kubernetes/actions-operator@main
+        with:
+          provider: lxd
+          juju-channel: 3.2/stable
+      - name: Run integration tests
+        run: |
+          cd vm_operator
+          tox -e integration -- --model=testing
