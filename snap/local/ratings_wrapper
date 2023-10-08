@@ -1,0 +1,8 @@
+#!/bin/sh
+
+export APP_JWT_SECRET=$(snapctl get app-jwt-secret)
+export APP_LOG_LEVEL=$(snapctl get app-log-level)
+export APP_POSTGRES_URI=$(snapctl get app-postgres-uri)
+export APP_MIGRATION_POSTGRES_URI=$(snapctl get app-migration-postgres-uri)
+
+exec $SNAP/bin/ratings

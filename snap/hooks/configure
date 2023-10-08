@@ -1,0 +1,23 @@
+#!/bin/sh
+
+set -eu
+
+app_jwt_secret="$(snapctl get app-jwt-secret)"
+if [ -z "$app_jwt_secret" ]; then
+    snapctl set app-jwt-secret=deadbeef
+fi
+
+app_log_level="$(snapctl get app-log-level)"
+if [ -z "$app_log_level" ]; then
+    snapctl set app-log-level=info
+fi
+
+app_postgres_uri="$(snapctl get app-postgres-uri)"
+if [ -z "$app_postgres_uri" ]; then
+    snapctl set app-postgres-uri=postgresql://service:covfefe!1@localhost:5433/ratings
+fi
+
+app_migration_postgres_uri="$(snapctl get app-migration-postgres-uri)"
+if [ -z "$app_migration_postgres_uri" ]; then
+    snapctl set app-migration-postgres-uri=postgresql://migration_user:strongpassword@localhost:5433/ratings
+fi

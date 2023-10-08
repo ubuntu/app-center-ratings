@@ -1,0 +1,54 @@
+name: ratings
+base: core20
+version: '1.3'
+license: GPL-3.0
+summary: Ubuntu App Ratings Service
+description: |
+  Backend service to support application ratings in the new Ubuntu Software Centre.
+
+grade: stable
+confinement: strict
+
+apps:
+  ratings-svc:
+    command: ratings_wrapper
+    daemon: simple
+    plugs:
+      - network
+      - network-bind
+
+environment:
+      APP_ENV: dev
+      APP_HOST: 0.0.0.0
+      APP_NAME: ratings
+      APP_PORT: 443
+
+parts:
+  rust-deps:
+    plugin: nil
+    override-pull: |
+      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
+
+  ratings:
+    after: [ rust-deps ]
+    plugin: rust
+    build-packages:
+      - libssl-dev
+      - pkg-config
+    build-snaps:
+      - protobuf
+    source: .
+
+  migrations:
+    plugin: dump
+    source: ./sql
+
+  wrapper:
+    plugin: dump
+    source: ./snap/local
+    source-type: local
+    override-build: |
+      # Copy the wrapper into place
+      cp $SNAPCRAFT_PROJECT_DIR/snap/local/ratings_wrapper $SNAPCRAFT_PART_INSTALL/
+
+      chmod 0755 $SNAPCRAFT_PART_INSTALL/ratings_wrapper

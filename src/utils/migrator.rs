@@ -1,8 +1,10 @@
+use std::env;
 use std::error::Error;
 use std::fmt::{Debug, Formatter};
 use std::sync::Arc;
 
 use sqlx::{postgres::PgPoolOptions, PgPool};
+use tracing::info;
 
 const MIGRATIONS_PATH: &str = "./sql/migrations";
 
@@ -19,8 +21,18 @@ impl Migrator {
         Ok(Migrator { pool })
     }
 
+    fn migrations_path() -> String {
+        let snap_path = std::env::var("SNAP").unwrap_or("./sql".to_string());
+        format!("{}/migrations", snap_path)
+    }
+
     pub async fn run(&self) -> Result<(), sqlx::Error> {
-        let m = sqlx::migrate::Migrator::new(std::path::Path::new(MIGRATIONS_PATH)).await?;
+        match env::current_dir() {
+            Ok(cur_dir) => info!("Current directory: {}", cur_dir.display()),
+            Err(e) => info!("Error retrieving current directory: {:?}", e),
+        }
+        let m =
+            sqlx::migrate::Migrator::new(std::path::Path::new(&Self::migrations_path())).await?;
 
         m.run(&mut self.pool.acquire().await?).await?;
         Ok(())
