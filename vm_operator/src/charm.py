@@ -10,18 +10,15 @@ A backend service to support application ratings in the new Ubuntu Software Cent
 import logging
 import os
 import secrets
-import shutil
 from os import environ
 from pathlib import Path
-from subprocess import CalledProcessError, check_output
 
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
-from charms.operator_libs_linux.v0 import apt, systemd
-from git import Repo
-from jinja2 import Template
+from charms.operator_libs_linux.v1 import snap
 from ops.framework import StoredState
-from ops.model import ActiveStatus, BlockedStatus, MaintenanceStatus
+from ops.model import ActiveStatus, MaintenanceStatus
+from ratings import Ratings, RatingsConfig
 
 logger = logging.getLogger(__name__)
 
@@ -41,137 +38,72 @@ class RatingsCharm(ops.CharmBase):
 
     def __init__(self, *args):
         super().__init__(*args)
-        self._ratings_svc = None
+        self._ratings = Ratings()
 
         # Initialise the integration with PostgreSQL
         self._database = DatabaseRequires(self, relation_name="database", database_name="ratings")
+
+        # Observe common Juju events
         self.framework.observe(self._database.on.database_created, self._on_database_created)
         self.framework.observe(self.on.install, self._on_install)
         self._stored.set_default(repo="", port="", conn_str="", install_completed=False)
         self.framework.observe(self.on.start, self._on_start)
-        self.framework.observe(self.on.pull_and_rebuild_action, self._on_pull_and_rebuild)
 
     def _on_start(self, _):
-        """Start the workload."""
-        # Enable and start the "ratings" systemd unit
-        systemd.service_resume("ratings")
+        """Start Ratings."""
+        self._ratings.start()
         self.unit.status = ActiveStatus()
 
     def _on_install(self, _):
         """Install prerequisites for the application."""
-        self.unit.status = MaintenanceStatus("Installing rustc, cargo and other dependencies")
+        self.unit.status = MaintenanceStatus("Installing Ratings")
 
-        # Install via apt
-        self._install_apt_packages(
-            ["curl", "git", "gcc", "libssl-dev", "pkg-config", "protobuf-compiler"]
-        )
-
-        # Ensure squid proxy, done after apt to not interfere
-        self._set_squid_proxy()
-
-        # Curl minial rust toolchain
         try:
-            check_output(
-                "curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal",
-                shell=True,
-            )
-            self._stored.install_completed = True
+            self._ratings.install()
             self.unit.status = MaintenanceStatus("Installation complete, waiting for database.")
-
-        except CalledProcessError as e:
-            logger.error(f"Curl command failed with error code {e.returncode}")
-            self.unit.status = BlockedStatus("Curl command failed")
-            return
-
-    def _render_systemd_unit(self):
-        """Render the systemd unit file for the application."""
-        with open("templates/ratings-service.j2", "r") as t:
-            template = Template(t.read())
-
-        # Get connection string from Juju relation to db
-        connection_string = self._db_connection_string()
-
-        # Generate jwt secret
-        jwt_secret = self._jwt_secret()
-        rendered = template.render(
-            project_root=APP_PATH,
-            app_env=self.config["app-env"],
-            app_host=APP_HOST,
-            app_jwt_secret=jwt_secret,
-            app_log_level=self.config["app-log-level"],
-            app_name=APP_NAME,
-            app_port=APP_PORT,
-            app_postgres_uri=connection_string,
-            app_migration_postgres_uri=connection_string,
-        )
-        with open(UNIT_PATH, "w+") as t:
-            t.write(rendered)
-        os.chmod(UNIT_PATH, 0o755)
-        systemd.daemon_reload()
-
-    def _setup_application(self, _=None):
-        """Clone Rust application into place and setup its dependencies."""
-        self.unit.status = MaintenanceStatus("Preparing to fetch application code")
-
-        # Delete the application directory if it exists already
-        if Path(APP_PATH).is_dir():
-            shutil.rmtree("/srv/app")
-
-        # If this is the first time, set the repo in the stored state
-        if not self._stored.repo:
-            self._stored.repo = self.config["app-repo"]
-
-        # Ensure squid proxy
-        self._set_squid_proxy()
-
-        # Fetch the code using git
-        try:
-            Repo.clone_from(self._stored.repo, APP_PATH, branch="vm-charm")
-            self.unit.status = MaintenanceStatus("Code fetched, building now.")
-        except Exception as e:
-            logger.error(f"Git clone failed: {str(e)}")
-            self.unit.status = BlockedStatus("Git clone failed")
-            return
-
-        # Build the binary
-        try:
-            check_output([str(CARGO_PATH), "build", "--release"], cwd=APP_PATH)
-        except CalledProcessError as e:
-            logger.error(f"Cargo build failed with error code {e.returncode}")
-            self.unit.status = BlockedStatus("Cargo build failed")
-            return
+        except snap.SnapError as e:
+            logger.error(f"Failed to install Ratings via snap: {e}")
+            self.unit.status = ops.BlockedStatus(str(e))
 
     def _on_database_created(self, _: DatabaseCreatedEvent):
         """Handle the database creation event."""
         logger.info("Database created event triggered.")
-        if not self._stored.install_completed:
-            logger.warning("Skipping _on_database_created, install not completed yet.")
-            self.unit.status = ops.WaitingStatus("Waiting for install to complete.")
-            return
-        self._setup_application()
-        self._render_systemd_unit()
-        self._start_ratings()
+        self._update_service_config()
 
-    def _start_ratings(self):
-        """Start the ratings service using systemd."""
-        logger.info("Attempting to start ratings service.")
+    def _update_service_config(self):
+        """Update the service config and restart Ratings."""
+        logger.info("Updating config and resterting Ratings.")
 
         if self.model.get_relation("database") is None:
             logger.warning("No database relation found. Waiting.")
             self.unit.status = ops.WaitingStatus("Waiting for database relation")
             return
 
-        self.unit.status = ops.MaintenanceStatus("Attempting to start ratings service.")
+        self.unit.status = ops.MaintenanceStatus("Attempting to update Ratings config.")
+        # Get connection string from Juju relation to db
+        connection_string = self._db_connection_string()
+
+        # Generate jwt secret
+        jwt_secret = self._jwt_secret()
+
+        ratings_config = RatingsConfig(
+            jwt_secret=jwt_secret,
+            postgres_uri=connection_string,
+            migration_postgres_uri=connection_string,
+        )
+
+        # Ensure squid proxy
+        self._set_squid_proxy()
 
         try:
-            logger.info("Resuming systemd service for ratings.")
-            systemd.service_resume("ratings")
+            logger.info("Updating and resuming snap service for Ratings.")
+            self._ratings.configure(ratings_config)
             self.unit.open_port(protocol="tcp", port=APP_PORT)
             self.unit.status = ops.ActiveStatus()
             logger.info("Ratings service started successfully.")
         except Exception as e:
-            logger.error(f"Failed to start ratings service: {str(e)}")
-            self.unit.status = ops.BlockedStatus(f"Failed to start ratings service: {str(e)}")
+            logger.error(f"Failed to start Ratings service: {str(e)}")
+            self.unit.status = ops.BlockedStatus(f"Failed to start Ratings service: {str(e)}")
 
     def _db_connection_string(self) -> str:
         """Report database connection string using info from relation databag."""
@@ -218,40 +150,6 @@ class RatingsCharm(ops.CharmBase):
             return content["jwt-secret"]
         else:
             return ""
-
-    def _install_apt_packages(self, packages: list):
-        """Install the specified apt packages."""
-        self.unit.status = MaintenanceStatus("Installing apt packages.")
-        try:
-            apt.update()
-            apt.add_package(packages)
-        except apt.PackageNotFoundError:
-            logger.error("a specified package not found in package cache or on system")
-            self.unit.status = BlockedStatus("Failed to install packages")
-        except apt.PackageError:
-            logger.error("could not install package")
-            self.unit.status = BlockedStatus("Failed to install packages")
-
-    def _on_pull_and_rebuild(self, event):
-        """Pull new code and rebuild the application."""
-        event.set_results({"status": "pulling and rebuilding"})
-        try:
-            self._set_squid_proxy()
-
-            # Pull new code
-            repo = Repo(APP_PATH)
-            repo.remotes.origin.pull()
-
-            # Rebuild the application
-            check_output([str(CARGO_PATH), "build", "--release"], cwd=APP_PATH)
-            systemd.service_restart("ratings")
-
-            event.set_results({"status": "successful"})
-            self.unit.status = ActiveStatus("Successfully pulled and rebuilt.")
-
-        except Exception as e:
-            event.fail(f"Failed: {str(e)}")
-            self.unit.status = BlockedStatus(f"Pull and rebuild failed: {str(e)}")
 
     def _set_squid_proxy(self):
         """Set Squid proxy environment variables if configured."""
