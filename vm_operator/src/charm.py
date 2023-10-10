@@ -22,12 +22,12 @@ from ratings import Ratings
 logger = logging.getLogger(__name__)
 
 
-APP_PATH = Path("/srv/app")
+PATH = Path("/srv/app")
 UNIT_PATH = Path("/etc/systemd/system/ratings.service")
 CARGO_PATH = Path(environ.get("HOME", "/root")) / ".cargo/bin/cargo"
-APP_PORT = 443
-APP_NAME = "ratings"
-APP_HOST = "0.0.0.0"
+PORT = 443
+NAME = "ratings"
+HOST = "0.0.0.0"
 
 
 class RatingsCharm(ops.CharmBase):
@@ -96,8 +96,12 @@ class RatingsCharm(ops.CharmBase):
 
         try:
             logger.info("Updating and resuming snap service for Ratings.")
-            self._ratings.configure(jwt_secret, connection_string, connection_string)
-            self.unit.open_port(protocol="tcp", port=APP_PORT)
+            self._ratings.configure(
+                jwt_secret=jwt_secret,
+                postgres_uri=connection_string,
+                migration_postgres_uri=connection_string,
+            )
+            self.unit.open_port(protocol="tcp", port=PORT)
             self.unit.status = ops.ActiveStatus()
             logger.info("Ratings service started successfully.")
         except Exception as e:

@@ -103,7 +103,9 @@ class TestCharm(unittest.TestCase):
         _squid.assert_called_once()
 
         # Configure is called with the correct values
-        _conf.assert_called_with("foo", "bar", "bar")
+        _conf.assert_called_with(
+            jwt_secret="foo", postgres_uri="bar", migration_postgres_uri="bar"
+        )
 
         # Check the ports have been opened
         opened_ports = {(p.protocol, p.port) for p in self.harness.charm.unit.opened_ports()}
