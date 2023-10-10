@@ -18,7 +18,7 @@ from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, D
 from charms.operator_libs_linux.v1 import snap
 from ops.framework import StoredState
 from ops.model import ActiveStatus, MaintenanceStatus
-from ratings import Ratings, RatingsConfig
+from ratings import Ratings
 
 logger = logging.getLogger(__name__)
 
@@ -86,18 +86,12 @@ class RatingsCharm(ops.CharmBase):
         # Generate jwt secret
         jwt_secret = self._jwt_secret()
 
-        ratings_config = RatingsConfig(
-            jwt_secret=jwt_secret,
-            postgres_uri=connection_string,
-            migration_postgres_uri=connection_string,
-        )
-
         # Ensure squid proxy
         self._set_squid_proxy()
 
         try:
             logger.info("Updating and resuming snap service for Ratings.")
-            self._ratings.configure(ratings_config)
+            self._ratings.configure(jwt_secret, connection_string, connection_string)
             self.unit.open_port(protocol="tcp", port=APP_PORT)
             self.unit.status = ops.ActiveStatus()
             logger.info("Ratings service started successfully.")

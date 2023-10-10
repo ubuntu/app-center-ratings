@@ -7,22 +7,6 @@ from charms.operator_libs_linux.v1 import snap
 logger = logging.getLogger(__name__)
 
 
-class RatingsConfig:
-    """Class representing the config options of the Ratings service."""
-
-    def __init__(
-        self,
-        jwt_secret: str = None,
-        log_level: str = None,
-        postgres_uri: str = None,
-        migration_postgres_uri: str = None,
-    ):
-        self.jwt_secret = jwt_secret
-        self.log_level = log_level
-        self.postgres_uri = postgres_uri
-        self.migration_postgres_uri = migration_postgres_uri
-
-
 class Ratings:
     """Class representing Ratings on a host system."""
 
@@ -53,19 +37,21 @@ class Ratings:
         """Remove the Ratings snap."""
         self._snap.ensure(snap.SnapState.Absent)
 
-    def configure(self, ratings_config: RatingsConfig):
+    def configure(
+        self, jwt_secret=None, log_level=None, postgres_uri=None, migration_postgres_uri=None
+    ):
         """Configure Ratings on the host system. Restart Ratings by default."""
-        if ratings_config.jwt_secret:
-            self._snap.set({"app-jwt-secret": ratings_config.jwt_secret})
+        if jwt_secret:
+            self._snap.set({"app-jwt-secret": jwt_secret})
 
-        if ratings_config.log_level:
-            self._snap.set({"app-log-level": ratings_config.log_level})
+        if log_level:
+            self._snap.set({"app-log-level": log_level})
 
-        if ratings_config.postgres_uri:
-            self._snap.set({"app-postgres-uri": ratings_config.postgres_uri})
+        if postgres_uri:
+            self._snap.set({"app-postgres-uri": postgres_uri})
 
-        if ratings_config.migration_postgres_uri:
-            self._snap.set({"app-migration-postgres-uri": ratings_config.migration_postgres_uri})
+        if migration_postgres_uri:
+            self._snap.set({"app-migration-postgres-uri": migration_postgres_uri})
 
         # Restart the snap service
         self._snap.restart()
