@@ -44,11 +44,20 @@ class RatingsCharm(ops.CharmBase):
         self.framework.observe(self._database.on.database_created, self._on_database_created)
         self.framework.observe(self.on.install, self._on_install)
         self.framework.observe(self.on.start, self._on_start)
+        self.framework.observe(self.on.upgrade_charm, self._on_upgrade_charm)
 
     def _on_start(self, _):
         """Start Ratings."""
         self._ratings.start()
         self.unit.status = ActiveStatus()
+
+    def _on_upgrade_charm(self, _):
+        """Ensure the snap is refreshed (in channel) if there are new revisions."""
+        self.unit.status = ops.MaintenanceStatus("refreshing Ratings")
+        try:
+            self._ratings.refresh()
+        except snap.SnapError as e:
+            self.unit.status = ops.BlockedStatus(str(e))
 
     def _on_install(self, _):
         """Install prerequisites for the application."""

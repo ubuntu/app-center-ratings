@@ -47,7 +47,6 @@ async def test_database_relation(ops_test: OpsTest):
 @mark.abort_on_fail
 async def test_ratings_register_user(ops_test: OpsTest):
     """End-to-end test to ensure the app can interact with the database."""
-    # Introduce a wait (e.g., 300 seconds or 5 minutes)
     status = await ops_test.model.get_status()  # noqa: F821
     unit = list(status.applications[RATINGS].units)[0]
     print(f"Connecting to address: {status}")

@@ -38,6 +38,11 @@ class TestCharm(unittest.TestCase):
             MaintenanceStatus("Installation complete, waiting for database."),
         )
 
+    @patch("charm.Ratings.refresh", lambda _: True)
+    def test_upgrade_charm(self):
+        self.harness.charm.on.upgrade_charm.emit()
+        self.assertEqual(self.harness.charm.unit.status, MaintenanceStatus("refreshing Ratings"))
+
     @mock.patch("charm.Ratings.start")
     def test_on_start(self, _resume):
         # Run the handler
