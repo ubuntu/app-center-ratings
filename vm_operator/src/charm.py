@@ -16,7 +16,6 @@ from pathlib import Path
 import ops
 from charms.data_platform_libs.v0.data_interfaces import DatabaseCreatedEvent, DatabaseRequires
 from charms.operator_libs_linux.v1 import snap
-from ops.framework import StoredState
 from ops.model import ActiveStatus, MaintenanceStatus
 from ratings import Ratings
 
@@ -34,8 +33,6 @@ APP_HOST = "0.0.0.0"
 class RatingsCharm(ops.CharmBase):
     """Main operator class for ratings service."""
 
-    _stored = StoredState()
-
     def __init__(self, *args):
         super().__init__(*args)
         self._ratings = Ratings()
@@ -46,7 +43,6 @@ class RatingsCharm(ops.CharmBase):
         # Observe common Juju events
         self.framework.observe(self._database.on.database_created, self._on_database_created)
         self.framework.observe(self.on.install, self._on_install)
-        self._stored.set_default(repo="", port="", conn_str="", install_completed=False)
         self.framework.observe(self.on.start, self._on_start)
 
     def _on_start(self, _):
