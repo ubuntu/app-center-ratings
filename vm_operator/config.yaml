@@ -1,14 +1,11 @@
 options:
-  app-env:
+  env:
     type: string
     default: "dev"
     description: "Application environment."
-  app-log-level:
+  log-level:
     type: string
     default: "info"
-  app-repo:
-    type: string
-    default: "https://github.com/matthew-hagemann/app-center-ratings"
   squid-proxy-url:
     type: string
     default: ""

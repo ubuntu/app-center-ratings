@@ -21,3 +21,8 @@ app_migration_postgres_uri="$(snapctl get app-migration-postgres-uri)"
 if [ -z "$app_migration_postgres_uri" ]; then
     snapctl set app-migration-postgres-uri=postgresql://migration_user:strongpassword@localhost:5433/ratings
 fi
+
+app_env="$(snapctl get app-env)"
+if [ -z "$app_env" ]; then
+    snapctl set app-env=dev
+fi

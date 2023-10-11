@@ -1,6 +1,6 @@
 name: ratings
-base: core20
-version: '1.3'
+base: core22
+version: '1.4'
 license: GPL-3.0
 summary: Ubuntu App Ratings Service
 description: |
@@ -18,7 +18,6 @@ apps:
       - network-bind
 
 environment:
-      APP_ENV: dev
       APP_HOST: 0.0.0.0
       APP_NAME: ratings
       APP_PORT: 443

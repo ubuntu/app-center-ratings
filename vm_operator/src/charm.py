@@ -100,6 +100,8 @@ class RatingsCharm(ops.CharmBase):
                 jwt_secret=jwt_secret,
                 postgres_uri=connection_string,
                 migration_postgres_uri=connection_string,
+                log_level=self.config["log-level"],
+                env=self.config["env"],
             )
             self.unit.open_port(protocol="tcp", port=PORT)
             self.unit.status = ops.ActiveStatus()

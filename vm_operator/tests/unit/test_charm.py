@@ -83,6 +83,9 @@ class TestCharm(unittest.TestCase):
     @patch("charm.RatingsCharm._jwt_secret", return_value="foo")
     @mock.patch("charm.Ratings.configure")
     def test_update_service_config(self, _conf, _jwt, _db_string, _squid):
+        # Set env and log-level
+        self.harness.update_config({"env": "test-env", "log-level": "debug"})
+
         # If no relation, wait on relation
         self.harness.charm._update_service_config()
         self.assertEqual(
@@ -104,7 +107,11 @@ class TestCharm(unittest.TestCase):
 
         # Configure is called with the correct values
         _conf.assert_called_with(
-            jwt_secret="foo", postgres_uri="bar", migration_postgres_uri="bar"
+            jwt_secret="foo",
+            postgres_uri="bar",
+            migration_postgres_uri="bar",
+            log_level="debug",
+            env="test-env",
         )
 
         # Check the ports have been opened

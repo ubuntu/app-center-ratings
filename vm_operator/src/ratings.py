@@ -13,7 +13,7 @@ class Ratings:
     def install(self):
         """Install the Ratings snap package."""
         try:
-            self._snap.ensure(snap.SnapState.Latest, channel="stable")
+            self._snap.ensure(snap.SnapState.Latest, channel="edge")
             snap.hold_refresh()
         except snap.SnapError as e:
             logger.error("could not install ratings. Reason: %s", e.message)
@@ -43,6 +43,7 @@ class Ratings:
         log_level=None,
         postgres_uri=None,
         migration_postgres_uri=None,
+        env=None,
         restart=False,
     ):
         """Configure Ratings on the host system. Restart Ratings by default."""
@@ -60,6 +61,10 @@ class Ratings:
 
         if migration_postgres_uri:
             self._snap.set({"app-migration-postgres-uri": migration_postgres_uri})
+            restart = True
+
+        if env:
+            self._snap.set({"app-env": env})
             restart = True
 
         # Restart the snap service
