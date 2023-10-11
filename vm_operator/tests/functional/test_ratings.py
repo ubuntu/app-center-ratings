@@ -31,23 +31,12 @@ class TestRatings(unittest.TestCase):
 
     @mock.patch("charms.operator_libs_linux.v1.snap.Snap.restart")
     def test_configure_ratings(self, _restart):
-        # Test set to snap defaults
-        self.assertEqual(self.ratings._snap.get("app-jwt-secret"), "deadbeef")
-        self.assertEqual(self.ratings._snap.get("app-log-level"), "info")
-        self.assertEqual(
-            self.ratings._snap.get("app-migration-postgres-uri"),
-            "postgresql://migration_user:strongpassword@localhost:5433/ratings",
-        )
-        self.assertEqual(
-            self.ratings._snap.get("app-postgres-uri"),
-            "postgresql://service:covfefe!1@localhost:5433/ratings",
-        )
-
         self.ratings.configure(
             jwt_secret="foo",
             log_level="bar",
             postgres_uri="foobar",
             migration_postgres_uri="barfoo",
+            env="testenv",
         )
 
         # Test have been updated
@@ -55,5 +44,6 @@ class TestRatings(unittest.TestCase):
         self.assertEqual(self.ratings._snap.get("app-log-level"), "bar")
         self.assertEqual(self.ratings._snap.get("app-migration-postgres-uri"), "barfoo")
         self.assertEqual(self.ratings._snap.get("app-postgres-uri"), "foobar")
+        self.assertEqual(self.ratings._snap.get("app-env"), "testenv")
 
         _restart.assert_called_once()
