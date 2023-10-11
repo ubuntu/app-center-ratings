@@ -15,12 +15,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .init();
 
-    tracing::info!("Starting THE Ubuntu App Rating Service");
+    tracing::info!("Starting the Ubuntu App Rating Service");
 
-    match env::current_dir() {
-        Ok(cur_dir) => info!("Current directory: {}", cur_dir.display()),
-        Err(e) => info!("Error retrieving current directory: {:?}", e),
-    }
     app::run(config).await?;
 
     Ok(())

@@ -27,9 +27,9 @@ The list of config options are:
 
 | Name                        | Options                          | Default                                                        | Description             |
 |:----------------------------|:--------------------------------|:---------------------------------------------------------------|:------------------------|
-| `app-jwt-secret`            | Any string                      | `deadbeaf`                                                     | JWT secret              |
+| `app-jwt-secret`            | Any string                      | `randomized`                                                     | JWT secret              |
 | `app-log-level`             | `error`, `warn`, `info`, `debug` | `info`                                                         | Log level               |
-| `app-postgres-uri`          | Any string                      | `postgresql://migration_user:strongpassword@localhost:5433/ratings` | Service connection     |
-| `app-migration-postgres-uri`| Any string                      | `postgresql://migration_user:strongpassword@localhost:5433/ratings` | Migrator connection    |
+| `app-postgres-uri`          | Any string                      | `` | Service connection     |
+| `app-migration-postgres-uri`| Any string                      | `` | Migrator connection    |
 
 Config options can be set using: `sudo snap set ratings <option>=<value>`

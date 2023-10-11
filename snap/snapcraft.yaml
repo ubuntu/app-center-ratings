@@ -1,18 +1,20 @@
 name: ratings
 base: core22
-version: '1.4'
+version: '1.6'
 license: GPL-3.0
 summary: Ubuntu App Ratings Service
 description: |
   Backend service to support application ratings in the new Ubuntu Software Centre.
-
+issues: https://github.com/ubuntu/app-center-ratings/issues
+source-code: https://github.com/ubuntu/app-center-ratings/
 grade: stable
 confinement: strict
 
 apps:
   ratings-svc:
-    command: ratings_wrapper
+    command: bin/ratings_wrapper
     daemon: simple
+    install_mode: disable
     plugs:
       - network
       - network-bind
@@ -48,6 +50,4 @@ parts:
     source-type: local
     override-build: |
       # Copy the wrapper into place
-      cp $SNAPCRAFT_PROJECT_DIR/snap/local/ratings_wrapper $SNAPCRAFT_PART_INSTALL/
-
-      chmod 0755 $SNAPCRAFT_PART_INSTALL/ratings_wrapper
+      install -Dm 0755 $SNAPCRAFT_PROJECT_DIR/snap/local/ratings_wrapper $SNAPCRAFT_PART_INSTALL/bin/ratings_wrapper

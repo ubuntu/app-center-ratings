@@ -44,32 +44,25 @@ class Ratings:
         postgres_uri=None,
         migration_postgres_uri=None,
         env=None,
-        restart=False,
     ):
-        """Configure Ratings on the host system. Restart Ratings by default."""
+        """Configure Ratings on the host system."""
         if jwt_secret:
             self._snap.set({"app-jwt-secret": jwt_secret})
-            restart = True
 
         if log_level:
             self._snap.set({"app-log-level": log_level})
-            restart = True
 
         if postgres_uri:
             self._snap.set({"app-postgres-uri": postgres_uri})
-            restart = True
 
         if migration_postgres_uri:
             self._snap.set({"app-migration-postgres-uri": migration_postgres_uri})
-            restart = True
 
         if env:
             self._snap.set({"app-env": env})
-            restart = True
 
         # Restart the snap service
-        if restart:
-            self._snap.restart()
+        self._snap.restart()
 
     @property
     def installed(self):

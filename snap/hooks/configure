@@ -4,7 +4,7 @@ set -eu
 
 app_jwt_secret="$(snapctl get app-jwt-secret)"
 if [ -z "$app_jwt_secret" ]; then
-    snapctl set app-jwt-secret=deadbeef
+    snapctl set app-jwt-secret="$(head -c30 /dev/urandom | base64 -w0)"
 fi
 
 app_log_level="$(snapctl get app-log-level)"
@@ -13,14 +13,8 @@ if [ -z "$app_log_level" ]; then
 fi
 
 app_postgres_uri="$(snapctl get app-postgres-uri)"
-if [ -z "$app_postgres_uri" ]; then
-    snapctl set app-postgres-uri=postgresql://migration_user:strongpassword@localhost:5433/ratings
-fi
 
 app_migration_postgres_uri="$(snapctl get app-migration-postgres-uri)"
-if [ -z "$app_migration_postgres_uri" ]; then
-    snapctl set app-migration-postgres-uri=postgresql://migration_user:strongpassword@localhost:5433/ratings
-fi
 
 app_env="$(snapctl get app-env)"
 if [ -z "$app_env" ]; then
