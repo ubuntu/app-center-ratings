@@ -78,11 +78,11 @@ class TestCharm(unittest.TestCase):
 
         _update.assert_called_once()
 
-    @patch("charm.RatingsCharm._set_squid_proxy")
+    @patch("charm.RatingsCharm._set_proxy")
     @patch("charm.RatingsCharm._db_connection_string", return_value="bar")
     @patch("charm.RatingsCharm._jwt_secret", return_value="foo")
     @mock.patch("charm.Ratings.configure")
-    def test_update_service_config(self, _conf, _jwt, _db_string, _squid):
+    def test_update_service_config(self, _conf, _jwt, _db_string, _proxy):
         # Set env and log-level
         self.harness.update_config({"env": "test-env", "log-level": "debug"})
 
@@ -102,8 +102,8 @@ class TestCharm(unittest.TestCase):
         # Connection string retrieved
         _db_string.assert_called_once()
 
-        # Squid proxy set
-        _squid.assert_called_once()
+        # Proxy set
+        _proxy.assert_called_once()
 
         # Configure is called with the correct values
         _conf.assert_called_with(
@@ -140,21 +140,18 @@ class TestCharm(unittest.TestCase):
         new_secret = self.harness.charm._jwt_secret()
         self.assertEqual(len(new_secret), 48)
 
-    @mock.patch.dict(os.environ, {"squid-proxy-url": "temp"}, clear=True)
-    def test_set_squid_proxy(self):
-        # Test with no set config values
-        self.harness.charm._set_squid_proxy()
-
-        # Assert that the environment variables were not set
-        self.assertNotIn("HTTP_PROXY", os.environ)
-        self.assertNotIn("HTTPS_PROXY", os.environ)
-
-        # Mock the config attribute to return a squid-proxy-url
-        self.harness.update_config({"squid-proxy-url": "http://example.com:3128"})
-
+    @mock.patch.dict(os.environ, {"JUJU_CHARM_HTTP_PROXY": "http://example.com:3128"}, clear=True)
+    def test_set_proxy(self):
         # Call the method
-        self.harness.charm._set_squid_proxy()
+        self.harness.charm._set_proxy()
 
         # Assert that the environment variables were set
         self.assertEqual(os.environ["HTTP_PROXY"], "http://example.com:3128")
         self.assertEqual(os.environ["HTTPS_PROXY"], "http://example.com:3128")
+
+        with mock.patch.dict(os.environ, {}, clear=True):
+            self.harness.charm._set_proxy()
+
+            # Assert that the environment variables were not set
+            self.assertNotIn("HTTP_PROXY", os.environ)
+            self.assertNotIn("HTTPS_PROXY", os.environ)

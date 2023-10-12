@@ -8,6 +8,3 @@ options:
     default: "info"
     description: |
         Available log level settings are "info", "warning", "error" and "debug".
-  squid-proxy-url:
-    type: string
-    default: ""

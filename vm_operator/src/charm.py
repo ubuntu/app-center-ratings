@@ -92,7 +92,7 @@ class RatingsCharm(ops.CharmBase):
         jwt_secret = self._jwt_secret()
 
         # Ensure squid proxy
-        self._set_squid_proxy()
+        self._set_proxy()
 
         try:
             logger.info("Updating and resuming snap service for Ratings.")
@@ -156,9 +156,9 @@ class RatingsCharm(ops.CharmBase):
         else:
             return ""
 
-    def _set_squid_proxy(self):
+    def _set_proxy(self):
         """Set Squid proxy environment variables if configured."""
-        proxy_url = self.config["squid-proxy-url"]
+        proxy_url = os.environ.get("JUJU_CHARM_HTTP_PROXY")
         if proxy_url:
             os.environ["HTTP_PROXY"] = proxy_url
             os.environ["HTTPS_PROXY"] = proxy_url
