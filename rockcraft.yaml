@@ -1,5 +1,5 @@
 name: ratings
-version: 0.0.1
+version: 0.0.4
 license: GPL-3.0
 
 base: bare
@@ -45,3 +45,9 @@ parts:
       - libc6_libs
       - libgcc-s1_libs
       - ca-certificates_data
+
+  migrations:
+    plugin: dump
+    source: ./sql/
+    organize:
+        migrations : sql/migrations
