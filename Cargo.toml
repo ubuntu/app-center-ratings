@@ -17,7 +17,7 @@ prost-types = "0.11.9"
 rand = "0.8.5"
 reqwest = "0.11.18"
 serde = { version = "1.0.166", features = ["derive"] }
-sha2 = "0.10.7"
+sha2 = "0.10.8"
 sqlx = { version = "0.7.2", features = ["runtime-tokio-rustls", "postgres", "time"] }
 thiserror = "1.0.50"
 time = { version = "0.3.22", features = ["macros"] }
