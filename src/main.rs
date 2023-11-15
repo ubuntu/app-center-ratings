@@ -1,7 +1,3 @@
-use std::env;
-
-use tracing::info;
-
 mod app;
 mod features;
 mod utils;
