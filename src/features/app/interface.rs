@@ -8,7 +8,7 @@ use super::{service::AppService, use_cases};
 
 pub mod protobuf {
     pub use self::app_server::App;
-
+    tonic::include_proto!("ratings.features.common");
     tonic::include_proto!("ratings.features.app");
 }
 

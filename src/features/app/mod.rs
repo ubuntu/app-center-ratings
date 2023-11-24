@@ -1,4 +1,3 @@
-pub mod entities;
 mod errors;
 mod infrastructure;
 pub mod interface;

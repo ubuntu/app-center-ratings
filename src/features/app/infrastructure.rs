@@ -1,8 +1,8 @@
-use crate::app::AppContext;
+use crate::{app::AppContext, features::common::entities::Vote};
 use sqlx::Row;
 use tracing::error;
 
-use super::{entities::Vote, errors::AppError};
+use super::errors::AppError;
 
 pub(crate) async fn get_votes_by_snap_id(
     app_ctx: &AppContext,

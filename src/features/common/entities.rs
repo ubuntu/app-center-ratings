@@ -1,6 +1,8 @@
 use sqlx::FromRow;
 
-use super::interface::protobuf;
+pub mod protobuf {
+    tonic::include_proto!("ratings.features.common");
+}
 
 const INSUFFICIENT_VOTES_QUANTITY: usize = 25;
 
