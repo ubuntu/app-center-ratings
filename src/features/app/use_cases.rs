@@ -11,7 +11,7 @@ pub async fn get_rating(app_ctx: &AppContext, snap_id: String) -> Result<Rating,
             AppError::Unknown
         })?;
 
-    let rating = Rating::new(snap_id, votes);
+    let rating = Rating::new(votes);
 
     Ok(rating)
 }
