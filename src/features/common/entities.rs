@@ -1,8 +1,6 @@
 use sqlx::FromRow;
 
-pub mod protobuf {
-    tonic::include_proto!("ratings.features.common");
-}
+use crate::features::pb::common as pb;
 
 const INSUFFICIENT_VOTES_QUANTITY: usize = 25;
 
@@ -55,8 +53,8 @@ impl Rating {
         }
     }
 
-    pub(crate) fn into_dto(self) -> protobuf::Rating {
-        protobuf::Rating {
+    pub(crate) fn into_dto(self) -> pb::Rating {
+        pb::Rating {
             snap_id: self.snap_id,
             total_votes: self.total_votes,
             ratings_band: self.ratings_band as i32,

@@ -2,12 +2,11 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
 
-use self::pb::GetSnapVotesResponse;
-pub mod pb {
-    pub use self::user_client::UserClient;
-
-    tonic::include_proto!("ratings.features.user");
-}
+use crate::pb::user::user_client as pb;
+use crate::pb::user::{
+    AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
+    VoteRequest,
+};
 
 #[derive(Debug, Clone)]
 pub struct UserClient {
@@ -22,18 +21,15 @@ impl UserClient {
     }
 
     #[allow(dead_code)]
-    pub async fn authenticate(
-        &self,
-        id: &str,
-    ) -> Result<Response<pb::AuthenticateResponse>, Status> {
+    pub async fn authenticate(&self, id: &str) -> Result<Response<AuthenticateResponse>, Status> {
         let mut client = pb::UserClient::connect(self.url.clone()).await.unwrap();
         client
-            .authenticate(pb::AuthenticateRequest { id: id.to_string() })
+            .authenticate(AuthenticateRequest { id: id.to_string() })
             .await
     }
 
     #[allow(dead_code)]
-    pub async fn vote(&self, token: &str, ballet: pb::VoteRequest) -> Result<Response<()>, Status> {
+    pub async fn vote(&self, token: &str, ballet: VoteRequest) -> Result<Response<()>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
             .unwrap()
             .connect()
@@ -51,7 +47,7 @@ impl UserClient {
     pub async fn get_snap_votes(
         &self,
         token: &str,
-        request: pb::GetSnapVotesRequest,
+        request: GetSnapVotesRequest,
     ) -> Result<Response<GetSnapVotesResponse>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
             .unwrap()

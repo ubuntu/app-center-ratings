@@ -10,3 +10,5 @@ mod app_tests {
 }
 
 mod helpers;
+
+mod pb;

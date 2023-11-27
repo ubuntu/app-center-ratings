@@ -1,9 +1,9 @@
 use crate::helpers;
 use crate::helpers::test_data::TestData;
 
-use super::super::helpers::client_user::pb::{AuthenticateResponse, VoteRequest};
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
+use crate::pb::user::{AuthenticateResponse, VoteRequest};
 use futures::FutureExt;
 use ratings::app::AppContext;
 use ratings::utils::{self, Infrastructure};

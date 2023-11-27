@@ -8,6 +8,7 @@
 *.rock
 *.nix
 
+proto/*.rs
 venv/
 build/
 *.charm

@@ -1,10 +1,7 @@
 use tonic::{metadata::MetadataValue, transport::Endpoint, Request, Response, Status};
 
-pub mod pb {
-    pub use self::app_client::AppClient;
-
-    tonic::include_proto!("ratings.features.app");
-}
+use crate::pb::app::app_client as pb;
+use crate::pb::app::{GetRatingRequest, GetRatingResponse};
 
 #[derive(Debug, Clone)]
 pub struct AppClient {
@@ -22,7 +19,7 @@ impl AppClient {
         &self,
         id: &str,
         token: &str,
-    ) -> Result<Response<pb::GetRatingResponse>, Status> {
+    ) -> Result<Response<GetRatingResponse>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
             .unwrap()
             .connect()
@@ -34,7 +31,7 @@ impl AppClient {
             Ok(req)
         });
         client
-            .get_rating(pb::GetRatingRequest {
+            .get_rating(GetRatingRequest {
                 snap_id: id.to_string(),
             })
             .await

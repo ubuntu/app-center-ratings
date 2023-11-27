@@ -7,11 +7,10 @@ use ratings::{
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use crate::helpers::test_data::TestData;
 use crate::helpers::vote_generator::generate_votes;
-use crate::helpers::{self, client_app::pb::RatingsBand, client_app::AppClient};
-use crate::helpers::{
-    client_user::{pb::AuthenticateResponse, UserClient},
-    data_faker,
-};
+use crate::helpers::{self, client_app::AppClient};
+use crate::helpers::{client_user::UserClient, data_faker};
+use crate::pb::common::RatingsBand;
+use crate::pb::user::AuthenticateResponse;
 
 #[tokio::test]
 async fn app_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {

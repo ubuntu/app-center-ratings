@@ -1,8 +1,8 @@
 use crate::helpers;
-use crate::helpers::client_user::pb::GetSnapVotesRequest;
 use crate::helpers::test_data::TestData;
 
-use super::super::helpers::client_user::pb::{AuthenticateResponse, VoteRequest};
+use crate::pb::user::{AuthenticateResponse, GetSnapVotesRequest, VoteRequest};
+
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use futures::FutureExt;

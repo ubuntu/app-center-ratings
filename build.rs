@@ -1,4 +1,10 @@
+use std::path::Path;
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    // Define the path to the output directory within the `src` folder
+    let out_dir = Path::new("proto");
+    std::fs::create_dir_all(out_dir)?;
+
     let descriptor_set_path = format!(
         "{}/ratings_descriptor.bin",
         std::env::var("OUT_DIR").unwrap()
@@ -14,6 +20,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     tonic_build::configure()
         .build_server(true)
         .file_descriptor_set_path(descriptor_set_path)
+        .out_dir(out_dir)
         .compile(files, &["proto"])?;
 
     Ok(())
