@@ -19,9 +19,12 @@ impl Chart {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
+        // Take only the first 20 elements from the sorted chart_data
+        let top_20: Vec<ChartData> = chart_data.into_iter().take(20).collect();
+
         Chart {
             timeframe,
-            chart_data,
+            chart_data: top_20,
         }
     }
 }

@@ -44,12 +44,15 @@ async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
 // Does an app voted against once appear correctly in the chart?
 async fn vote_once(mut data: TestData) -> TestData {
     let vote_up = true;
-    let expected_raw_rating = 0.0;
-    let expected_rating = Rating {
-        snap_id: data.snap_id.clone().unwrap(),
-        total_votes: 1,
-        ratings_band: RatingsBand::InsufficientVotes.into(),
-    };
+
+    // Fill up chart with other votes so ours doesn't appear
+    for _ in 0..20 {
+        generate_votes(&data_faker::rnd_id(), 111, vote_up, 25, data.clone())
+            .await
+            .expect("Votes should succeed");
+    }
+
+    let vote_up = true;
 
     generate_votes(
         &data.snap_id.clone().unwrap(),
@@ -89,11 +92,8 @@ async fn vote_once(mut data: TestData) -> TestData {
         }
     });
 
-    let actual_rating = result.clone().unwrap().rating.unwrap();
-    let actual_raw_rating = result.unwrap().raw_rating;
-
-    assert_eq!(expected_rating, actual_rating);
-    assert_eq!(expected_raw_rating, actual_raw_rating);
+    // Should not appear in chart
+    assert_eq!(result, None);
 
     data
 }
@@ -104,15 +104,16 @@ async fn multiple_votes(mut data: TestData) -> TestData {
     let expected_raw_rating = 0.8;
     let expected_rating = Rating {
         snap_id: data.snap_id.clone().unwrap(),
-        total_votes: 25,
+        total_votes: 101,
         ratings_band: RatingsBand::VeryGood.into(),
     };
 
+    // This should rank our snap_id at the top of the chart
     generate_votes(
         &data.snap_id.clone().unwrap(),
         111,
         vote_up,
-        24,
+        100,
         data.clone(),
     )
     .await
@@ -138,19 +139,16 @@ async fn multiple_votes(mut data: TestData) -> TestData {
         .into_inner()
         .ordered_chart_data;
 
-    let result = chart_data_result.into_iter().find(|chart_data| {
-        if let Some(rating) = &chart_data.rating {
-            rating.snap_id == data.snap_id.clone().unwrap()
-        } else {
-            false
-        }
-    });
+    // Should be at the top of the chart
+    if let Some(chart_data) = chart_data_result.first() {
+        let actual_rating = chart_data.rating.clone().expect("Rating should exist");
+        let actual_raw_rating = chart_data.raw_rating;
 
-    let actual_rating = result.clone().unwrap().rating.unwrap();
-    let actual_raw_rating = result.unwrap().raw_rating;
-
-    assert_eq!(expected_rating, actual_rating);
-    assert!(expected_raw_rating < actual_raw_rating);
+        assert_eq!(expected_rating, actual_rating);
+        assert!(expected_raw_rating < actual_raw_rating);
+    } else {
+        panic!("No chart data available");
+    }
 
     data
 }
@@ -200,7 +198,7 @@ async fn timeframed_votes_dont_appear(mut data: TestData) -> TestData {
     let expected_raw_rating = 0.8;
     let expected_rating = Rating {
         snap_id: data.snap_id.clone().unwrap(),
-        total_votes: 25,
+        total_votes: 101,
         ratings_band: RatingsBand::VeryGood.into(),
     };
 
