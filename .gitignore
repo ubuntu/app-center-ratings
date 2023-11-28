@@ -16,3 +16,4 @@ build/
 .coverage
 __pycache__/
 *.py[cod]
+server.pid

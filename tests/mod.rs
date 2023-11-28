@@ -9,6 +9,10 @@ mod app_tests {
     mod lifecycle_test;
 }
 
+mod chart_tests {
+    mod lifecycle_test;
+}
+
 mod helpers;
 
 mod pb;

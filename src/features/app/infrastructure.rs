@@ -1,5 +1,5 @@
 use crate::{app::AppContext, features::common::entities::VoteSummary};
-use tracing::error;
+use tracing::{error, info};
 
 use super::errors::AppError;
 
@@ -17,10 +17,9 @@ pub(crate) async fn get_votes_by_snap_id(
         })?;
 
     let result = sqlx::query_as::<_, VoteSummary>(
-        // Changed to query_as with VoteSummary
         r#"
             SELECT
-                $1 as snap_id, // Explicitly select snap_id since it's not part of the GROUP BY
+                votes.snap_id,
                 COUNT(*) AS total_votes,
                 COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
             FROM
@@ -31,7 +30,7 @@ pub(crate) async fn get_votes_by_snap_id(
         "#,
     )
     .bind(snap_id)
-    .fetch_one(&mut *pool) // Changed to fetch_one since we're expecting a single summarized row
+    .fetch_one(&mut *pool)
     .await
     .map_err(|error| {
         error!("{error:?}");

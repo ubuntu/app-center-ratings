@@ -25,6 +25,7 @@ async fn app_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
         token: None,
         app_client: Some(AppClient::new(&config.socket())),
         snap_id: Some(data_faker::rnd_id()),
+        chart_client: None,
     };
 
     with_lifecycle(async {

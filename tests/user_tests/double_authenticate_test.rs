@@ -22,6 +22,7 @@ async fn authenticate_twice_test() -> Result<(), Box<dyn std::error::Error>> {
         token: None,
         app_client: None,
         snap_id: None,
+        chart_client: None,
     };
 
     with_lifecycle(async {

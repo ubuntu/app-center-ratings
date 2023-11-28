@@ -9,3 +9,7 @@ pub mod common {
 pub mod user {
     include!("../proto/ratings.features.user.rs");
 }
+
+pub mod chart {
+    include!("../proto/ratings.features.chart.rs");
+}
