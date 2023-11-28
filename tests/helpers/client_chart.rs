@@ -3,9 +3,7 @@ use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
 
 use crate::pb::chart::{chart_client as pb, Timeframe};
-use crate::pb::chart::{
-    GetChartRequest, GetChartResponse
-};
+use crate::pb::chart::{GetChartRequest, GetChartResponse};
 
 #[derive(Debug, Clone)]
 pub struct ChartClient {
@@ -35,7 +33,7 @@ impl ChartClient {
             Ok(req)
         });
         client
-            .get_chart(GetChartRequest{
+            .get_chart(GetChartRequest {
                 timeframe: timeframe.into(),
             })
             .await

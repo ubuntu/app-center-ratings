@@ -1,6 +1,6 @@
 use crate::helpers;
-use futures::FutureExt;
 use crate::helpers::test_data::TestData;
+use futures::FutureExt;
 
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;

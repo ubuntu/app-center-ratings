@@ -5,12 +5,15 @@ use ratings::{
 };
 
 use super::super::helpers::with_lifecycle::with_lifecycle;
-use crate::{helpers::{test_data::TestData, client_chart::ChartClient}, pb::{chart::Timeframe, common::Rating}};
 use crate::helpers::vote_generator::generate_votes;
 use crate::helpers::{self, client_app::AppClient};
 use crate::helpers::{client_user::UserClient, data_faker};
 use crate::pb::common::RatingsBand;
 use crate::pb::user::AuthenticateResponse;
+use crate::{
+    helpers::{client_chart::ChartClient, test_data::TestData},
+    pb::{chart::Timeframe, common::Rating},
+};
 
 #[tokio::test]
 async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +32,10 @@ async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
     };
 
     with_lifecycle(async {
-        vote_once(data.clone()).then(multiple_votes).then(timeframed_votes_dont_appear).await;
+        vote_once(data.clone())
+            .then(multiple_votes)
+            .then(timeframed_votes_dont_appear)
+            .await;
     })
     .await;
     Ok(())
@@ -65,18 +71,17 @@ async fn vote_once(mut data: TestData) -> TestData {
 
     let timeframe = Timeframe::Unspecified;
 
-let chart_data_result = data
-    .clone()
-    .chart_client
-    .unwrap()
-    .get_chart(timeframe, &data.token.clone().unwrap())
-    .await
-    .expect("Get Chart should succeed")
-    .into_inner()
-    .ordered_chart_data;
+    let chart_data_result = data
+        .clone()
+        .chart_client
+        .unwrap()
+        .get_chart(timeframe, &data.token.clone().unwrap())
+        .await
+        .expect("Get Chart should succeed")
+        .into_inner()
+        .ordered_chart_data;
 
-let result = chart_data_result.into_iter()
-    .find(|chart_data| {
+    let result = chart_data_result.into_iter().find(|chart_data| {
         if let Some(rating) = &chart_data.rating {
             rating.snap_id == data.snap_id.clone().unwrap()
         } else {
@@ -123,18 +128,17 @@ async fn multiple_votes(mut data: TestData) -> TestData {
 
     let timeframe = Timeframe::Unspecified;
 
-let chart_data_result = data
-    .clone()
-    .chart_client
-    .unwrap()
-    .get_chart(timeframe, &data.token.clone().unwrap())
-    .await
-    .expect("Get Chart should succeed")
-    .into_inner()
-    .ordered_chart_data;
+    let chart_data_result = data
+        .clone()
+        .chart_client
+        .unwrap()
+        .get_chart(timeframe, &data.token.clone().unwrap())
+        .await
+        .expect("Get Chart should succeed")
+        .into_inner()
+        .ordered_chart_data;
 
-let result = chart_data_result.into_iter()
-    .find(|chart_data| {
+    let result = chart_data_result.into_iter().find(|chart_data| {
         if let Some(rating) = &chart_data.rating {
             rating.snap_id == data.snap_id.clone().unwrap()
         } else {
@@ -172,18 +176,17 @@ async fn timeframed_votes_dont_appear(mut data: TestData) -> TestData {
 
     let timeframe = Timeframe::Month;
 
-let chart_data_result = data
-    .clone()
-    .chart_client
-    .unwrap()
-    .get_chart(timeframe, &data.token.clone().unwrap())
-    .await
-    .expect("Get Chart should succeed")
-    .into_inner()
-    .ordered_chart_data;
+    let chart_data_result = data
+        .clone()
+        .chart_client
+        .unwrap()
+        .get_chart(timeframe, &data.token.clone().unwrap())
+        .await
+        .expect("Get Chart should succeed")
+        .into_inner()
+        .ordered_chart_data;
 
-    let result = chart_data_result.into_iter()
-    .find(|chart_data| {
+    let result = chart_data_result.into_iter().find(|chart_data| {
         if let Some(rating) = &chart_data.rating {
             rating.snap_id == data.snap_id.clone().unwrap()
         } else {
@@ -213,9 +216,7 @@ let chart_data_result = data
         .into_inner()
         .ordered_chart_data;
 
-
-let result = chart_data_result.into_iter()
-    .find(|chart_data| {
+    let result = chart_data_result.into_iter().find(|chart_data| {
         if let Some(rating) = &chart_data.rating {
             rating.snap_id == data.snap_id.clone().unwrap()
         } else {
@@ -228,7 +229,6 @@ let result = chart_data_result.into_iter()
 
     assert_eq!(expected_rating, actual_rating);
     assert!(expected_raw_rating < actual_raw_rating);
-
 
     data
 }

@@ -1,5 +1,5 @@
 use crate::{app::AppContext, features::common::entities::VoteSummary};
-use tracing::{error, info};
+use tracing::error;
 
 use super::errors::AppError;
 

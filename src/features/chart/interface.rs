@@ -29,15 +29,18 @@ impl Chart for ChartService {
 
         match result {
             Ok(result) => {
-
-                let ordered_chart_data = result.chart_data.into_iter().map(|chart_data| chart_data.into_dto()).collect();
+                let ordered_chart_data = result
+                    .chart_data
+                    .into_iter()
+                    .map(|chart_data| chart_data.into_dto())
+                    .collect();
 
                 let payload = GetChartResponse {
                     timeframe: timeframe.into(),
                     ordered_chart_data,
                 };
                 Ok(Response::new(payload))
-            },
+            }
             Err(_error) => Err(Status::unknown("Internal server error")),
         }
     }

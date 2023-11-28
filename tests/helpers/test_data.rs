@@ -2,8 +2,8 @@ use ratings::app::AppContext;
 use sqlx::{pool::PoolConnection, Postgres};
 
 use super::client_app::AppClient;
-use super::client_user::UserClient;
 use super::client_chart::ChartClient;
+use super::client_user::UserClient;
 
 #[derive(Debug, Clone)]
 pub struct TestData {
