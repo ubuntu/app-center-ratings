@@ -3,6 +3,9 @@ name = "ratings"
 version = "0.1.0"
 edition = "2021"
 rust-version = "1.69.0"
+authors = ["Canonical"]
+description = "Backend for ratings for the Ubuntu app center."
+license = "GPL-3.0-only"
 
 [dependencies]
 dotenv = "0.15.0"
