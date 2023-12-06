@@ -44,7 +44,7 @@ pub(crate) async fn get_votes_summary_by_timeframe(
         .await
         .map_err(|error| {
             error!("{error:?}");
-            ChartError::Unknown
+            ChartError::NotFound
         })?;
 
     Ok(result)

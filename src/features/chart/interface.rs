@@ -5,6 +5,7 @@ use tonic::{Request, Response, Status};
 
 use crate::features::pb::chart::chart_server::Chart;
 
+use super::errors::ChartError;
 use super::{service::ChartService, use_cases};
 
 #[tonic::async_trait]
@@ -41,7 +42,12 @@ impl Chart for ChartService {
                 };
                 Ok(Response::new(payload))
             }
-            Err(_error) => Err(Status::unknown("Internal server error")),
+            Err(error) => match error {
+                ChartError::NotFound => {
+                    Err(Status::not_found("Cannot find data for given timeframe."))
+                }
+                _ => Err(Status::unknown("Internal server error")),
+            },
         }
     }
 }

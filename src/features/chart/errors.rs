@@ -6,4 +6,6 @@ pub enum ChartError {
     FailedToGetChart,
     #[error("unknown chart error")]
     Unknown,
+    #[error("could not find data for given timeframe")]
+    NotFound,
 }
