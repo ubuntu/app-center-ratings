@@ -2,8 +2,7 @@ use http::header;
 use tonic::{Request, Status};
 use tracing::error;
 
-use crate::app::context::AppContext;
-use crate::app::RequestContext;
+use crate::app::{context::AppContext, RequestContext};
 
 pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let app_ctx = req.extensions().get::<AppContext>().unwrap().clone();

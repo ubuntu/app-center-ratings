@@ -1,10 +1,13 @@
-use crate::app::AppContext;
-use crate::features::user::infrastructure::{find_user_votes, save_vote_to_db};
-
-use super::entities::{User, Vote};
-use super::errors::UserError;
-use super::infrastructure::{
-    create_or_seen_user, delete_user_by_client_hash, get_snap_votes_by_client_hash,
+use crate::{
+    app::AppContext,
+    features::user::{
+        entities::{User, Vote},
+        errors::UserError,
+        infrastructure::{
+            create_or_seen_user, delete_user_by_client_hash, find_user_votes,
+            get_snap_votes_by_client_hash, save_vote_to_db,
+        },
+    },
 };
 
 pub async fn authenticate(app_ctx: &AppContext, id: &str) -> Result<User, UserError> {

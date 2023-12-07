@@ -1,7 +1,8 @@
+use crate::features::{
+    common::entities::{calculate_band, Rating, VoteSummary},
+    pb::chart as pb,
+};
 use sqlx::FromRow;
-
-use crate::features::common::entities::{calculate_band, Rating, VoteSummary};
-use crate::features::pb::chart as pb;
 
 pub struct Chart {
     pub timeframe: pb::Timeframe,

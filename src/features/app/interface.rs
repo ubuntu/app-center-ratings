@@ -1,11 +1,10 @@
 use crate::app::AppContext;
 
-use crate::features::pb::app::{GetRatingRequest, GetRatingResponse};
+use crate::features::{
+    app::{service::AppService, use_cases},
+    pb::app::{app_server::App, GetRatingRequest, GetRatingResponse},
+};
 use tonic::{Request, Response, Status};
-
-use crate::features::pb::app::app_server::App;
-
-use super::{service::AppService, use_cases};
 
 #[tonic::async_trait]
 impl App for AppService {

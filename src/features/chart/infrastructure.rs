@@ -1,9 +1,8 @@
-use crate::app::AppContext;
-use crate::features::common::entities::VoteSummary;
-use crate::features::pb::chart::Timeframe;
+use crate::{
+    app::AppContext,
+    features::{chart::errors::ChartError, common::entities::VoteSummary, pb::chart::Timeframe},
+};
 use tracing::error;
-
-use super::errors::ChartError;
 
 pub(crate) async fn get_votes_summary_by_timeframe(
     app_ctx: &AppContext,

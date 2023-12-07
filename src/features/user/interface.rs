@@ -1,20 +1,17 @@
 use time::OffsetDateTime;
-
 use tonic::{Request, Response, Status};
 
-use crate::app::AppContext;
-use crate::utils::jwt::Claims;
-
-use super::entities::Vote;
-use super::service::UserService;
-use super::use_cases;
-
-use crate::features::pb::user::{
-    AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
-    ListMyVotesRequest, ListMyVotesResponse, VoteRequest,
+use crate::{
+    app::AppContext,
+    features::{
+        pb::user::{
+            user_server::User, AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest,
+            GetSnapVotesResponse, ListMyVotesRequest, ListMyVotesResponse, VoteRequest,
+        },
+        user::{entities::Vote, service::UserService, use_cases},
+    },
+    utils::jwt::Claims,
 };
-
-use crate::features::pb::user::user_server::User;
 
 #[tonic::async_trait]
 impl User for UserService {

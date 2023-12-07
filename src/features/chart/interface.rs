@@ -1,12 +1,11 @@
-use crate::app::AppContext;
-
-use crate::features::pb::chart::{GetChartRequest, GetChartResponse, Timeframe};
+use crate::{
+    app::AppContext,
+    features::{
+        chart::{errors::ChartError, service::ChartService, use_cases},
+        pb::chart::{chart_server::Chart, GetChartRequest, GetChartResponse, Timeframe},
+    },
+};
 use tonic::{Request, Response, Status};
-
-use crate::features::pb::chart::chart_server::Chart;
-
-use super::errors::ChartError;
-use super::{service::ChartService, use_cases};
 
 #[tonic::async_trait]
 impl Chart for ChartService {

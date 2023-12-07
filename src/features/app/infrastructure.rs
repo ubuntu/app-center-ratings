@@ -1,7 +1,8 @@
-use crate::{app::AppContext, features::common::entities::VoteSummary};
+use crate::{
+    app::AppContext,
+    features::{app::errors::AppError, common::entities::VoteSummary},
+};
 use tracing::error;
-
-use super::errors::AppError;
 
 pub(crate) async fn get_votes_by_snap_id(
     app_ctx: &AppContext,
