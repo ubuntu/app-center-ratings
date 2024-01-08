@@ -1,12 +1,12 @@
-use std::error::Error;
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+use std::{
+    error::Error,
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
 
-use sqlx::pool::PoolConnection;
-use sqlx::{postgres::PgPoolOptions, PgPool, Postgres};
+use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
 
-use crate::utils::config::Config;
-use crate::utils::jwt::Jwt;
+use crate::utils::{config::Config, jwt::Jwt};
 
 #[derive(Clone)]
 pub struct Infrastructure {

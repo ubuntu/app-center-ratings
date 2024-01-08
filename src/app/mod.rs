@@ -1,5 +1,4 @@
-pub use context::AppContext;
-pub use context::RequestContext;
+pub use context::{AppContext, RequestContext};
 pub use run::run;
 
 mod context;

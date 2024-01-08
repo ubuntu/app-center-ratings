@@ -1,7 +1,9 @@
-use std::env;
-use std::error::Error;
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+use std::{
+    env,
+    error::Error,
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
 
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use tracing::info;
