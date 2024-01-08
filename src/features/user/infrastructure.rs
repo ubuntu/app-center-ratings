@@ -1,8 +1,13 @@
-use crate::{app::AppContext, features::user::errors::UserError};
 use sqlx::Row;
 use tracing::error;
 
-use super::entities::{User, Vote};
+use crate::{
+    app::AppContext,
+    features::user::{
+        entities::{User, Vote},
+        errors::UserError,
+    },
+};
 
 pub(crate) async fn create_or_seen_user(
     app_ctx: &AppContext,

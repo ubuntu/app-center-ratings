@@ -1,8 +1,6 @@
 use std::sync::Arc;
 
-use crate::utils::jwt::Claims;
-use crate::utils::Config;
-use crate::utils::Infrastructure;
+use crate::utils::{jwt::Claims, Config, Infrastructure};
 
 #[derive(Debug, Clone)]
 pub struct AppContext(Arc<AppContextInner>);
