@@ -1,4 +1,4 @@
-use super::interface::app_server::AppServer;
+use crate::features::pb::app::app_server::AppServer;
 
 #[derive(Debug, Default)]
 pub struct AppService;

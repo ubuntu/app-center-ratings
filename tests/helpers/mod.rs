@@ -1,5 +1,6 @@
 pub mod assert;
 pub mod client_app;
+pub mod client_chart;
 pub mod client_user;
 pub mod data_faker;
 pub mod hooks;

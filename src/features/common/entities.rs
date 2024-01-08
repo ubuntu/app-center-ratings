@@ -1,8 +1,8 @@
 use sqlx::FromRow;
 
-use super::interface::protobuf;
+use crate::features::pb::common as pb;
 
-const INSUFFICIENT_VOTES_QUANTITY: usize = 25;
+const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum RatingsBand {
@@ -43,18 +43,17 @@ pub struct Rating {
 }
 
 impl Rating {
-    pub fn new(snap_id: String, votes: Vec<Vote>) -> Self {
-        let total_votes = votes.len();
-        let ratings_band = calculate_band(votes);
+    pub fn new(votes: VoteSummary) -> Self {
+        let (_, ratings_band) = calculate_band(&votes);
         Self {
-            snap_id,
-            total_votes: total_votes as u64,
+            snap_id: votes.snap_id,
+            total_votes: votes.total_votes as u64,
             ratings_band,
         }
     }
 
-    pub(crate) fn into_dto(self) -> protobuf::Rating {
-        protobuf::Rating {
+    pub(crate) fn into_dto(self) -> pb::Rating {
+        pb::Rating {
             snap_id: self.snap_id,
             total_votes: self.total_votes,
             ratings_band: self.ratings_band as i32,
@@ -62,27 +61,31 @@ impl Rating {
     }
 }
 
+#[derive(Debug, Clone, FromRow)]
+pub struct VoteSummary {
+    pub snap_id: String,
+    pub total_votes: i64,
+    pub positive_votes: i64,
+}
+
 #[derive(Debug, Clone)]
 pub struct Vote {
     pub vote_up: bool,
 }
 
-fn calculate_band(votes: Vec<Vote>) -> RatingsBand {
-    let total_ratings = votes.len();
-    if total_ratings < INSUFFICIENT_VOTES_QUANTITY {
-        return RatingsBand::InsufficientVotes;
+pub fn calculate_band(votes: &VoteSummary) -> (Option<f64>, RatingsBand) {
+    if votes.total_votes < INSUFFICIENT_VOTES_QUANTITY {
+        return (None, RatingsBand::InsufficientVotes);
     }
-    let positive_ratings = votes
-        .into_iter()
-        .filter(|vote| vote.vote_up)
-        .collect::<Vec<Vote>>()
-        .len();
-    let adjusted_ratio = confidence_interval_lower_bound(positive_ratings, total_ratings);
+    let adjusted_ratio = confidence_interval_lower_bound(votes.positive_votes, votes.total_votes);
 
-    RatingsBand::from_value(adjusted_ratio)
+    (
+        Some(adjusted_ratio),
+        RatingsBand::from_value(adjusted_ratio),
+    )
 }
 
-fn confidence_interval_lower_bound(positive_ratings: usize, total_ratings: usize) -> f64 {
+fn confidence_interval_lower_bound(positive_ratings: i64, total_ratings: i64) -> f64 {
     if total_ratings == 0 {
         return 0.0;
     }
@@ -136,7 +139,7 @@ mod tests {
         let mut last_lower_bound = 0.0;
 
         for total_ratings in (100..1000).step_by(100) {
-            let positive_ratings = (total_ratings as f64 * ratio).round() as usize;
+            let positive_ratings = (total_ratings as f64 * ratio).round() as i64;
             let new_lower_bound = confidence_interval_lower_bound(positive_ratings, total_ratings);
             let raw_positive_ratio = positive_ratings as f64 / total_ratings as f64;
 
@@ -152,23 +155,39 @@ mod tests {
 
     #[test]
     fn test_insufficient_votes() {
-        let votes = vec![Vote { vote_up: true }];
-        let band = calculate_band(votes);
+        let votes = VoteSummary {
+            snap_id: 1.to_string(),
+            total_votes: 1,
+            positive_votes: 1,
+        };
+        let (rating, band) = calculate_band(&votes);
         assert_eq!(
             band,
             RatingsBand::InsufficientVotes,
             "Should return InsufficientVotes when not enough votes exist for a given Snap."
+        );
+        assert!(
+            rating.is_none(),
+            "Should return band = None for insufficient votes."
         )
     }
 
     #[test]
     fn test_sufficient_votes() {
-        let votes = vec![Vote { vote_up: true }; INSUFFICIENT_VOTES_QUANTITY];
-        let band = calculate_band(votes);
+        let votes = VoteSummary {
+            snap_id: 1.to_string(),
+            total_votes: 100,
+            positive_votes: 100,
+        };
+        let (rating, band) = calculate_band(&votes);
         assert_eq!(
             band,
             RatingsBand::VeryGood,
             "Should return very good for a sufficient number of all positive votes."
+        );
+        assert!(
+            rating > Some(0.7),
+            "Should return fairly positive raw rating for this ration and volume of positive votes."
         )
     }
 }

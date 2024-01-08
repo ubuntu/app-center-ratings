@@ -1,13 +1,13 @@
-use crate::app::AppContext;
-use sqlx::Row;
+use crate::{
+    app::AppContext,
+    features::{app::errors::AppError, common::entities::VoteSummary},
+};
 use tracing::error;
-
-use super::{entities::Vote, errors::AppError};
 
 pub(crate) async fn get_votes_by_snap_id(
     app_ctx: &AppContext,
     snap_id: &str,
-) -> Result<Vec<Vote>, AppError> {
+) -> Result<VoteSummary, AppError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -16,32 +16,27 @@ pub(crate) async fn get_votes_by_snap_id(
             error!("{error:?}");
             AppError::FailedToGetRating
         })?;
-    let result = sqlx::query(
+
+    let result = sqlx::query_as::<_, VoteSummary>(
         r#"
-                SELECT
-                    votes.id,
-                    votes.snap_id,
-                    votes.vote_up
-                FROM
-                    votes
-                WHERE
-                    votes.snap_id = $1
-            "#,
+            SELECT
+                votes.snap_id,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes
+            WHERE
+                votes.snap_id = $1
+            GROUP BY votes.snap_id
+        "#,
     )
     .bind(snap_id)
-    .fetch_all(&mut *pool)
+    .fetch_one(&mut *pool)
     .await
     .map_err(|error| {
         error!("{error:?}");
         AppError::Unknown
     })?;
 
-    let votes: Vec<Vote> = result
-        .into_iter()
-        .map(|row| Vote {
-            vote_up: row.get("vote_up"),
-        })
-        .collect();
-
-    Ok(votes)
+    Ok(result)
 }

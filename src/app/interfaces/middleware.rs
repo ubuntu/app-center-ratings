@@ -1,7 +1,6 @@
 use std::pin::Pin;
 
-use hyper::service::Service;
-use hyper::Body;
+use hyper::{service::Service, Body};
 use tonic::body::BoxBody;
 use tower::Layer;
 

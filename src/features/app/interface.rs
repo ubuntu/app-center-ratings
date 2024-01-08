@@ -1,16 +1,10 @@
 use crate::app::AppContext;
 
-use self::protobuf::{App, GetRatingRequest, GetRatingResponse};
-pub use protobuf::app_server;
+use crate::features::{
+    app::{service::AppService, use_cases},
+    pb::app::{app_server::App, GetRatingRequest, GetRatingResponse},
+};
 use tonic::{Request, Response, Status};
-
-use super::{service::AppService, use_cases};
-
-pub mod protobuf {
-    pub use self::app_server::App;
-
-    tonic::include_proto!("ratings.features.app");
-}
 
 #[tonic::async_trait]
 impl App for AppService {

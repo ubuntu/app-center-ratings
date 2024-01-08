@@ -1,7 +1,7 @@
 use tonic::transport::server::Router;
 use tonic_reflection::server::ServerReflection;
 
-use crate::features::{app, user};
+use crate::features::{app, chart, user};
 
 pub fn build_reflection_service(
 ) -> tonic_reflection::server::ServerReflectionServer<impl ServerReflection> {
@@ -16,6 +16,10 @@ pub fn build_reflection_service(
 pub fn build_servers<R>(router: Router<R>) -> Router<R> {
     let user_service = user::service::build_service();
     let app_service = app::service::build_service();
+    let chart_service = chart::service::build_service();
 
-    router.add_service(user_service).add_service(app_service)
+    router
+        .add_service(user_service)
+        .add_service(app_service)
+        .add_service(chart_service)
 }

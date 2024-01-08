@@ -1,10 +1,10 @@
 use crate::helpers;
 use crate::helpers::test_data::TestData;
+use futures::FutureExt;
 
-use super::super::helpers::client_user::pb::{AuthenticateResponse, VoteRequest};
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
-use futures::FutureExt;
+use crate::pb::user::{AuthenticateResponse, VoteRequest};
 use ratings::app::AppContext;
 use ratings::utils::{self, Infrastructure};
 use sqlx::Row;
@@ -24,6 +24,7 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
         token: None,
         app_client: None,
         snap_id: None,
+        chart_client: None,
     };
 
     with_lifecycle(async {

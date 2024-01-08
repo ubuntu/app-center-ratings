@@ -1,4 +1,4 @@
-use super::interface::user_server::UserServer;
+use crate::features::pb::user::user_server::UserServer;
 
 #[derive(Debug, Default)]
 pub struct UserService;
