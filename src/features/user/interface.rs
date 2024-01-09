@@ -1,3 +1,4 @@
+//! Trait impls for a given [`User`]
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 
@@ -97,7 +98,10 @@ impl User for UserService {
 
         match result {
             Ok(votes) => {
-                let votes = votes.into_iter().map(|vote| vote.into_dto()).collect();
+                let votes = votes
+                    .into_iter()
+                    .map(|vote| vote.into_protobuf_vote())
+                    .collect();
                 let payload = ListMyVotesResponse { votes };
                 Ok(Response::new(payload))
             }
@@ -121,7 +125,10 @@ impl User for UserService {
 
         match result {
             Ok(votes) => {
-                let votes = votes.into_iter().map(|vote| vote.into_dto()).collect();
+                let votes = votes
+                    .into_iter()
+                    .map(|vote| vote.into_protobuf_vote())
+                    .collect();
                 let payload = GetSnapVotesResponse { votes };
                 Ok(Response::new(payload))
             }
@@ -130,6 +137,7 @@ impl User for UserService {
     }
 }
 
+/// Converts a request into a [`Claims`] value.
 fn claims<T>(request: &Request<T>) -> Claims {
     request
         .extensions()
@@ -138,4 +146,5 @@ fn claims<T>(request: &Request<T>) -> Claims {
         .clone()
 }
 
+/// The length we expect a client hash to be, in bytes
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
