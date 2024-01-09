@@ -1,3 +1,4 @@
+//! Contains definitions for running the app context.
 use std::{net::SocketAddr, time::Duration};
 
 use tonic::transport::Server;
@@ -14,6 +15,7 @@ use crate::{
     utils::{Config, Infrastructure, Migrator},
 };
 
+/// Runs the app given the associated [`Config`].
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let migrator = Migrator::new(&config.migration_postgres_uri).await?;
     migrator.run().await?;
