@@ -1,15 +1,21 @@
+//! Contains definitions for running the app context.
 use std::{net::SocketAddr, time::Duration};
 
-use crate::app::context::AppContext;
 use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::utils::{Config, Infrastructure, Migrator};
+use crate::{
+    app::context::AppContext,
+    app::interfaces::{
+        authentication::authentication,
+        middleware::ContextMiddlewareLayer,
+        routes::{build_reflection_service, build_servers},
+    },
+    utils::{Config, Infrastructure, Migrator},
+};
 
-use super::interfaces::routes::{build_reflection_service, build_servers};
-use super::interfaces::{authentication::authentication, middleware::ContextMiddlewareLayer};
-
+/// Runs the app given the associated [`Config`].
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let migrator = Migrator::new(&config.migration_postgres_uri).await?;
     migrator.run().await?;

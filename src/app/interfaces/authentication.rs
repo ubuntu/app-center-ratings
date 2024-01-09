@@ -1,9 +1,12 @@
+//! Contains the utilities for authorizing user requests
+
 use http::header;
 use tonic::{Request, Status};
 use tracing::error;
 
 use crate::app::{context::AppContext, RequestContext};
 
+/// Authorizes the user in the request specified by `req`.
 pub fn authentication(req: Request<()>) -> Result<Request<()>, Status> {
     let app_ctx = req.extensions().get::<AppContext>().unwrap().clone();
 
