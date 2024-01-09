@@ -1,3 +1,5 @@
+use std::fmt::Write;
+
 use rand::distributions::Alphanumeric;
 use rand::Rng;
 use sha2::{Digest, Sha256};
@@ -7,12 +9,16 @@ pub fn rnd_sha_256() -> String {
     let data = rnd_string(100);
     let mut hasher = Sha256::new();
     hasher.update(data);
-    let result = hasher.finalize();
-    let result: String = result
+
+    hasher
+        .finalize()
         .iter()
-        .map(|b| format!("{:02x}", b))
-        .collect::<String>();
-    result
+        .fold(String::new(), |mut output, b| {
+            // This ignores the error without the overhead of unwrap/expect,
+            // This is okay because writing to a string can't fail (barring OOM which won't happen)
+            let _ = write!(output, "{b:02x}");
+            output
+        })
 }
 
 pub fn rnd_id() -> String {
