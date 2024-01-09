@@ -1,3 +1,5 @@
+//! Helper utilties for dealing with user snap ratings.
+
 pub use config::Config;
 pub use infrastructure::Infrastructure;
 pub use migrator::Migrator;
