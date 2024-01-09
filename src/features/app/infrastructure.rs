@@ -1,9 +1,16 @@
+//! Infrastructure definitions for the ratings center backend
+
 use crate::{
     app::AppContext,
     features::{app::errors::AppError, common::entities::VoteSummary},
 };
 use tracing::error;
 
+/// Retrieves votes for the snap indicated by `snap_id` for the given [`AppContext`].
+///
+/// See the documentation for the common caller, [`get_rating`], for more information.
+///
+/// [`get_rating`]: crate::features::app::use_cases::get_rating
 pub(crate) async fn get_votes_by_snap_id(
     app_ctx: &AppContext,
     snap_id: &str,

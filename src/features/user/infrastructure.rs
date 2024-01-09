@@ -1,3 +1,4 @@
+//! Infrastructure for user handling
 use sqlx::Row;
 use tracing::error;
 
@@ -9,6 +10,8 @@ use crate::{
     },
 };
 
+/// Create a [`User`] entry, or note that the user has recently been seen, within the current
+/// [`AppContext`].
 pub(crate) async fn create_or_seen_user(
     app_ctx: &AppContext,
     user: User,
@@ -50,6 +53,9 @@ pub(crate) async fn create_or_seen_user(
     Ok(user_with_id)
 }
 
+/// Deletes a [`User`] with the given [`ClientHash`]
+///
+/// [`ClientHash`]: crate::features::user::entities::ClientHash
 pub(crate) async fn delete_user_by_client_hash(
     app_ctx: &AppContext,
     client_hash: &str,
@@ -80,6 +86,9 @@ pub(crate) async fn delete_user_by_client_hash(
     Ok(rows.rows_affected())
 }
 
+/// Gets votes for a snap with the given ID from a given [`ClientHash`]
+///
+/// [`ClientHash`]: crate::features::user::entities::ClientHash
 pub(crate) async fn get_snap_votes_by_client_hash(
     app_ctx: &AppContext,
     snap_id: String,
@@ -137,6 +146,7 @@ pub(crate) async fn get_snap_votes_by_client_hash(
     Ok(votes)
 }
 
+/// Saves a [`Vote`] to the database, if possible.
 pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()
@@ -169,6 +179,9 @@ pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<
     Ok(result.rows_affected())
 }
 
+/// Retrieve all votes for a given [`User`], within the current [`AppContext`].
+///
+/// May be filtered for a given snap ID.
 pub(crate) async fn find_user_votes(
     app_ctx: &AppContext,
     client_hash: String,

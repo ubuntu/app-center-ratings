@@ -1,3 +1,4 @@
+//! COntains trait implementations for [`AppService`] and other app definitions.
 use crate::app::AppContext;
 
 use crate::features::{
@@ -26,7 +27,7 @@ impl App for AppService {
         match result {
             Ok(rating) => {
                 let payload = GetRatingResponse {
-                    rating: Some(rating.into_dto()),
+                    rating: Some(rating.into_protobuf_rating()),
                 };
                 Ok(Response::new(payload))
             }

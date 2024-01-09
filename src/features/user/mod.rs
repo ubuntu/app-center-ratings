@@ -1,3 +1,5 @@
+//! Contains various implementations for handling user data.
+
 pub mod entities;
 pub mod interface;
 pub mod service;
