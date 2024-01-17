@@ -1,4 +1,4 @@
-//! Various struct definitions for handling user data..
+//! Various struct definitions for handling user data.
 
 use sqlx::FromRow;
 use time::OffsetDateTime;
