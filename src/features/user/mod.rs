@@ -1,4 +1,4 @@
-//! Contains various feature implementations for registering snap votes.
+//! Contains various feature implementations for autenticating users and registering their snap votes.
 
 pub mod entities;
 pub mod interface;
