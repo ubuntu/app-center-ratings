@@ -1,4 +1,4 @@
-//! Definitions for configuration of the service.
+//! Utility functions and definitions for configuring the service.
 use dotenv::dotenv;
 use serde::Deserialize;
 

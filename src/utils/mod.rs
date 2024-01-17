@@ -1,4 +1,4 @@
-//! Helper utilties for dealing with user snap ratings.
+//! Helper utilties for the infrastructure layer
 
 pub use config::Config;
 pub use infrastructure::Infrastructure;

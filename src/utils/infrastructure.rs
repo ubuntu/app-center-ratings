@@ -1,4 +1,4 @@
-//! Definitions for creating server infrastructure (database, etc).
+//! Utilities and structs for creating server infrastructure (database, etc).
 use std::{
     error::Error,
     fmt::{Debug, Formatter},
