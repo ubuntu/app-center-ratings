@@ -1,4 +1,4 @@
-//! COntains trait implementations for [`AppService`] and other app definitions.
+//! Contains trait implementations for [`AppService`] and other app definitions.
 use crate::app::AppContext;
 
 use crate::features::{
