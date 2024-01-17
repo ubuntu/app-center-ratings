@@ -2,7 +2,7 @@
 
 use crate::{
     app::AppContext,
-    features::{app::errors::AppError, common::entities::VoteSummary},
+    features::{common::entities::VoteSummary, get_rating::errors::AppError},
 };
 use tracing::error;
 

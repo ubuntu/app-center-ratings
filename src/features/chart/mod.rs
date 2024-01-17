@@ -1,4 +1,4 @@
-//! Contains various feature implementations for the charts.
+//! Contains various feature implementations for charting snap ratings.
 
 pub mod entities;
 pub mod interface;

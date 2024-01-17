@@ -4,8 +4,8 @@
 use crate::{
     app::AppContext,
     features::{
-        app::{errors::AppError, infrastructure::get_votes_by_snap_id},
         common::entities::Rating,
+        get_rating::{errors::AppError, infrastructure::get_votes_by_snap_id},
     },
 };
 use tracing::error;

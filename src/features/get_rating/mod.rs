@@ -1,4 +1,4 @@
-//! Contains features for the ratings [`AppService`].
+//! Contains various feature implementations for retrieving snap ratings.
 //!
 //! [`AppService`]: service::AppService
 
