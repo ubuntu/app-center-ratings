@@ -8,7 +8,7 @@ use tonic::{Request, Response, Status};
 
 #[tonic::async_trait]
 impl App for AppService {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn get_rating(
         &self,
         request: Request<GetRatingRequest>,

@@ -15,7 +15,7 @@ use crate::{
 
 #[tonic::async_trait]
 impl User for UserService {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn authenticate(
         &self,
         request: Request<AuthenticateRequest>,
@@ -43,7 +43,7 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn delete(&self, request: Request<()>) -> Result<Response<()>, Status> {
         let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let Claims {
@@ -56,7 +56,7 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn vote(&self, request: Request<VoteRequest>) -> Result<Response<()>, Status> {
         let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
         let Claims {
@@ -78,7 +78,7 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn list_my_votes(
         &self,
         request: Request<ListMyVotesRequest>,
@@ -105,7 +105,7 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn get_snap_votes(
         &self,
         request: Request<GetSnapVotesRequest>,
