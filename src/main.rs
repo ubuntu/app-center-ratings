@@ -18,7 +18,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_span_events(tracing_subscriber::fmt::format::FmtSpan::CLOSE)
         .init();
 
-    tracing::info!("Starting the Ubuntu App Rating Service");
+    let name = &config.name;
+    tracing::info!("Starting the {name} service");
     app::run(config).await?;
 
     Ok(())
