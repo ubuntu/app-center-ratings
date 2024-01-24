@@ -38,12 +38,18 @@ pub(crate) async fn get_votes_by_snap_id(
         "#,
     )
     .bind(snap_id)
-    .fetch_one(&mut *pool)
+    .fetch_optional(&mut *pool)
     .await
     .map_err(|error| {
         error!("{error:?}");
         AppError::Unknown
     })?;
 
-    Ok(result)
+    let summary = result.unwrap_or_else(|| VoteSummary {
+        snap_id: snap_id.to_string(),
+        total_votes: 0,
+        positive_votes: 0,
+    });
+
+    Ok(summary)
 }
