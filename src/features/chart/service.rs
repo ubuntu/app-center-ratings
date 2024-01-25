@@ -8,7 +8,7 @@ use crate::features::pb::chart::chart_server::ChartServer;
 #[derive(Debug, Default)]
 pub struct ChartService;
 
-/// Creates a [`ChartServer`] with default barameters from a [`ChartService`].
+/// Creates a [`ChartServer`] with default parameters from a [`ChartService`].
 pub fn build_service() -> ChartServer<ChartService> {
     let service = ChartService;
     ChartServer::new(service)
