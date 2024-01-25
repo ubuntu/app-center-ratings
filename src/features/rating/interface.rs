@@ -2,8 +2,8 @@
 use crate::app::AppContext;
 
 use crate::features::{
-    get_rating::{service::AppService, use_cases},
     pb::app::{app_server::App, GetRatingRequest, GetRatingResponse},
+    rating::{service::AppService, use_cases},
 };
 use tonic::{Request, Response, Status};
 
