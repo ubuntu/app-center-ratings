@@ -1,10 +1,12 @@
+//! Contains definitions for service routers and related components.
+
 use tonic::transport::server::Router;
-use tonic_reflection::server::ServerReflection;
+use tonic_reflection::server::{ServerReflection, ServerReflectionServer};
 
-use crate::features::{app, chart, user};
+use crate::features::{chart, rating, user};
 
-pub fn build_reflection_service(
-) -> tonic_reflection::server::ServerReflectionServer<impl ServerReflection> {
+/// Creates a new default reflection server for this app
+pub fn build_reflection_service() -> ServerReflectionServer<impl ServerReflection> {
     let file_descriptor_set = tonic::include_file_descriptor_set!("ratings_descriptor");
 
     tonic_reflection::server::Builder::configure()
@@ -13,9 +15,11 @@ pub fn build_reflection_service(
         .unwrap()
 }
 
+/// Registers new services required to make the passed in [`Router`] work,
+/// the [`Router`] won't be otherwise modified.
 pub fn build_servers<R>(router: Router<R>) -> Router<R> {
     let user_service = user::service::build_service();
-    let app_service = app::service::build_service();
+    let app_service = rating::service::build_service();
     let chart_service = chart::service::build_service();
 
     router

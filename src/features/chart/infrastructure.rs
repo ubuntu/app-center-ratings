@@ -1,9 +1,14 @@
+//! Definitions for getting vote summaries for the [`Chart`] implementations
+//!
+//! [`Chart`]: crate::features::chart::entities::Chart
 use crate::{
     app::AppContext,
     features::{chart::errors::ChartError, common::entities::VoteSummary, pb::chart::Timeframe},
 };
 use tracing::error;
 
+/// Retrieves the vote summary in the given [`AppContext`] over a given [`Timeframe`]
+/// from the database.
 pub(crate) async fn get_votes_summary_by_timeframe(
     app_ctx: &AppContext,
     timeframe: Timeframe,

@@ -1,20 +1,25 @@
-use std::error::Error;
-use std::fmt::{Debug, Formatter};
-use std::sync::Arc;
+//! Utilities and structs for creating server infrastructure (database, etc).
+use std::{
+    error::Error,
+    fmt::{Debug, Formatter},
+    sync::Arc,
+};
 
-use sqlx::pool::PoolConnection;
-use sqlx::{postgres::PgPoolOptions, PgPool, Postgres};
+use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
 
-use crate::utils::config::Config;
-use crate::utils::jwt::Jwt;
+use crate::utils::{config::Config, jwt::Jwt};
 
+/// Resources important to the server, but are not necessarily in-memory
 #[derive(Clone)]
 pub struct Infrastructure {
+    /// The postgres DB
     pub postgres: Arc<PgPool>,
+    /// The JWT instance
     pub jwt: Arc<Jwt>,
 }
 
 impl Infrastructure {
+    /// Tries to create a new [`Infrastructure`] from the given [`Config`]
     pub async fn new(config: &Config) -> Result<Infrastructure, Box<dyn Error>> {
         let uri = config.postgres_uri.clone();
         let uri = uri.as_str();
@@ -28,6 +33,7 @@ impl Infrastructure {
         Ok(Infrastructure { postgres, jwt })
     }
 
+    /// Attempt to get a pooled connection to the database
     pub async fn repository(&self) -> Result<PoolConnection<Postgres>, sqlx::Error> {
         self.postgres.acquire().await
     }

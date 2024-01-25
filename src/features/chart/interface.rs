@@ -1,3 +1,4 @@
+//! Contains trait implementations for the chart feature.
 use crate::{
     app::AppContext,
     features::{
@@ -32,7 +33,7 @@ impl Chart for ChartService {
                 let ordered_chart_data = result
                     .chart_data
                     .into_iter()
-                    .map(|chart_data| chart_data.into_dto())
+                    .map(|chart_data| chart_data.into_protobuf_chart_data())
                     .collect();
 
                 let payload = GetChartResponse {
