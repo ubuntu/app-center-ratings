@@ -24,7 +24,7 @@ sha2 = "0.10"
 sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "time"] }
 thiserror = "1.0"
 time = { version = "0.3", features = ["macros"] }
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.36", features = ["full"] }
 tokio-postgres = "0.7"
 tonic = "0.10"
 tonic-reflection = "0.10"
