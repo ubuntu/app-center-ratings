@@ -33,4 +33,4 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]
-tonic-build = { version = "0.10", features = ["prost"] }
+tonic-build = { version = "0.11", features = ["prost"] }
