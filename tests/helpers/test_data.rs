@@ -1,5 +1,9 @@
+use std::collections::HashSet;
+
 use ratings::app::AppContext;
 use sqlx::{pool::PoolConnection, Postgres};
+
+use ratings::features::pb::chart::Category;
 
 use super::client_app::AppClient;
 use super::client_chart::ChartClient;
@@ -14,6 +18,7 @@ pub struct TestData {
     pub snap_id: Option<String>,
     pub token: Option<String>,
     pub app_ctx: AppContext,
+    pub categories: Option<HashSet<Category>>,
 }
 
 impl TestData {

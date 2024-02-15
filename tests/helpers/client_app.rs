@@ -1,8 +1,6 @@
 use tonic::{metadata::MetadataValue, transport::Endpoint, Request, Response, Status};
 
-use crate::pb::app::{GetRatingRequest, GetRatingResponse};
-
-use crate::pb::app::app_client as pb;
+use ratings::features::pb::app::{app_client as pb, GetRatingRequest, GetRatingResponse};
 
 #[derive(Debug, Clone)]
 pub struct AppClient {

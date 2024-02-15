@@ -3,8 +3,8 @@ use crate::helpers::test_data::TestData;
 
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
-use crate::pb::user::AuthenticateResponse;
 use ratings::app::AppContext;
+use ratings::features::pb::user::AuthenticateResponse;
 use ratings::utils::{self, Infrastructure};
 use sqlx::Row;
 use utils::Config;
@@ -23,6 +23,7 @@ async fn authenticate_twice_test() -> Result<(), Box<dyn std::error::Error>> {
         app_client: None,
         snap_id: None,
         chart_client: None,
+        categories: None,
     };
 
     with_lifecycle(async {

@@ -2,8 +2,8 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
 
-use crate::pb::user::user_client as pb;
-use crate::pb::user::{
+use ratings::features::pb::user::user_client as pb;
+use ratings::features::pb::user::{
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
     VoteRequest,
 };

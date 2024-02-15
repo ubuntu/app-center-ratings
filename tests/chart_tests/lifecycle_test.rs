@@ -1,19 +1,19 @@
 use futures::FutureExt;
 use ratings::{
     app::AppContext,
+    features::pb::{
+        chart::Timeframe,
+        common::{Rating, RatingsBand},
+        user::AuthenticateResponse,
+    },
     utils::{Config, Infrastructure},
 };
 
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use crate::helpers::vote_generator::generate_votes;
 use crate::helpers::{self, client_app::AppClient};
+use crate::helpers::{client_chart::ChartClient, test_data::TestData};
 use crate::helpers::{client_user::UserClient, data_faker};
-use crate::pb::common::RatingsBand;
-use crate::pb::user::AuthenticateResponse;
-use crate::{
-    helpers::{client_chart::ChartClient, test_data::TestData},
-    pb::{chart::Timeframe, common::Rating},
-};
 
 #[tokio::test]
 async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,6 +29,7 @@ async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
         app_client: Some(AppClient::new(&config.socket())),
         snap_id: Some(data_faker::rnd_id()),
         chart_client: Some(ChartClient::new(&config.socket())),
+        categories: None,
     };
 
     with_lifecycle(async {
