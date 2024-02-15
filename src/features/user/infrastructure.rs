@@ -1,9 +1,6 @@
 //! Infrastructure for user handling
 use snapd::{
-    api::{
-        convenience::SnapNameFromId,
-        find::{CategoryName, FindSnapByName},
-    },
+    api::{convenience::SnapNameFromId, find::FindSnapByName},
     SnapdClient,
 };
 use sqlx::{Acquire, Executor, Row};
@@ -11,9 +8,12 @@ use tracing::error;
 
 use crate::{
     app::AppContext,
-    features::user::{
-        entities::{User, Vote},
-        errors::UserError,
+    features::{
+        pb::chart::Category,
+        user::{
+            entities::{User, Vote},
+            errors::UserError,
+        },
     },
 };
 
@@ -190,13 +190,13 @@ pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<
 async fn snapd_categories_by_snap_id(
     client: &SnapdClient,
     snap_id: &str,
-) -> Result<Vec<CategoryName<'static>>, UserError> {
+) -> Result<Vec<Category>, UserError> {
     let snap_name = SnapNameFromId::get_name(snap_id.into(), client).await?;
 
     Ok(FindSnapByName::get_categories(snap_name, client)
         .await?
         .into_iter()
-        .map(|v| v.name)
+        .map(|v| Category::try_from(v.name.as_ref()).expect("got unknown category?"))
         .collect())
 }
 
@@ -227,9 +227,9 @@ pub(crate) async fn update_category(app_ctx: &AppContext, snap_id: &str) -> Resu
 
     for category in categories.iter() {
         tx.execute(
-            sqlx::query("INSERT INTO snap_categories (snap_id, category) VALUES ($1,$2); ")
+            sqlx::query("INSERT INTO snap_categories (snap_id, category) VALUES ($1, $2); ")
                 .bind(snap_id)
-                .bind(category.as_ref()),
+                .bind(category),
         )
         .await?;
     }
@@ -302,7 +302,7 @@ pub(crate) async fn find_user_votes(
 mod test {
     use std::collections::HashSet;
 
-    use snapd::{api::find::CategoryName, SnapdClient};
+    use snapd::SnapdClient;
 
     use crate::features::pb::chart::Category;
 
@@ -317,10 +317,7 @@ mod test {
             .unwrap();
 
         assert_eq!(
-            TESTING_SNAP_CATEGORIES
-                .map(|v| CategoryName::from(v.to_kebab_case()))
-                .into_iter()
-                .collect::<HashSet<_>>(),
+            TESTING_SNAP_CATEGORIES.into_iter().collect::<HashSet<_>>(),
             categories.into_iter().collect::<HashSet<_>>()
         )
     }

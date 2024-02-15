@@ -131,7 +131,6 @@ async fn vote_sets_category(
     conn: &mut PoolConnection<Postgres>,
     expected: &HashSet<Category>,
 ) {
-    let expected: HashSet<_> = expected.iter().map(|v| v.to_kebab_case()).collect();
     let result = sqlx::query(
         r#"
         SELECT snap_categories.category
@@ -143,13 +142,11 @@ async fn vote_sets_category(
     .fetch(&mut **conn)
     .map(|row| {
         row.expect("error when retrieving row")
-            .try_get::<String, _>("category")
+            .try_get::<Category, _>("category")
             .expect("could not get category field")
-            .to_lowercase()
     })
-    .collect::<HashSet<String>>()
+    .collect::<HashSet<_>>()
     .await;
 
-    assert_eq!(result, expected);
+    assert_eq!(&result, expected);
 }
-// 3Iwi803Tk3KQwyD6jFiAJdlq8MLgBIoD

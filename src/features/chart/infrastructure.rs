@@ -52,7 +52,7 @@ pub(crate) async fn get_votes_summary(
                     SELECT snap_categories.snap_id FROM snap_categories 
                     WHERE snap_categories.category = "#,
             )
-            .push_bind(category.to_kebab_case())
+            .push_bind(category)
             .push(")");
     }
 
