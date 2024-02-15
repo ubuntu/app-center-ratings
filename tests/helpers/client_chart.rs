@@ -35,6 +35,7 @@ impl ChartClient {
         client
             .get_chart(GetChartRequest {
                 timeframe: timeframe.into(),
+                category: None,
             })
             .await
     }

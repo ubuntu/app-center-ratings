@@ -17,7 +17,7 @@ impl Chart for ChartService {
     ) -> Result<Response<GetChartResponse>, Status> {
         let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
 
-        let GetChartRequest { timeframe } = request.into_inner();
+        let GetChartRequest { timeframe, .. } = request.into_inner();
 
         let timeframe = match timeframe {
             0 => Timeframe::Unspecified,
@@ -38,6 +38,7 @@ impl Chart for ChartService {
 
                 let payload = GetChartResponse {
                     timeframe: timeframe.into(),
+                    category: None,
                     ordered_chart_data,
                 };
                 Ok(Response::new(payload))
