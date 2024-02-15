@@ -50,6 +50,7 @@ mod app_tests {
 }
 
 mod chart_tests {
+    mod category;
     mod lifecycle_test;
 }
 
