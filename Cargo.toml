@@ -8,6 +8,7 @@ edition = "2021"
 rust-version = "1.75.0"
 
 [dependencies]
+convert_case = "0.6.0"
 dotenv = "0.15"
 envy = "0.4"
 futures = "0.3"
@@ -21,7 +22,12 @@ rand = "0.8"
 reqwest = "0.11"
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
-sqlx = { version = "0.7", features = ["runtime-tokio-rustls", "postgres", "time"] }
+snapd = { git = "https://github.com/ZoopOTheGoop/snapd-rs", branch = "framework" }
+sqlx = { version = "0.7", features = [
+    "runtime-tokio-rustls",
+    "postgres",
+    "time",
+] }
 thiserror = "1.0"
 time = { version = "0.3", features = ["macros"] }
 tokio = { version = "1.36", features = ["full"] }
