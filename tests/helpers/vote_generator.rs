@@ -1,4 +1,4 @@
-use super::test_data::TestData;
+use super::client_user::*;
 use crate::helpers;
 use ratings::features::pb::user::{AuthenticateResponse, VoteRequest};
 
@@ -7,10 +7,10 @@ pub async fn generate_votes(
     snap_revision: i32,
     vote_up: bool,
     count: u64,
-    data: TestData,
+    client: &UserClient,
 ) -> Result<(), Box<dyn std::error::Error>> {
     for _ in 0..count {
-        register_and_vote(snap_id, snap_revision, vote_up, data.clone()).await?;
+        register_and_vote(snap_id, snap_revision, vote_up, client).await?;
     }
     Ok(())
 }
@@ -19,9 +19,8 @@ async fn register_and_vote(
     snap_id: &str,
     snap_revision: i32,
     vote_up: bool,
-    data: TestData,
+    client: &UserClient,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let client = data.user_client.clone().unwrap();
     let id: String = helpers::data_faker::rnd_sha_256();
     let response: AuthenticateResponse = client
         .authenticate(&id)

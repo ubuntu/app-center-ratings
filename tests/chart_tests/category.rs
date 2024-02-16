@@ -18,8 +18,8 @@ use ratings::{
 use crate::{
     clear_test_snap,
     helpers::{
-        self, client_app::AppClient, client_chart::ChartClient, client_user::UserClient,
-        test_data::TestData, vote_generator::generate_votes, with_lifecycle::with_lifecycle,
+        self, client_app::*, client_chart::*, client_user::*, test_data::TestData,
+        vote_generator::generate_votes, with_lifecycle::with_lifecycle,
     },
     CLEAR_TEST_SNAP,
 };
@@ -35,13 +35,13 @@ async fn category_chart_filtering() -> Result<(), Box<dyn std::error::Error>> {
     CLEAR_TEST_SNAP.get_or_init(clear_test_snap).await;
 
     let data = TestData {
-        user_client: Some(UserClient::new(&config.socket())),
+        user_client: Some(UserClient::new(config.socket())),
         app_ctx,
         id: None,
         token: None,
-        app_client: Some(AppClient::new(&config.socket())),
+        app_client: Some(AppClient::new(config.socket())),
         snap_id: Some(TESTING_SNAP_ID.to_string()),
-        chart_client: Some(ChartClient::new(&config.socket())),
+        chart_client: Some(ChartClient::new(config.socket())),
         categories: Some(TESTING_SNAP_CATEGORIES.iter().cloned().collect()),
     };
 
@@ -86,9 +86,15 @@ async fn vote(mut data: TestData) -> TestData {
 // Does an app voted against multiple times appear correctly in the chart?
 pub async fn multiple_votes(data: TestData) -> TestData {
     // This should rank our snap_id at the top of the chart, but only for our category
-    generate_votes(&data.snap_id.clone().unwrap(), 111, true, 50, data.clone())
-        .await
-        .expect("Votes should succeed");
+    generate_votes(
+        &data.snap_id.clone().unwrap(),
+        111,
+        true,
+        50,
+        data.user_client.as_ref().unwrap(),
+    )
+    .await
+    .expect("Votes should succeed");
 
     data
 }

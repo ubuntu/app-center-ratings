@@ -39,8 +39,6 @@ async fn clear_test_snap() {
 
 mod user_tests {
     mod category;
-    mod double_authenticate_test;
-    mod get_votes_lifecycle_test;
     mod reject_invalid_register_test;
     mod simple_lifecycle_test;
 }

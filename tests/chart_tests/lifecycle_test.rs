@@ -11,9 +11,9 @@ use ratings::{
 
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use crate::helpers::vote_generator::generate_votes;
-use crate::helpers::{self, client_app::AppClient};
-use crate::helpers::{client_chart::ChartClient, test_data::TestData};
-use crate::helpers::{client_user::UserClient, data_faker};
+use crate::helpers::{self, client_app::*};
+use crate::helpers::{client_chart::*, test_data::TestData};
+use crate::helpers::{client_user::*, data_faker};
 
 #[tokio::test]
 async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,13 +22,13 @@ async fn chart_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
     let app_ctx = AppContext::new(&config, infra);
 
     let data = TestData {
-        user_client: Some(UserClient::new(&config.socket())),
+        user_client: Some(UserClient::new(config.socket())),
         app_ctx,
         id: None,
         token: None,
-        app_client: Some(AppClient::new(&config.socket())),
+        app_client: Some(AppClient::new(config.socket())),
         snap_id: Some(data_faker::rnd_id()),
-        chart_client: Some(ChartClient::new(&config.socket())),
+        chart_client: Some(ChartClient::new(config.socket())),
         categories: None,
     };
 
@@ -48,9 +48,15 @@ async fn vote_once(mut data: TestData) -> TestData {
 
     // Fill up chart with other votes so ours doesn't appear
     for _ in 0..20 {
-        generate_votes(&data_faker::rnd_id(), 111, vote_up, 25, data.clone())
-            .await
-            .expect("Votes should succeed");
+        generate_votes(
+            &data_faker::rnd_id(),
+            111,
+            vote_up,
+            25,
+            data.user_client.as_ref().unwrap(),
+        )
+        .await
+        .expect("Votes should succeed");
     }
 
     let vote_up = true;
@@ -60,7 +66,7 @@ async fn vote_once(mut data: TestData) -> TestData {
         111,
         vote_up,
         1,
-        data.clone(),
+        data.user_client.as_ref().unwrap(),
     )
     .await
     .expect("Votes should succeed");
@@ -115,7 +121,7 @@ async fn multiple_votes(mut data: TestData) -> TestData {
         111,
         vote_up,
         100,
-        data.clone(),
+        data.user_client.as_ref().unwrap(),
     )
     .await
     .expect("Votes should succeed");

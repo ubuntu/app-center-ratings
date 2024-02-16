@@ -1,4 +1,7 @@
+#![allow(dead_code)]
+
 pub mod assert;
+pub mod client;
 pub mod client_app;
 pub mod client_chart;
 pub mod client_user;

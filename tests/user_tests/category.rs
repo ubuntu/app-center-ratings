@@ -15,9 +15,7 @@ use ratings::{
 use sqlx::{pool::PoolConnection, Postgres, Row};
 
 use super::simple_lifecycle_test::authenticate;
-use crate::helpers::{
-    client_user::UserClient, test_data::TestData, with_lifecycle::with_lifecycle,
-};
+use crate::helpers::{client_user::*, test_data::TestData, with_lifecycle::with_lifecycle};
 use crate::{clear_test_snap, CLEAR_TEST_SNAP};
 
 use super::super::{TESTING_SNAP_CATEGORIES, TESTING_SNAP_ID};
@@ -34,7 +32,7 @@ async fn category_on_cast_vote() -> Result<(), Box<dyn std::error::Error>> {
     CLEAR_TEST_SNAP.get_or_init(clear_test_snap).await;
 
     let data = TestData {
-        user_client: Some(UserClient::new(&config.socket())),
+        user_client: Some(UserClient::new(config.socket())),
         app_ctx,
         id: Some(TESTING_SNAP_ID.to_string()),
         token: None,
@@ -63,7 +61,7 @@ async fn category_on_get_votes() -> Result<(), Box<dyn std::error::Error>> {
     CLEAR_TEST_SNAP.get_or_init(clear_test_snap).await;
 
     let data = TestData {
-        user_client: Some(UserClient::new(&config.socket())),
+        user_client: Some(UserClient::new(config.socket())),
         app_ctx,
         id: None,
         token: None,

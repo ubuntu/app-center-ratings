@@ -5,9 +5,9 @@ use sqlx::{pool::PoolConnection, Postgres};
 
 use ratings::features::pb::chart::Category;
 
-use super::client_app::AppClient;
-use super::client_chart::ChartClient;
-use super::client_user::UserClient;
+use super::client_app::*;
+use super::client_chart::*;
+use super::client_user::*;
 
 #[derive(Debug, Clone)]
 pub struct TestData {

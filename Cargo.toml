@@ -40,3 +40,10 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [build-dependencies]
 tonic-build = { version = "0.11", features = ["prost"] }
+
+[dev-dependencies]
+cucumber = { version = "0.20.2", features = ["libtest", "tracing"] }
+
+[[test]]
+name = "voting"
+harness = false

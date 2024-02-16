@@ -2,7 +2,7 @@ use crate::helpers;
 use crate::helpers::test_data::TestData;
 use futures::FutureExt;
 
-use super::super::helpers::client_user::UserClient;
+use super::super::helpers::client_user::*;
 use super::super::helpers::with_lifecycle::with_lifecycle;
 use ratings::app::AppContext;
 use ratings::features::pb::user::{AuthenticateResponse, VoteRequest};
@@ -18,7 +18,7 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
     let app_ctx = AppContext::new(&config, infra);
 
     let data = TestData {
-        user_client: Some(UserClient::new(&config.socket())),
+        user_client: Some(UserClient::new(config.socket())),
         app_ctx,
         id: None,
         token: None,
@@ -116,7 +116,7 @@ async fn vote(data: TestData) -> TestData {
 
 async fn delete(data: TestData) -> TestData {
     let token = data.token.clone().unwrap();
-    let client = UserClient::new(&data.socket());
+    let client = UserClient::new(data.socket());
     client.delete(&token.clone()).await.unwrap();
 
     let id = data.id.clone().unwrap();

@@ -1,7 +1,7 @@
 use ratings::utils::Config;
 use tonic::Code;
 
-use super::super::helpers::{client_user::UserClient, with_lifecycle::with_lifecycle};
+use super::super::helpers::{client_user::*, with_lifecycle::with_lifecycle};
 
 #[tokio::test]
 async fn blank() -> Result<(), Box<dyn std::error::Error>> {
@@ -9,7 +9,7 @@ async fn blank() -> Result<(), Box<dyn std::error::Error>> {
 
     with_lifecycle(async {
         let id = "";
-        let client = UserClient::new(&config.socket());
+        let client = UserClient::new(config.socket());
 
         match client.authenticate(id).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
@@ -28,7 +28,7 @@ async fn wrong_length() -> Result<(), Box<dyn std::error::Error>> {
 
     with_lifecycle(async {
         let client_hash = "foobarbazbun";
-        let client = UserClient::new(&config.socket());
+        let client = UserClient::new(config.socket());
 
         match client.authenticate(client_hash).await {
             Ok(response) => panic!("expected Err but got Ok: {response:?}"),
