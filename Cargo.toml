@@ -1,9 +1,9 @@
 [package]
 name = "ratings"
-description = "Backend for ratings for the Ubuntu app center."
+description = "Ubuntu App Center ratings service"
 license = "GPL-3.0-only"
 authors = ["Canonical"]
-version = "0.2.0"
+version = "0.0.3"
 edition = "2021"
 
 [dependencies]
