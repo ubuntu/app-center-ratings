@@ -33,18 +33,6 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           args: --all-features
 
-      # - name: Build binary
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: build
-      #     args: --release --all-features
-
-      # - name: Upload binary
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ratings
-      #     path: target/release/ratings
-
       - name: Setup and Run Tests
         run: |
           cp example.env .env

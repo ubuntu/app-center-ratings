@@ -1,5 +1,5 @@
 //! Utility functions and definitions for configuring the service.
-use dotenv::dotenv;
+use dotenvy::dotenv;
 use serde::Deserialize;
 
 /// Configuration for the general app center ratings backend service.
