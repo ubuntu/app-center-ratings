@@ -2,8 +2,9 @@ use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
 use tonic::{Request, Response, Status};
 
-use crate::pb::chart::{chart_client as pb, Timeframe};
-use crate::pb::chart::{GetChartRequest, GetChartResponse};
+use ratings::features::pb::chart::{
+    chart_client as pb, Category, GetChartRequest, GetChartResponse, Timeframe,
+};
 
 #[derive(Debug, Clone)]
 pub struct ChartClient {
@@ -17,9 +18,10 @@ impl ChartClient {
         }
     }
 
-    pub async fn get_chart(
+    pub async fn get_chart_of_category(
         &self,
         timeframe: Timeframe,
+        category: Option<Category>,
         token: &str,
     ) -> Result<Response<GetChartResponse>, Status> {
         let channel = Endpoint::from_shared(self.url.clone())
@@ -35,7 +37,16 @@ impl ChartClient {
         client
             .get_chart(GetChartRequest {
                 timeframe: timeframe.into(),
+                category: category.map(|v| v.into()),
             })
             .await
+    }
+
+    pub async fn get_chart(
+        &self,
+        timeframe: Timeframe,
+        token: &str,
+    ) -> Result<Response<GetChartResponse>, Status> {
+        self.get_chart_of_category(timeframe, None, token).await
     }
 }

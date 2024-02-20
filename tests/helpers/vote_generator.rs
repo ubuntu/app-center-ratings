@@ -1,6 +1,6 @@
 use super::test_data::TestData;
 use crate::helpers;
-use crate::pb::user::{AuthenticateResponse, VoteRequest};
+use ratings::features::pb::user::{AuthenticateResponse, VoteRequest};
 
 pub async fn generate_votes(
     snap_id: &str,

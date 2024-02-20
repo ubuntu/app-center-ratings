@@ -4,8 +4,8 @@ use futures::FutureExt;
 
 use super::super::helpers::client_user::UserClient;
 use super::super::helpers::with_lifecycle::with_lifecycle;
-use crate::pb::user::{AuthenticateResponse, VoteRequest};
 use ratings::app::AppContext;
+use ratings::features::pb::user::{AuthenticateResponse, VoteRequest};
 use ratings::utils::{self, Infrastructure};
 use sqlx::Row;
 
@@ -25,6 +25,7 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
         app_client: None,
         snap_id: None,
         chart_client: None,
+        categories: None,
     };
 
     with_lifecycle(async {
@@ -34,7 +35,7 @@ async fn user_simple_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> 
     Ok(())
 }
 
-async fn authenticate(mut data: TestData) -> TestData {
+pub(super) async fn authenticate(mut data: TestData) -> TestData {
     let id: String = helpers::data_faker::rnd_sha_256();
     data.id = Some(id.to_string());
 

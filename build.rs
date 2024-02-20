@@ -21,6 +21,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .file_descriptor_set_path(descriptor_set_path)
         .out_dir(out_dir)
+        .type_attribute("Category", "#[derive(sqlx::Type, strum::EnumString)]")
+        .type_attribute(
+            "Category",
+            r#"#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]"#,
+        )
         .compile(files, &["proto"])?;
 
     Ok(())

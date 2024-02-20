@@ -3,15 +3,21 @@
 //! [`Chart`]: crate::features::chart::entities::Chart
 use crate::{
     app::AppContext,
-    features::{chart::errors::ChartError, common::entities::VoteSummary, pb::chart::Timeframe},
+    features::{
+        chart::errors::ChartError,
+        common::entities::VoteSummary,
+        pb::chart::{Category, Timeframe},
+    },
 };
+use sqlx::QueryBuilder;
 use tracing::error;
 
 /// Retrieves the vote summary in the given [`AppContext`] over a given [`Timeframe`]
 /// from the database.
-pub(crate) async fn get_votes_summary_by_timeframe(
+pub(crate) async fn get_votes_summary(
     app_ctx: &AppContext,
     timeframe: Timeframe,
+    category: Option<Category>,
 ) -> Result<Vec<VoteSummary>, ChartError> {
     let mut pool = app_ctx
         .infrastructure()
@@ -22,28 +28,38 @@ pub(crate) async fn get_votes_summary_by_timeframe(
             ChartError::FailedToGetChart
         })?;
 
-    // Generate WHERE clause based on timeframe
-    let where_clause = match timeframe {
-        Timeframe::Week => "WHERE votes.created >= NOW() - INTERVAL '1 week'",
-        Timeframe::Month => "WHERE votes.created >= NOW() - INTERVAL '1 month'",
-        Timeframe::Unspecified => "", // Adjust as needed for Unspecified case
-    };
-
-    let query = format!(
+    let mut builder = QueryBuilder::new(
         r#"
-            SELECT
-                votes.snap_id,
-                COUNT(*) AS total_votes,
-                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
-            FROM
-                votes
-            {}
-            GROUP BY votes.snap_id
-        "#,
-        where_clause
+    SELECT
+        votes.snap_id,
+        COUNT(*) AS total_votes,
+        COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+    FROM
+        votes"#,
     );
 
-    let result = sqlx::query_as::<_, VoteSummary>(&query)
+    builder.push(match timeframe {
+        Timeframe::Week => " WHERE votes.created >= NOW() - INTERVAL '1 week'",
+        Timeframe::Month => " WHERE votes.created >= NOW() - INTERVAL '1 month'",
+        Timeframe::Unspecified => "", // Adjust as needed for Unspecified case
+    });
+
+    if let Some(category) = category {
+        builder
+            .push(
+                r#" 
+                WHERE votes.snap_id IN (
+                    SELECT snap_categories.snap_id FROM snap_categories 
+                    WHERE snap_categories.category = "#,
+            )
+            .push_bind(category)
+            .push(")");
+    }
+
+    builder.push(" GROUP BY votes.snap_id");
+
+    let result = builder
+        .build_query_as()
         .fetch_all(&mut *pool)
         .await
         .map_err(|error| {

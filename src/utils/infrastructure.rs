@@ -5,6 +5,7 @@ use std::{
     sync::Arc,
 };
 
+use snapd::SnapdClient;
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
 
 use crate::utils::{config::Config, jwt::Jwt};
@@ -14,6 +15,8 @@ use crate::utils::{config::Config, jwt::Jwt};
 pub struct Infrastructure {
     /// The postgres DB
     pub postgres: Arc<PgPool>,
+    /// The client for making snapd requests
+    pub snapd_client: SnapdClient,
     /// The JWT instance
     pub jwt: Arc<Jwt>,
 }
@@ -30,7 +33,11 @@ impl Infrastructure {
         let jwt = Jwt::new(&config.jwt_secret)?;
         let jwt = Arc::new(jwt);
 
-        Ok(Infrastructure { postgres, jwt })
+        Ok(Infrastructure {
+            postgres,
+            jwt,
+            snapd_client: Default::default(),
+        })
     }
 
     /// Attempt to get a pooled connection to the database

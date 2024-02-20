@@ -1,6 +1,8 @@
 use futures::FutureExt;
 use ratings::{
     app::AppContext,
+    features::pb::common::RatingsBand,
+    features::pb::user::AuthenticateResponse,
     utils::{Config, Infrastructure},
 };
 
@@ -9,8 +11,6 @@ use crate::helpers::test_data::TestData;
 use crate::helpers::vote_generator::generate_votes;
 use crate::helpers::{self, client_app::AppClient};
 use crate::helpers::{client_user::UserClient, data_faker};
-use crate::pb::common::RatingsBand;
-use crate::pb::user::AuthenticateResponse;
 
 #[tokio::test]
 async fn app_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
@@ -26,6 +26,7 @@ async fn app_lifecycle_test() -> Result<(), Box<dyn std::error::Error>> {
         app_client: Some(AppClient::new(&config.socket())),
         snap_id: Some(data_faker::rnd_id()),
         chart_client: None,
+        categories: None,
     };
 
     with_lifecycle(async {

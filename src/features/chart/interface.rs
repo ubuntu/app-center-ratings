@@ -3,7 +3,7 @@ use crate::{
     app::AppContext,
     features::{
         chart::{errors::ChartError, service::ChartService, use_cases},
-        pb::chart::{chart_server::Chart, GetChartRequest, GetChartResponse, Timeframe},
+        pb::chart::{chart_server::Chart, Category, GetChartRequest, GetChartResponse, Timeframe},
     },
 };
 use tonic::{Request, Response, Status};
@@ -17,16 +17,22 @@ impl Chart for ChartService {
     ) -> Result<Response<GetChartResponse>, Status> {
         let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
 
-        let GetChartRequest { timeframe } = request.into_inner();
+        let GetChartRequest {
+            timeframe,
+            category,
+        } = request.into_inner();
 
-        let timeframe = match timeframe {
-            0 => Timeframe::Unspecified,
-            1 => Timeframe::Week,
-            2 => Timeframe::Month,
-            _ => Timeframe::Unspecified,
+        let category = match category {
+            Some(category) => Some(
+                Category::try_from(category)
+                    .map_err(|_| Status::invalid_argument("invalid category value"))?,
+            ),
+            None => None,
         };
 
-        let result = use_cases::get_chart(&app_ctx, timeframe).await;
+        let timeframe = Timeframe::try_from(timeframe).unwrap_or(Timeframe::Unspecified);
+
+        let result = use_cases::get_chart(&app_ctx, timeframe, category).await;
 
         match result {
             Ok(result) => {
@@ -38,6 +44,7 @@ impl Chart for ChartService {
 
                 let payload = GetChartResponse {
                     timeframe: timeframe.into(),
+                    category: category.map(|v| v.into()),
                     ordered_chart_data,
                 };
                 Ok(Response::new(payload))
