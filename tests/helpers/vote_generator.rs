@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::client_user::*;
+use super::client::*;
 use crate::helpers;
 use futures::future::join_all;
 use ratings::features::pb::user::{AuthenticateResponse, VoteRequest};
@@ -10,7 +10,7 @@ pub async fn generate_votes(
     snap_revision: i32,
     vote_up: bool,
     count: u64,
-    client: &UserClient,
+    client: &TestClient,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut joins = Vec::with_capacity(count as usize);
 
@@ -39,7 +39,7 @@ async fn register_and_vote(
     snap_id: &str,
     snap_revision: i32,
     vote_up: bool,
-    client: &UserClient,
+    client: &TestClient,
 ) -> Result<(), Box<dyn std::error::Error + Send>> {
     let id: String = helpers::data_faker::rnd_sha_256();
     let response: AuthenticateResponse = client
