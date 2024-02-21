@@ -16,26 +16,14 @@ struct AuthenticatedUser {
     token: String,
 }
 
-#[derive(Debug, Default, Copy, Clone, Parameter)]
+#[derive(Debug, Default, Copy, Clone, Parameter, strum::EnumString)]
 #[param(name = "vote-type", regex = "upvote|downvote")]
+#[strum(ascii_case_insensitive)]
 enum VoteType {
     #[default]
     Upvote,
     Downvote,
 }
-
-impl FromStr for VoteType {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "upvote" => Self::Upvote,
-            "downvote" => Self::Downvote,
-            _ => return Err(format!("invalid vote type {s}")),
-        })
-    }
-}
-
 impl From<VoteType> for bool {
     fn from(value: VoteType) -> Self {
         match value {
@@ -265,6 +253,8 @@ async fn check_upvote(world: &mut VotingWorld, direction: Direction) {
 
 #[tokio::main]
 async fn main() {
+    dotenv::from_filename("test.env").ok();
+
     VotingWorld::cucumber()
         .repeat_skipped()
         .init_tracing()

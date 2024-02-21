@@ -94,6 +94,8 @@ async fn no_double_auth(world: &mut AuthenticationWorld) {
 
 #[tokio::main]
 async fn main() {
+    dotenv::from_filename("test.env").ok();
+
     AuthenticationWorld::cucumber()
         .repeat_skipped()
         .init_tracing()
