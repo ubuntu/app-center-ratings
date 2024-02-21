@@ -268,6 +268,6 @@ async fn main() {
     VotingWorld::cucumber()
         .repeat_skipped()
         .init_tracing()
-        .run_and_exit("tests/features/voting.feature")
+        .run_and_exit("tests/features/user/voting.feature")
         .await
 }

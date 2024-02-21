@@ -47,3 +47,7 @@ cucumber = { version = "0.20.2", features = ["libtest", "tracing"] }
 [[test]]
 name = "voting"
 harness = false
+
+[[test]]
+name = "authentication"
+harness = false
