@@ -1,25 +1,20 @@
+use tonic::async_trait;
 use tonic::{metadata::MetadataValue, transport::Endpoint, Request, Response, Status};
 
-use ratings::features::pb::app::{app_client as pb, GetRatingRequest, GetRatingResponse};
+use ratings::features::pb::app::{GetRatingRequest, GetRatingResponse};
 
-#[derive(Debug, Clone)]
-pub struct AppClient {
-    url: String,
-}
+use ratings::features::pb::app::app_client as pb;
 
-impl AppClient {
-    pub fn new(socket: &str) -> Self {
-        Self {
-            url: format!("http://{socket}/"),
-        }
-    }
+use super::Client;
 
-    pub async fn get_rating(
+#[async_trait]
+pub trait AppClient: Client {
+    async fn get_rating(
         &self,
-        id: &str,
         token: &str,
+        id: &str,
     ) -> Result<Response<GetRatingResponse>, Status> {
-        let channel = Endpoint::from_shared(self.url.clone())
+        let channel = Endpoint::from_shared(self.url().to_string())
             .unwrap()
             .connect()
             .await

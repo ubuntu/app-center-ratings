@@ -1,6 +1,6 @@
 use tonic::metadata::MetadataValue;
 use tonic::transport::Endpoint;
-use tonic::{Request, Response, Status};
+use tonic::{async_trait, Request, Response, Status};
 
 use ratings::features::pb::user::user_client as pb;
 use ratings::features::pb::user::{
@@ -8,29 +8,12 @@ use ratings::features::pb::user::{
     VoteRequest,
 };
 
-#[derive(Debug, Clone)]
-pub struct UserClient {
-    url: String,
-}
+use super::Client;
 
-impl UserClient {
-    pub fn new(socket: &str) -> Self {
-        Self {
-            url: format!("http://{socket}/"),
-        }
-    }
-
-    #[allow(dead_code)]
-    pub async fn authenticate(&self, id: &str) -> Result<Response<AuthenticateResponse>, Status> {
-        let mut client = pb::UserClient::connect(self.url.clone()).await.unwrap();
-        client
-            .authenticate(AuthenticateRequest { id: id.to_string() })
-            .await
-    }
-
-    #[allow(dead_code)]
-    pub async fn vote(&self, token: &str, ballet: VoteRequest) -> Result<Response<()>, Status> {
-        let channel = Endpoint::from_shared(self.url.clone())
+#[async_trait]
+pub trait UserClient: Client {
+    async fn vote(&self, token: &str, ballet: VoteRequest) -> Result<Response<()>, Status> {
+        let channel = Endpoint::from_shared(self.url().to_string())
             .unwrap()
             .connect()
             .await
@@ -43,13 +26,12 @@ impl UserClient {
         client.vote(ballet).await
     }
 
-    #[allow(dead_code)]
-    pub async fn get_snap_votes(
+    async fn get_snap_votes(
         &self,
         token: &str,
         request: GetSnapVotesRequest,
     ) -> Result<Response<GetSnapVotesResponse>, Status> {
-        let channel = Endpoint::from_shared(self.url.clone())
+        let channel = Endpoint::from_shared(self.url().to_string())
             .unwrap()
             .connect()
             .await
@@ -62,9 +44,8 @@ impl UserClient {
         client.get_snap_votes(request).await
     }
 
-    #[allow(dead_code)]
-    pub async fn delete(&self, token: &str) -> Result<Response<()>, Status> {
-        let channel = Endpoint::from_shared(self.url.clone())
+    async fn delete(&self, token: &str) -> Result<Response<()>, Status> {
+        let channel = Endpoint::from_shared(self.url().to_string())
             .unwrap()
             .connect()
             .await
@@ -76,5 +57,14 @@ impl UserClient {
         });
 
         client.delete(()).await
+    }
+
+    async fn authenticate(&self, id: &str) -> Result<Response<AuthenticateResponse>, Status> {
+        let mut client = pb::UserClient::connect(self.url().to_string())
+            .await
+            .unwrap();
+        client
+            .authenticate(AuthenticateRequest { id: id.to_string() })
+            .await
     }
 }

@@ -8,13 +8,15 @@ const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
 
 /// A descriptive mapping of a number of ratings to a general indicator of "how good"
 /// an app can be said to be.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[allow(missing_docs)]
 pub enum RatingsBand {
     VeryGood = 0,
     Good = 1,
     Neutral = 2,
     Poor = 3,
     VeryPoor = 4,
+    #[default]
     InsufficientVotes = 5,
 }
 
@@ -45,10 +47,37 @@ impl RatingsBand {
     }
 }
 
+impl PartialOrd for RatingsBand {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        if matches!(self, RatingsBand::InsufficientVotes)
+            || matches!(other, RatingsBand::InsufficientVotes)
+        {
+            None
+        } else {
+            // Negative ratings have a higher value i.e., 0 = Very Good and 4 = Very Poor
+            let max = Self::InsufficientVotes as u8;
+            (max - (*self as u8)).partial_cmp(&(max - (*other as u8)))
+        }
+    }
+}
+
+impl From<crate::features::pb::common::RatingsBand> for RatingsBand {
+    fn from(value: crate::features::pb::common::RatingsBand) -> Self {
+        match value {
+            pb::RatingsBand::VeryGood => Self::VeryGood,
+            pb::RatingsBand::Good => Self::Good,
+            pb::RatingsBand::Neutral => Self::Neutral,
+            pb::RatingsBand::Poor => Self::Poor,
+            pb::RatingsBand::VeryPoor => Self::VeryPoor,
+            pb::RatingsBand::InsufficientVotes => Self::InsufficientVotes,
+        }
+    }
+}
+
 /// A descriptive rating object, usually used converted and transferred over the wire.
 /// This is an aggregated rating for a snap without holding every raw value, as determined
 /// by [`RatingsBand`].
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, Clone, FromRow, Default)]
 pub struct Rating {
     /// The ID of the snap this rating is for
     pub snap_id: String,
@@ -77,6 +106,18 @@ impl Rating {
             snap_id: self.snap_id,
             total_votes: self.total_votes,
             ratings_band: self.ratings_band as i32,
+        }
+    }
+}
+
+impl From<crate::features::pb::common::Rating> for Rating {
+    fn from(value: crate::features::pb::common::Rating) -> Self {
+        Self {
+            snap_id: value.snap_id,
+            total_votes: value.total_votes,
+            ratings_band: crate::features::pb::common::RatingsBand::try_from(value.ratings_band)
+                .unwrap()
+                .into(),
         }
     }
 }
