@@ -54,8 +54,7 @@ impl PartialOrd for RatingsBand {
         {
             None
         } else {
-            // The ratings bad values are actually backwards from an ordering perspective,
-            // so flip them
+            // Negative ratings have a higher value i.e., 0 = Very Good and 4 = Very Poor
             let max = Self::InsufficientVotes as u8;
             (max - (*self as u8)).partial_cmp(&(max - (*other as u8)))
         }
