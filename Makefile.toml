@@ -45,6 +45,6 @@ dependencies = [
 
 [tasks.full-clean]
 script = [
-  "docker rmi ratings-postgres --force && docker rmi redis --force",
+  "docker rmi ratings-postgres --force",
   "cargo clean"
 ]
