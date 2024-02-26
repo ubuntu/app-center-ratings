@@ -8,42 +8,28 @@ jobs:
     name: Build Ratings
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Rust toolchain
-        uses: actions-rs/toolchain@v1
+      - uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.69.0
+          toolchain: stable
           components: clippy, rustfmt
 
-      - name: Install additional build dependencies
+      - name: Install build dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
-      - name: Check code format
+
+      - name: Check code formating
         uses: actions-rs/cargo@v1
         with:
           command: fmt
           args: --check
 
-      - name: Lint code
-        uses: actions-rs/clippy-check@v1
+      - uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features
-
-      # - name: Build binary
-      #   uses: actions-rs/cargo@v1
-      #   with:
-      #     command: build
-      #     args: --release --all-features
-
-      # - name: Upload binary
-      #   uses: actions/upload-artifact@v3
-      #   with:
-      #     name: ratings
-      #     path: target/release/ratings
+          args: --all-features --all-targets -- -Dwarnings
 
       - name: Setup and Run Tests
         run: |
