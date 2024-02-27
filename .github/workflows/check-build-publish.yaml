@@ -65,7 +65,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler libprotobuf-dev
+          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Setup rust toolchain
         uses: actions-rs/toolchain@v1
