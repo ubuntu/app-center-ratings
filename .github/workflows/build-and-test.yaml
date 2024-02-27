@@ -10,10 +10,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          components: clippy, rustfmt
 
       - name: Install build dependencies
         run: |
@@ -21,19 +20,23 @@ jobs:
           sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Check code formating
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check
-
-      - uses: actions-rs/clippy-check@v1
+        uses: mbrobbel/rustfmt-check@master
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --all-targets -- -Dwarnings
+
+      - name: Clippy linting
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: "github-pr-review"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependencies security audit
+        uses: actions-rust-lang/audit@v1
+        with:
+          ignore: RUSTSEC-2023-0071 # patch not available att
 
       - name: Setup and Run Tests
         run: |
-          cp example.env .env
           cargo install cargo-make
-          cargo make db-up
+          cargo install dotenvy --features=cli
           cargo make full-test

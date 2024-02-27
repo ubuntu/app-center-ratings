@@ -18,6 +18,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     ];
 
     tonic_build::configure()
+        .protoc_arg("--experimental_allow_proto3_optional") // needed to run on GHA because it's jammy
         .build_server(true)
         .file_descriptor_set_path(descriptor_set_path)
         .out_dir(out_dir)

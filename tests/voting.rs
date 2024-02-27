@@ -253,7 +253,7 @@ async fn check_upvote(world: &mut VotingWorld, direction: Direction) {
 
 #[tokio::main]
 async fn main() {
-    dotenv::from_filename("test.env").ok();
+    dotenvy::from_filename(".env_files/test.env").ok();
 
     VotingWorld::cucumber()
         .repeat_skipped()
