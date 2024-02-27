@@ -49,9 +49,7 @@ jobs:
 
       - name: Run tests
         run: |
-          cp example.env .env
           cargo install cargo-make
-          cargo make db-up
           cargo make full-test
 
   publish:

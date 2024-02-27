@@ -33,7 +33,6 @@ jobs:
 
       - name: Setup and Run Tests
         run: |
-          cp example.env .env
           cargo install cargo-make
-          cargo make db-up
+          cargo install dotenvy --features=cli
           cargo make full-test

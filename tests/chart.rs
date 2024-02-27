@@ -240,7 +240,7 @@ async fn clear_db() {
 
 #[tokio::main]
 async fn main() {
-    dotenvy::from_filename("test.env").ok();
+    dotenvy::from_filename(".env_files/test.env").ok();
 
     ChartWorld::cucumber()
         .before(|_, _, _, _| clear_db().boxed_local())
