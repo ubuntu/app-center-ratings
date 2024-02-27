@@ -24,33 +24,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup rust toolchain
-        uses: actions-rs/toolchain@v1
-        with: # seems to ignore rust-toolchain but it should be supported
-          toolchain: "1.76.0"
-          components: rustfmt, clippy
-
-      - name: Check code formatting
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --check
-
-      - name: Clippy linting
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: "github-pr-review"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Dependencies security audit
-        uses: actions-rust-lang/audit@v1
-        with:
-          ignore: RUSTSEC-2023-0071 # patch not available att
-
-      - name: Run tests
-        run: |
-          cargo install cargo-make
-          cargo make full-test
+      - name: Test and lint code
+        uses: ./.github/workflows/build-and-test.yaml
 
   publish:
     name: Publish to ghcr.io
@@ -70,7 +45,7 @@ jobs:
       - name: Setup rust toolchain
         uses: actions-rs/toolchain@v1
         with: # seems to ignore rust-toolchain but it should be supported
-          toolchain: "1.76.0"
+          toolchain: stable
 
       - name: Build release binary
         uses: actions-rs/cargo@v1

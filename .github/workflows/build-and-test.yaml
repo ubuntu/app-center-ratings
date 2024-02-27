@@ -13,7 +13,6 @@ jobs:
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
-          components: clippy, rustfmt
 
       - name: Install build dependencies
         run: |
@@ -26,10 +25,16 @@ jobs:
           command: fmt
           args: --check
 
-      - uses: actions-rs/clippy-check@v1
+      - name: Clippy linting
+        uses: giraffate/clippy-action@v1
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          args: --all-features --all-targets -- -Dwarnings
+          reporter: "github-pr-review"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependencies security audit
+        uses: actions-rust-lang/audit@v1
+        with:
+          ignore: RUSTSEC-2023-0071 # patch not available att
 
       - name: Setup and Run Tests
         run: |
