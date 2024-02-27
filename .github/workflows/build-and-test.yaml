@@ -10,7 +10,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions-rs/toolchain@v1
+      - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
 
@@ -20,10 +20,9 @@ jobs:
           sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Check code formating
-        uses: actions-rs/cargo@v1
+        uses: mbrobbel/rustfmt-check@master
         with:
-          command: fmt
-          args: --check
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Clippy linting
         uses: giraffate/clippy-action@v1
