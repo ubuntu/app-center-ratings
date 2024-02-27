@@ -1,4 +1,4 @@
-//! Contains trait implementations for the chart feature.
+//! Contains GRPC definitions for the chart feature, which returns the top snaps in a given category.
 use crate::{
     app::AppContext,
     features::{

@@ -1,16 +1,13 @@
-//! Contains definitions for running the app context.
-use std::{net::SocketAddr, time::Duration};
+//! Contains definitions for runningi the app context.
+use std::net::SocketAddr;
 
-use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
 use crate::{
-    app::context::AppContext,
-    app::interfaces::{
-        authentication::authentication,
-        middleware::ContextMiddlewareLayer,
-        routes::{build_reflection_service, build_servers},
+    app::{
+        context::AppContext,
+        interfaces::{middleware::ContextMiddlewareLayer, servers::GrpcServiceBuilder},
     },
     utils::{Config, Infrastructure, Migrator},
 };
@@ -22,20 +19,14 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
 
-    let layer = ServiceBuilder::new()
-        .timeout(Duration::from_secs(30))
+    let service = ServiceBuilder::new()
         .layer(ContextMiddlewareLayer::new(app_ctx))
-        .layer(tonic::service::interceptor(authentication))
-        .into_inner();
-
-    let server = Server::builder()
-        .layer(layer)
-        .add_service(build_reflection_service());
-    let server = build_servers(server);
+        .service(GrpcServiceBuilder::default().build());
 
     let socket: SocketAddr = config.socket().parse()?;
     info!("Binding to {socket}");
-    server.serve(socket).await?;
-
+    hyper::Server::bind(&socket)
+        .serve(tower::make::Shared::new(service))
+        .await?;
     Ok(())
 }

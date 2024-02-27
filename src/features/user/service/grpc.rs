@@ -1,4 +1,4 @@
-//! Trait impls for a given [`User`]
+//! Contains GRPC definitions for the user authentication and voting features.
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 

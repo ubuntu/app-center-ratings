@@ -1920,6 +1920,7 @@ dependencies = [
  "envy",
  "futures",
  "http 1.0.0",
+ "http-body 0.4.6",
  "hyper 0.14.28",
  "jsonwebtoken",
  "once_cell",

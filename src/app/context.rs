@@ -2,7 +2,7 @@
 
 use std::sync::Arc;
 
-use crate::utils::{jwt::Claims, Config, Infrastructure};
+use crate::utils::{Config, Infrastructure};
 
 /// An atomically reference counted app state.
 #[derive(Debug, Clone)]
@@ -40,13 +40,4 @@ struct AppContextInner {
     infra: Infrastructure,
     /// App configuration settings.
     config: Config,
-}
-
-/// Contains the context for a given request
-#[derive(Debug, Clone)]
-pub struct RequestContext {
-    /// The URI this request is from.
-    pub uri: String,
-    /// If applicable, the associated JWT claims.
-    pub claims: Option<Claims>,
 }
