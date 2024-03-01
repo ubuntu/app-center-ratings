@@ -179,7 +179,15 @@ dependencies = [
  "pin-project-lite",
  "rustversion",
  "serde",
+<<<<<<< HEAD
  "sync_wrapper",
+=======
+ "serde_json",
+ "serde_path_to_error",
+ "serde_urlencoded",
+ "sync_wrapper",
+ "tokio",
+>>>>>>> 21108f8 (feat: implementation of log service)
  "tower",
  "tower-layer",
  "tower-service",
@@ -1318,9 +1326,12 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.20"
+version = "0.4.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5e6163cb8c49088c2c36f57875e58ccd8c87c7427f7fbd50ea6710b2f3f2e8f"
+checksum = "90ed8c1e510134f979dbc4f070f87d4313098b704861a105fe34231c70a3901c"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "matchers"
@@ -1915,6 +1926,10 @@ dependencies = [
 name = "ratings"
 version = "0.0.3"
 dependencies = [
+<<<<<<< HEAD
+=======
+ "axum",
+>>>>>>> 21108f8 (feat: implementation of log service)
  "cucumber",
  "dotenvy",
  "envy",
@@ -1923,6 +1938,7 @@ dependencies = [
  "http-body 0.4.6",
  "hyper 0.14.28",
  "jsonwebtoken",
+ "log",
  "once_cell",
  "prost",
  "prost-types",

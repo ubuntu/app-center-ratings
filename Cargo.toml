@@ -7,6 +7,7 @@ version = "0.0.3"
 edition = "2021"
 
 [dependencies]
+axum = "0.6.20" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues
 dotenvy = "0.15"
 envy = "0.4"
 futures = "0.3"
@@ -14,6 +15,7 @@ http = "1.0"
 http-body = "0.4.6"
 hyper = { version = "0.14", features = ["full", "backports", "deprecated"] }
 jsonwebtoken = "9.2"
+log = { version = "0.4.21", features = ["serde"] }
 once_cell = "1.19"
 prost = "0.12"
 prost-types = "0.12"
@@ -37,8 +39,6 @@ tonic-reflection = "0.10"
 tower = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-
-
 [build-dependencies]
 tonic-build = { version = "0.11", features = ["prost"] }
 

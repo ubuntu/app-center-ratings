@@ -2,9 +2,10 @@
 
 use std::pin::Pin;
 
+use axum::body::Bytes;
 use futures::ready;
+use http_body::combinators::UnsyncBoxBody;
 use hyper::{service::Service, Body};
-use tonic::body::BoxBody;
 use tower::Layer;
 
 use crate::app::context::AppContext;
@@ -26,7 +27,10 @@ impl ContextMiddlewareLayer {
 
 impl<S> Layer<S> for ContextMiddlewareLayer
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Service = ContextMiddleware<S>;
@@ -47,7 +51,10 @@ where
 #[derive(Clone)]
 pub struct ContextMiddleware<S>
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     /// The current context of the app, as passed in from the [`ContextMiddlewareLayer`]
@@ -67,7 +74,10 @@ type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>
 
 impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Response = S::Response;

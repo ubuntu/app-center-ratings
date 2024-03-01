@@ -4,7 +4,10 @@ use std::pin::Pin;
 
 use hyper::Body;
 use thiserror::Error;
-use tonic::transport::server::{Routes, RoutesBuilder};
+use tonic::{
+    transport::server::{Routes, RoutesBuilder},
+    Status,
+};
 use tower::Service;
 
 use crate::features::{chart::ChartService, rating::RatingService, user::UserService};
@@ -23,6 +26,15 @@ pub enum GrpcError {
     /// Errors hailing from our authentication interceptor
     #[error("an error occurred during authentication: {0}")]
     AuthError(#[from] tonic::Status),
+}
+
+impl From<GrpcError> for Status {
+    fn from(value: GrpcError) -> Self {
+        match value {
+            GrpcError::AuthError(status) => status,
+            GrpcError::RoutesError(err) => Status::internal(format!("{err}")),
+        }
+    }
 }
 
 /// The file descriptors defining the [`tonic`] GRPC service

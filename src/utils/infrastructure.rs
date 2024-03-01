@@ -7,8 +7,12 @@ use std::{
 
 use snapd::SnapdClient;
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::{reload::Handle, Registry};
 
 use crate::utils::{config::Config, jwt::Jwt};
+
+use super::log_util;
 
 /// Resources important to the server, but are not necessarily in-memory
 #[derive(Clone)]
@@ -19,6 +23,8 @@ pub struct Infrastructure {
     pub snapd_client: SnapdClient,
     /// The JWT instance
     pub jwt: Arc<Jwt>,
+    /// The reload handle for the logger
+    pub log_reload_handle: Handle<LevelFilter, Registry>,
 }
 
 impl Infrastructure {
@@ -33,10 +39,13 @@ impl Infrastructure {
         let jwt = Jwt::new(&config.jwt_secret)?;
         let jwt = Arc::new(jwt);
 
+        let reload_handle = log_util::init_logging(&config.log_level)?;
+
         Ok(Infrastructure {
             postgres,
             jwt,
             snapd_client: Default::default(),
+            log_reload_handle: reload_handle,
         })
     }
 
