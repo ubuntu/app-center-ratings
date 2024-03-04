@@ -7,7 +7,9 @@ use http_body::combinators::UnsyncBoxBody;
 use hyper::StatusCode;
 use tower::Service;
 
-use crate::features::admin::log_level::service::LogLevelService;
+use crate::features::admin::{
+    api_version::service::ApiVersionService, log_level::service::LogLevelService,
+};
 
 /// The base path appended to all our internal endpoints
 const BASE_ROUTE: &str = "/v1/";
@@ -74,6 +76,15 @@ impl RestServiceBuilder {
         }
     }
 
+    /// Adds the ability to get the API version from the REST endpoint
+    pub fn with_api_version(self) -> Self {
+        Self {
+            router: self
+                .router
+                .nest(BASE_ROUTE, ApiVersionService.register_axum_route()),
+        }
+    }
+
     /// Builds the REST service, applying all configured paths and
     /// forcing the others to 404.
     pub fn build(self) -> RestService {
@@ -85,6 +96,6 @@ impl RestServiceBuilder {
 
 impl Default for RestServiceBuilder {
     fn default() -> Self {
-        Self::new().with_log_level()
+        Self::new().with_log_level().with_api_version()
     }
 }

@@ -8,6 +8,11 @@ edition = "2021"
 
 [dependencies]
 axum = "0.6.20" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues
+chrono = { version = "0.4.34", default-features = false, features = [
+    "std",
+    "clock",
+    "serde",
+] }
 dotenvy = "0.15"
 envy = "0.4"
 futures = "0.3"
@@ -40,10 +45,12 @@ tower = "0.4"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 [build-dependencies]
+git2 = { version = "0.18.2", default-features = false }
 tonic-build = { version = "0.11", features = ["prost"] }
 
 [dev-dependencies]
 cucumber = { version = "0.20.2", features = ["libtest", "tracing"] }
+
 
 [[test]]
 name = "voting"

@@ -1,6 +1,7 @@
+use git2::Repository;
 use std::path::Path;
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     // Define the path to the output directory within the `src` folder
     let out_dir = Path::new("proto");
     std::fs::create_dir_all(out_dir)?;
@@ -28,6 +29,29 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             r#"#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]"#,
         )
         .compile(files, &["proto"])?;
+
+    Ok(())
+}
+
+fn include_build_info() -> Result<(), Box<dyn std::error::Error>> {
+    let repo = Repository::open(std::env::current_dir()?)?;
+    let head = repo.head()?;
+    let branch = head
+        .name()
+        .unwrap()
+        .strip_prefix("refs/heads/")
+        .unwrap_or("no-branch");
+    println!("cargo:rustc-env=GIT_BRANCH={}", branch);
+
+    let commit_sha = repo.head()?.target().unwrap();
+    println!("cargo:rustc-env=GIT_HASH={}", commit_sha);
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    init_proto()?;
+    include_build_info()?;
 
     Ok(())
 }
