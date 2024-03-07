@@ -1,3 +1,4 @@
+pub mod api_info;
 pub mod app;
 pub mod chart;
 pub mod log_level;
@@ -5,7 +6,10 @@ pub mod user;
 
 use std::fmt::Display;
 
-pub use self::{app::AppClient, chart::ChartClient, log_level::LogClient, user::UserClient};
+pub use self::{
+    api_info::ApiInfoClient, app::AppClient, chart::ChartClient, log_level::LogClient,
+    user::UserClient,
+};
 
 pub trait Client {
     fn url(&self) -> &str;
@@ -35,3 +39,4 @@ impl AppClient for TestClient {}
 impl ChartClient for TestClient {}
 impl UserClient for TestClient {}
 impl LogClient for TestClient {}
+impl ApiInfoClient for TestClient {}

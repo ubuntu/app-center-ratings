@@ -1,11 +1,11 @@
 //! The public interface of this endpoint
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use super::ApiVersion;
 
 /// A response serialized as a JSON blob containing the entire branch state
-#[derive(Copy, Clone, Serialize)]
+#[derive(Clone, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct ApiVersionResponse(pub ApiVersion<'static>);
 

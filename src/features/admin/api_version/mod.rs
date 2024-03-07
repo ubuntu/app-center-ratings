@@ -1,33 +1,35 @@
 //! Contains API endpoints for getting build target information for the currently running service
 
+use std::borrow::Cow;
+
 use serde::{Deserialize, Serialize};
 
 pub mod interface;
 pub mod service;
 
-#[derive(Copy, Clone, Hash, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Hash, PartialEq, Eq, Serialize, Deserialize, Debug)]
 /// The response returning the API Version information.
 pub struct ApiVersion<'a> {
     /// The current API Version
-    version: &'a str,
+    pub version: Cow<'a, str>,
     /// The current commit sha
-    commit: &'a str,
+    pub commit: Cow<'a, str>,
     /// The current branch
-    branch: &'a str,
+    pub branch: Cow<'a, str>,
 }
 
-impl<'a> ApiVersion<'a> {
+impl ApiVersion<'static> {
     /// Retrieves the baked-in build info for the current branch state
-    pub const fn build_info() -> Self {
+    pub const fn build_info() -> ApiVersion<'static> {
         Self {
-            version: env!("CARGO_PKG_VERSION"),
-            commit: env!("GIT_HASH"),
-            branch: env!("GIT_BRANCH"),
+            version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
+            commit: Cow::Borrowed("GIT_HASH"),
+            branch: Cow::Borrowed("GIT_BRANCH"),
         }
     }
 }
 
-impl<'a> Default for ApiVersion<'a> {
+impl Default for ApiVersion<'static> {
     fn default() -> Self {
         Self::build_info()
     }

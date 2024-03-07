@@ -50,6 +50,8 @@ tonic-build = { version = "0.11", features = ["prost"] }
 
 [dev-dependencies]
 cucumber = { version = "0.20.2", features = ["libtest", "tracing"] }
+lazy_static = "1.4.0"
+regex = "1.10.3"
 serde_json = "1.0.114"
 
 
@@ -67,4 +69,8 @@ harness = false
 
 [[test]]
 name = "log_level"
+harness = false
+
+[[test]]
+name = "api_info"
 harness = false
