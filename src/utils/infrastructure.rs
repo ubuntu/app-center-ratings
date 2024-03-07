@@ -7,12 +7,17 @@ use std::{
 
 use snapd::SnapdClient;
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
+use tokio::sync::OnceCell;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{reload::Handle, Registry};
 
 use crate::utils::{config::Config, jwt::Jwt};
 
 use super::log_util;
+
+/// The global reload handle, since [`tracing_subscriber`] is we have to be too because it panics
+/// if you call init twice, which makes it so tests can't initialize [`Infrastructure`] more than once.
+static RELOAD_HANDLE: tokio::sync::OnceCell<Handle<LevelFilter, Registry>> = OnceCell::const_new();
 
 /// Resources important to the server, but are not necessarily in-memory
 #[derive(Clone)]
@@ -24,7 +29,7 @@ pub struct Infrastructure {
     /// The JWT instance
     pub jwt: Arc<Jwt>,
     /// The reload handle for the logger
-    pub log_reload_handle: Handle<LevelFilter, Registry>,
+    pub log_reload_handle: &'static Handle<LevelFilter, Registry>,
 }
 
 impl Infrastructure {
@@ -39,7 +44,9 @@ impl Infrastructure {
         let jwt = Jwt::new(&config.jwt_secret)?;
         let jwt = Arc::new(jwt);
 
-        let reload_handle = log_util::init_logging(&config.log_level)?;
+        let reload_handle = RELOAD_HANDLE
+            .get_or_try_init(|| async move { log_util::init_logging(&config.log_level) })
+            .await?;
 
         Ok(Infrastructure {
             postgres,

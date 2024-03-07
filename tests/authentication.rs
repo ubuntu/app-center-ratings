@@ -98,7 +98,6 @@ async fn main() {
 
     AuthenticationWorld::cucumber()
         .repeat_skipped()
-        .init_tracing()
         .run_and_exit("tests/features/user/authentication.feature")
         .await
 }

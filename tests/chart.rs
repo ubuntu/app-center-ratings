@@ -245,7 +245,6 @@ async fn main() {
     ChartWorld::cucumber()
         .before(|_, _, _, _| clear_db().boxed_local())
         .repeat_failed()
-        .init_tracing()
         .max_concurrent_scenarios(1)
         .run_and_exit("tests/features/chart.feature")
         .await

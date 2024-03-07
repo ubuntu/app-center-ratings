@@ -67,7 +67,6 @@ async fn main() {
 
     LogWorld::cucumber()
         .repeat_skipped()
-        .init_tracing()
         .max_concurrent_scenarios(1)
         .run_and_exit("tests/features/admin/api-info.feature")
         .await

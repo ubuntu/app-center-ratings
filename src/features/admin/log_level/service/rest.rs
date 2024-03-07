@@ -23,7 +23,7 @@ pub async fn set_log_level(
         log::Level::Trace => LevelFilter::TRACE,
     };
 
-    super::super::set_log_level(&app_context.infrastructure().log_reload_handle, level);
+    super::super::set_log_level(app_context.infrastructure().log_reload_handle, level);
 
     Ok(SetLogLevelResponse.into())
 }
@@ -32,7 +32,7 @@ pub async fn set_log_level(
 pub async fn get_log_level(
     extract::Extension(app_context): extract::Extension<AppContext>,
 ) -> Result<extract::Json<GetLogLevelResponse>, Infallible> {
-    let level = super::super::get_log_level(&app_context.infrastructure().log_reload_handle);
+    let level = super::super::get_log_level(app_context.infrastructure().log_reload_handle);
 
     Ok(GetLogLevelResponse {
         level: Level::from_str(level.into_level().unwrap().as_str()).unwrap(),
