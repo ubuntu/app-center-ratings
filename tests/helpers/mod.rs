@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+#![cfg(test)]
 
 pub mod assert;
 pub mod client;
