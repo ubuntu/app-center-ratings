@@ -73,7 +73,7 @@ impl Service<hyper::Request<Body>> for GrpcService {
         let auth_result = self.authenticator.authenticate(&mut req);
 
         if let Err(err) = auth_result {
-            return Box::pin(async move { Err(err)? });
+            return Box::pin(async move { Err(GrpcError::AuthError(err.into())) });
         };
 
         let future = self.routes.call(req);

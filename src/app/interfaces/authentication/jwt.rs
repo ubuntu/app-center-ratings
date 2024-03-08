@@ -21,6 +21,8 @@ pub enum JwtVerifierError {
     DecodeSecretError(#[from] jsonwebtoken::errors::Error),
     #[error("jwt: invalid authz token")]
     InvalidHeader,
+    #[error(transparent)]
+    GenericMessage(#[from] tonic::Status),
 }
 
 impl From<JwtVerifierError> for tonic::Status {
@@ -35,6 +37,7 @@ impl From<JwtVerifierError> for tonic::Status {
             JwtVerifierError::InvalidHeader => {
                 tonic::Status::unauthenticated("invalid authz header")
             }
+            JwtVerifierError::GenericMessage(status) => status,
         }
     }
 }
@@ -100,6 +103,10 @@ impl CredentialVerifier for JwtVerifier {
 
         let token = raw[1];
         self.decode(token).map(Some)
+    }
+
+    fn unauthorized(&self, message: &str) -> Self::Error {
+        JwtVerifierError::GenericMessage(tonic::Status::unauthenticated(message))
     }
 }
 

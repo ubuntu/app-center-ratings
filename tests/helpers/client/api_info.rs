@@ -1,8 +1,12 @@
 use std::str::FromStr;
 
 use axum::async_trait;
-use ratings::features::admin::api_version::interface::ApiVersionResponse;
+use ratings::{
+    app::interfaces::authentication::admin::AdminAuthConfig,
+    features::admin::api_version::interface::ApiVersionResponse,
+};
 use reqwest::Url;
+use secrecy::ExposeSecret;
 
 use super::Client;
 
@@ -18,12 +22,19 @@ pub trait ApiInfoClient: Client {
     async fn get_api_info(
         &self,
     ) -> Result<ApiVersionResponse, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(serde_json::from_str(
-            &reqwest::get(self.rest_url())
-                .await?
-                .error_for_status()?
-                .text()
-                .await?,
-        )?)
+        let (un, pass) = AdminAuthConfig::from_env()
+            .expect("could not decode admin secrets from env")
+            .into_inner();
+
+        let text_response = reqwest::Client::new()
+            .get(self.rest_url())
+            .basic_auth(un.expose_secret(), Some(pass.expose_secret()))
+            .send()
+            .await?
+            .error_for_status()?
+            .text()
+            .await?;
+
+        Ok(serde_json::from_str(&text_response)?)
     }
 }

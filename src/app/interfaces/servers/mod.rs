@@ -3,8 +3,7 @@
 pub mod grpc;
 pub mod rest;
 
-use std::convert::Infallible;
-use std::pin::Pin;
+use std::{convert::Infallible, pin::Pin};
 
 use axum::body::Bytes;
 use axum::response::IntoResponse;
@@ -23,10 +22,12 @@ use self::grpc::GrpcError;
 #[derive(Debug, Error)]
 pub enum AppCenterRatingsError {
     /// An error from the GRPC endpoints
-    #[error("an error from the GRPC service occurred: {0}")]
+    #[error(transparent)]
     GrpcError(#[from] GrpcError),
-    /// Technically, an error from the Rest endpoints, but they're infallible
-    #[error("cannot happen")]
+    /// Technically, an error from the Rest endpoints, but they can't fail right now
+    /// since they immediately convert their errors into responses because that's what
+    /// [`axum`] recommends.
+    #[error(transparent)]
     RestError(#[from] Infallible),
 }
 
@@ -49,7 +50,9 @@ impl AppCenterRatingsService {
                 .with_default_routes()
                 .build(),
             grpc_ready: false,
-            rest_service: RestServiceBuilder::default().build(),
+            rest_service: RestServiceBuilder::default()
+                .build()
+                .expect("could not create REST service from environment"),
             rest_ready: false,
         }
     }

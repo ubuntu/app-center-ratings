@@ -5,20 +5,30 @@ use std::{convert::Infallible, pin::Pin};
 use axum::{body::Bytes, response::IntoResponse, Router};
 use http_body::combinators::UnsyncBoxBody;
 use hyper::StatusCode;
+use thiserror::Error;
 use tower::Service;
 
-use crate::features::admin::{
-    api_version::service::ApiVersionService, log_level::service::LogLevelService,
+use crate::{
+    app::interfaces::authentication::{
+        admin::{AdminAuthError, AdminAuthVerifier},
+        Authenticator, AuthenticatorBuilder,
+    },
+    features::admin::{
+        api_version::service::ApiVersionService, log_level::service::LogLevelService,
+    },
 };
 
 /// The base path appended to all our internal endpoints
 const BASE_ROUTE: &str = "/v1/";
 
 /// Dispatches to our web endpoints
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct RestService {
     /// The axum router we use for dispatching to endpoints
     router: Router,
+    /// Makes sure our admin endpoints aren't public without some kind of
+    /// username and password to access them.
+    authenticator: Authenticator<AdminAuthVerifier, &'static str>,
 }
 
 /// A type definition which is simply a future that's in a pinned location in the heap.
@@ -40,15 +50,36 @@ impl Service<hyper::Request<hyper::Body>> for RestService {
             .map_err(|_| unreachable!("error is infallible"))
     }
 
-    fn call(&mut self, req: hyper::Request<hyper::Body>) -> Self::Future {
+    fn call(&mut self, mut req: hyper::Request<hyper::Body>) -> Self::Future {
+        let auth_result = self.authenticator.authenticate(&mut req);
+
+        if let Err(err) = auth_result {
+            return Box::pin(async move { Ok(err.into_response()) });
+        };
+
         let future = self.router.call(req);
-        Box::pin(future)
+        Box::pin(async move {
+            let resp = future
+                .await
+                .map_err(|_| unreachable!("error is infallible"))
+                .unwrap();
+
+            Ok(resp.into_response())
+        })
     }
 }
 
 /// Handles any missing paths
 async fn handler_404() -> impl IntoResponse {
     (StatusCode::NOT_FOUND, "no such API endpoint")
+}
+
+/// Errors that can occur while constructing our REST service
+#[derive(Error, Debug)]
+#[allow(clippy::missing_docs_in_private_items, missing_docs)]
+pub enum RestServerBuildError {
+    #[error("grpc builder: error creating admin authentication: {0}")]
+    JwtDecodeError(#[from] AdminAuthError),
 }
 
 /// Builds the REST service
@@ -87,10 +118,12 @@ impl RestServiceBuilder {
 
     /// Builds the REST service, applying all configured paths and
     /// forcing the others to 404.
-    pub fn build(self) -> RestService {
-        RestService {
+    pub fn build(self) -> Result<RestService, RestServerBuildError> {
+        Ok(RestService {
             router: self.router.fallback(handler_404),
-        }
+            // None of our paths are public right now, so
+            authenticator: AuthenticatorBuilder::new(AdminAuthVerifier::from_env()?).build(),
+        })
     }
 }
 
