@@ -48,9 +48,11 @@ where
     /// Attempts to authenticate the request's Authorization Header with the underlying [`CredentialVerifier`],
     /// unless the URL path was designated as public during construction.
     pub fn authenticate(&self, req: &mut hyper::Request<hyper::Body>) -> Result<(), V::Error> {
-        let uri = req.uri().to_string();
-
-        if self.public_paths.iter().any(|s| uri.ends_with(s.as_ref())) {
+        if self
+            .public_paths
+            .iter()
+            .any(|s| req.uri().path().ends_with(s.as_ref()))
+        {
             return Ok(());
         }
 
