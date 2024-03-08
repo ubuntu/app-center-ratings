@@ -106,14 +106,14 @@ impl<V: CredentialVerifier, A> AuthenticatorBuilder<V, A> {
 impl<V, A: AsRef<str>> AuthenticatorBuilder<V, A> {
     /// Adds a new path that the constructed [`Authenticator`] will consider public,
     /// and thus pass without attempting to authenticate the passed header.
-    pub fn with_public_path(mut self, path: A) -> Self {
+    pub fn with_public_path(&mut self, path: A) -> &Self {
         self.public_paths.push(path);
         self
     }
 
     /// Like [AuthenticatorBuilder::with_public_path], but adds multiple at once. This
     /// is slightly more efficient (and cleaner) than doing it yourself in a loop.
-    pub fn with_public_paths<I: Iterator<Item = A>>(mut self, paths: I) -> Self {
+    pub fn with_public_paths<I: Iterator<Item = A>>(&mut self, paths: I) -> &Self {
         self.public_paths.extend(paths);
         self
     }

@@ -126,8 +126,7 @@ impl GrpcServiceBuilder {
     /// Adds the [`ChartService`] to the [`GrpcService`]
     pub fn with_charts(mut self) -> Self {
         self.builder.add_service(ChartService.to_server());
-        self.authenticator = self
-            .authenticator
+        self.authenticator
             .with_public_paths(ChartService::PUBLIC_PATHS.into_iter());
         self
     }
@@ -135,8 +134,7 @@ impl GrpcServiceBuilder {
     /// Adds the [`RatingService`] to the [`GrpcService`]
     pub fn with_ratings(mut self) -> Self {
         self.builder.add_service(RatingService.to_server());
-        self.authenticator = self
-            .authenticator
+        self.authenticator
             .with_public_paths(RatingService::PUBLIC_PATHS.into_iter());
         self
     }
@@ -144,8 +142,7 @@ impl GrpcServiceBuilder {
     /// Adds the [`UserService`] to the [`GrpcService`]
     pub fn with_user(mut self) -> Self {
         self.builder.add_service(UserService.to_server());
-        self.authenticator = self
-            .authenticator
+        self.authenticator
             .with_public_paths(UserService::PUBLIC_PATHS.into_iter());
         self
     }
@@ -161,7 +158,7 @@ impl GrpcServiceBuilder {
                 .unwrap(),
         );
 
-        self.authenticator = self.authenticator.with_public_path(REFLECTION_SERVER_PATH);
+        self.authenticator.with_public_path(REFLECTION_SERVER_PATH);
         self
     }
 
