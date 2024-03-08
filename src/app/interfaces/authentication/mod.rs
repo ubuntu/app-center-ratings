@@ -65,8 +65,7 @@ where
         let extension = self
             .verifier
             .verify(header)
-            .inspect_err(|err| error!("{err}"))
-            .map_err(Into::into)?;
+            .inspect_err(|err| error!("{err}"))?;
 
         if let Some(extension) = extension {
             req.extensions_mut().insert(extension);

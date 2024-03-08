@@ -97,7 +97,6 @@ impl CredentialVerifier for JwtVerifier {
             .collect();
 
         if raw.len() != 2 {
-            error!("{}", JwtVerifierError::InvalidHeader);
             return Err(JwtVerifierError::InvalidHeader);
         }
 
