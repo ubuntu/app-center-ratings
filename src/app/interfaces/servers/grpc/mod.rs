@@ -10,11 +10,13 @@ use tonic::{
 };
 use tower::Service;
 
-use crate::features::{chart::ChartService, rating::RatingService, user::UserService};
-
-mod authentication;
-
-use authentication::GrpcAuthenticator;
+use crate::{
+    app::interfaces::authentication::{
+        jwt::{JwtVerifier, JwtVerifierError},
+        Authenticator, AuthenticatorBuilder,
+    },
+    features::{chart::ChartService, rating::RatingService, user::UserService},
+};
 
 /// An error deriving from the GRPC Endpoints
 #[derive(Error, Debug)]
@@ -42,12 +44,12 @@ const FILE_DESCRIPTOR_SET: &[u8] = tonic::include_file_descriptor_set!("ratings_
 
 /// The GRPC Service endpoint for the program, you probably want to build this with
 /// [`GrpcServiceBuilder`] instead of using this directly.
-#[derive(Default, Debug, Clone)]
+#[derive(Clone)]
 pub struct GrpcService {
     /// The router that automatically sends requests to the proper underlying service
     routes: Routes,
     /// The authentication routine we use for validating input
-    authenticator: GrpcAuthenticator,
+    authenticator: Authenticator<JwtVerifier, &'static str>,
 }
 
 /// A type definition which is simply a future that's in a pinned location in the heap.
@@ -79,38 +81,72 @@ impl Service<hyper::Request<Body>> for GrpcService {
     }
 }
 
+/// The path of the reflection server, since we do this internally we don't
+/// construct it in the same was as the servers under [`features`](crate::features).
+const REFLECTION_SERVER_PATH: &str =
+    "grpc.reflection.v1alpha.ServerReflection/ServerReflectionInfo";
+
+/// Errors that can occur while constructing our GRPC service
+#[derive(Error, Debug)]
+#[allow(clippy::missing_docs_in_private_items, missing_docs)]
+pub enum GrpcServerBuildError {
+    #[error("grpc builder: error creating JWT authentication: {0}")]
+    JwtDecodeError(#[from] JwtVerifierError),
+}
+
 /// A builder for the ratings GRPC backend
 pub struct GrpcServiceBuilder {
     /// The builder for the service's route dispatcher
     builder: RoutesBuilder,
     /// The authenticator we want to use
-    authenticator: GrpcAuthenticator,
+    authenticator: AuthenticatorBuilder<JwtVerifier, &'static str>,
 }
 
 impl GrpcServiceBuilder {
     /// Creates a new builder for our GrpcService
-    pub fn new() -> GrpcServiceBuilder {
-        GrpcServiceBuilder {
+    pub fn from_env() -> Result<GrpcServiceBuilder, GrpcServerBuildError> {
+        Ok(GrpcServiceBuilder {
             builder: RoutesBuilder::default(),
-            authenticator: GrpcAuthenticator,
+            authenticator: AuthenticatorBuilder::new(JwtVerifier::from_env()?),
+        })
+    }
+
+    /// Creates a new builder with the given [`AuthenticatorBuilder`], should
+    /// it be constructed elsewhere.
+    #[allow(dead_code)]
+    pub fn from_authenticator_builder(
+        authenticator: AuthenticatorBuilder<JwtVerifier, &'static str>,
+    ) -> Self {
+        Self {
+            authenticator,
+            builder: Default::default(),
         }
     }
 
     /// Adds the [`ChartService`] to the [`GrpcService`]
     pub fn with_charts(mut self) -> Self {
         self.builder.add_service(ChartService.to_server());
+        self.authenticator = self
+            .authenticator
+            .with_public_paths(ChartService::PUBLIC_PATHS.into_iter());
         self
     }
 
     /// Adds the [`RatingService`] to the [`GrpcService`]
     pub fn with_ratings(mut self) -> Self {
         self.builder.add_service(RatingService.to_server());
+        self.authenticator = self
+            .authenticator
+            .with_public_paths(RatingService::PUBLIC_PATHS.into_iter());
         self
     }
 
     /// Adds the [`UserService`] to the [`GrpcService`]
     pub fn with_user(mut self) -> Self {
         self.builder.add_service(UserService.to_server());
+        self.authenticator = self
+            .authenticator
+            .with_public_paths(UserService::PUBLIC_PATHS.into_iter());
         self
     }
 
@@ -124,38 +160,24 @@ impl GrpcServiceBuilder {
                 .build()
                 .unwrap(),
         );
+
+        self.authenticator = self.authenticator.with_public_path(REFLECTION_SERVER_PATH);
         self
     }
 
-    /// Adds the given [`GrpcAuthenticator`] to the [`GrpcService`],
-    /// this is largely pointless because at the moment it has no configuration,
-    /// but is here for posterity.  
-    #[allow(dead_code)]
-    pub fn with_authenticator(mut self, authenticator: GrpcAuthenticator) -> Self {
-        self.authenticator = authenticator;
-        self
-    }
-
-    /// Converts the builder into its underlying routes with the given client
-    pub fn routes(self) -> Routes {
-        self.builder.routes()
+    /// Constructs this with the default routes expected of our GRPC client.
+    pub fn with_default_routes(self) -> Self {
+        self.with_charts()
+            .with_ratings()
+            .with_user()
+            .with_reflection()
     }
 
     /// Builds this into the GrpcService
     pub fn build(self) -> GrpcService {
         GrpcService {
-            authenticator: self.authenticator,
-            routes: self.routes(),
+            routes: self.builder.routes(),
+            authenticator: self.authenticator.build(),
         }
-    }
-}
-
-impl Default for GrpcServiceBuilder {
-    fn default() -> Self {
-        Self::new()
-            .with_charts()
-            .with_ratings()
-            .with_user()
-            .with_reflection()
     }
 }

@@ -3,6 +3,7 @@
 pub use context::AppContext;
 pub use run::run;
 
+pub mod interfaces;
+
 mod context;
-mod interfaces;
 mod run;

@@ -7,6 +7,7 @@ version = "0.0.3"
 edition = "2021"
 
 [dependencies]
+argon2 = "0.5.3"
 axum = "0.6.20" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues
 chrono = { version = "0.4.34", default-features = false, features = [
     "std",
@@ -26,6 +27,7 @@ prost = "0.12"
 prost-types = "0.12"
 rand = "0.8"
 reqwest = "0.11"
+secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
 sha2 = "0.10"
 snapd = { git = "https://github.com/ZoopOTheGoop/snapd-rs", branch = "framework" }

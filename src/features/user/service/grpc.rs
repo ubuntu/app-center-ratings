@@ -35,7 +35,7 @@ impl User for UserService {
         match use_cases::authenticate(&app_ctx, &id).await {
             Ok(user) => app_ctx
                 .infrastructure()
-                .jwt
+                .jwt_encoder
                 .encode(user.client_hash)
                 .map(|token| AuthenticateResponse { token })
                 .map(Response::new)

@@ -21,6 +21,10 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     info!("{} infrastructure initialized", config.name);
 
+    let socket: SocketAddr = config.socket().parse()?;
+    // Shred the secrets in `config`
+    drop(config);
+
     let service = ServiceBuilder::new()
         .timeout(Duration::from_secs(30))
         .layer(ContextMiddlewareLayer::new(app_ctx))
@@ -28,7 +32,6 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
 
     let shared = tower::make::Shared::new(service);
 
-    let socket: SocketAddr = config.socket().parse()?;
     info!("Binding to {socket}");
     hyper::Server::bind(&socket).serve(shared).await?;
     Ok(())

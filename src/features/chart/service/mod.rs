@@ -11,6 +11,9 @@ mod grpc;
 pub struct ChartService;
 
 impl ChartService {
+    /// The paths which are accessible without authentication, if any
+    pub const PUBLIC_PATHS: [&'static str; 0] = [];
+
     /// Converts this service into its corresponding server
     pub fn to_server(self) -> ChartServer<ChartService> {
         self.into()

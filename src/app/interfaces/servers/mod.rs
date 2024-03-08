@@ -31,7 +31,7 @@ pub enum AppCenterRatingsError {
 }
 
 /// The general service for our app, containing all our endpoints
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 #[allow(clippy::missing_docs_in_private_items)]
 pub struct AppCenterRatingsService {
     grpc_service: GrpcService,
@@ -44,7 +44,10 @@ impl AppCenterRatingsService {
     /// Constructs the service with all the default service endpoints for REST and GRPC
     pub fn with_default_routes() -> AppCenterRatingsService {
         Self {
-            grpc_service: GrpcServiceBuilder::default().build(),
+            grpc_service: GrpcServiceBuilder::from_env()
+                .expect("could not create GRPC service from environment")
+                .with_default_routes()
+                .build(),
             grpc_ready: false,
             rest_service: RestServiceBuilder::default().build(),
             rest_ready: false,

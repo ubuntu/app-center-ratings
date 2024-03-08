@@ -1,25 +1,16 @@
-//! JSON Web Tokens infrastructure and utlities.
-use std::ops::Add;
+//! Definitions meant to help with JWT handling throughout the app.
 
-use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
+use jsonwebtoken::{EncodingKey, Header};
+use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use time::{Duration, OffsetDateTime};
 use tracing::error;
 
+use super::Config;
+
 /// How many days until JWT info expires
 static JWT_EXPIRY_IN_DAYS: i64 = 1;
-
-/// An error for things that can go wrong with JWT handling
-#[derive(Error, Debug)]
-pub enum JwtError {
-    /// The shape of the data is invalid
-    #[error("jwt: invalid shape")]
-    InvalidShape,
-    /// Anything else that can go wrong
-    #[error("jwt: unknown error")]
-    Unknown,
-}
 
 /// Information representating a claim on a specific subject at a specific time
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -33,50 +24,48 @@ pub struct Claims {
 impl Claims {
     /// Creates a new claim with the current datetime for the subject given by `sub`.
     pub fn new(sub: String) -> Self {
-        let exp = OffsetDateTime::now_utc().add(Duration::days(JWT_EXPIRY_IN_DAYS));
+        let exp = OffsetDateTime::now_utc() + Duration::days(JWT_EXPIRY_IN_DAYS);
         let exp = exp.unix_timestamp() as usize;
 
         Self { sub, exp }
     }
 }
 
-/// A JWT transaction representation
-pub struct Jwt {
-    /// An encoding key for transfer
-    encoding_key: EncodingKey,
-    /// A decoding key for receipt
-    decoding_key: DecodingKey,
+/// Errors that can happen while encoding and signing tokens with JWT.
+#[derive(Error, Debug)]
+#[allow(missing_docs)]
+pub enum JwtEncoderError {
+    #[error("jwt: error decoding secret: {0}")]
+    DecodeSecretError(#[from] jsonwebtoken::errors::Error),
+    #[error("jwt: an error occurred, but the reason was erased for security reasons")]
+    Erased,
 }
 
-impl Jwt {
-    /// Attempts to create a new JWT representation from a given secret
-    pub fn new(secret: &str) -> Result<Self, jsonwebtoken::errors::Error> {
-        let encoding_key = EncodingKey::from_base64_secret(secret)?;
-        let decoding_key = DecodingKey::from_base64_secret(secret)?;
+/// An encoder which allows converting user hashes into valid JWT tokens
+pub struct JwtEncoder {
+    /// An encoding key for transfer
+    encoding_key: EncodingKey,
+}
 
-        Ok(Self {
-            encoding_key,
-            decoding_key,
-        })
+impl JwtEncoder {
+    /// Loads the encoder from the given JWT secret
+    pub fn from_secret(secret: &SecretString) -> Result<JwtEncoder, JwtEncoderError> {
+        let encoding_key = EncodingKey::from_base64_secret(secret.expose_secret())?;
+        Ok(Self { encoding_key })
+    }
+
+    /// Loads our encoder from the secret enclosed in [`Config`]
+    pub fn from_config(config: &Config) -> Result<JwtEncoder, JwtEncoderError> {
+        Self::from_secret(&config.jwt_secret)
     }
 
     /// Encodes a token for use
-    pub fn encode(&self, sub: String) -> Result<String, JwtError> {
+    pub fn encode(&self, sub: String) -> Result<String, JwtEncoderError> {
         let claims = Claims::new(sub);
 
         jsonwebtoken::encode(&Header::default(), &claims, &self.encoding_key).map_err(|e| {
-            error!("{e:?}");
-            JwtError::Unknown
+            error!("{e}");
+            JwtEncoderError::Erased
         })
-    }
-
-    /// Decodes a given token received
-    pub fn decode(&self, token: &str) -> Result<Claims, JwtError> {
-        jsonwebtoken::decode::<Claims>(token, &self.decoding_key, &Validation::default())
-            .map(|t| t.claims)
-            .map_err(|e| {
-                error!("{e:?}");
-                JwtError::InvalidShape
-            })
     }
 }
