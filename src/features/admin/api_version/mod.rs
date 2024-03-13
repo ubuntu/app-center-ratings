@@ -23,8 +23,8 @@ impl ApiVersion<'static> {
     pub const fn build_info() -> ApiVersion<'static> {
         Self {
             version: Cow::Borrowed(env!("CARGO_PKG_VERSION")),
-            commit: Cow::Borrowed("GIT_HASH"),
-            branch: Cow::Borrowed("GIT_BRANCH"),
+            commit: Cow::Borrowed(env!("GIT_HASH")),
+            branch: Cow::Borrowed(env!("GIT_BRANCH")),
         }
     }
 }
