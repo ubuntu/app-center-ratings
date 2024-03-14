@@ -1,5 +1,6 @@
 //! Utility functions and definitions for configuring the service.
 use dotenvy::dotenv;
+use secrecy::SecretString;
 use serde::Deserialize;
 
 /// Configuration for the general app center ratings backend service.
@@ -10,7 +11,7 @@ pub struct Config {
     /// The host configuration
     pub host: String,
     /// The JWT secret value
-    pub jwt_secret: String,
+    pub jwt_secret: SecretString,
     /// Log level to use
     pub log_level: String,
     /// The service name

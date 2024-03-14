@@ -2,11 +2,13 @@
 
 use std::pin::Pin;
 
+use axum::body::Bytes;
+use futures::ready;
+use http_body::combinators::UnsyncBoxBody;
 use hyper::{service::Service, Body};
-use tonic::body::BoxBody;
 use tower::Layer;
 
-use crate::app::context::{AppContext, RequestContext};
+use crate::app::context::AppContext;
 
 /// Passthrough [`Layer`] containing the [`AppContext`], this is mainly used to construct
 /// [`ContextMiddleware`].
@@ -25,7 +27,10 @@ impl ContextMiddlewareLayer {
 
 impl<S> Layer<S> for ContextMiddlewareLayer
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Service = ContextMiddleware<S>;
@@ -34,6 +39,7 @@ where
         ContextMiddleware {
             app_ctx: self.app_ctx.clone(),
             inner: service,
+            ready: false,
         }
     }
 }
@@ -45,11 +51,17 @@ where
 #[derive(Clone)]
 pub struct ContextMiddleware<S>
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     /// The current context of the app, as passed in from the [`ContextMiddlewareLayer`]
     app_ctx: AppContext,
+
+    /// Is the inner future ready to be used
+    ready: bool,
 
     /// The inner [`Service`] containing the [`Future`].
     ///
@@ -62,7 +74,10 @@ type BoxFuture<'a, T> = Pin<Box<dyn std::future::Future<Output = T> + Send + 'a>
 
 impl<S> Service<hyper::Request<Body>> for ContextMiddleware<S>
 where
-    S: Service<hyper::Request<Body>, Response = hyper::Response<BoxBody>> + Clone + Send + 'static,
+    S: Service<hyper::Request<Body>, Response = hyper::Response<UnsyncBoxBody<Bytes, axum::Error>>>
+        + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Response = S::Response;
@@ -73,26 +88,27 @@ where
         &mut self,
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Result<(), Self::Error>> {
-        self.inner.poll_ready(cx)
+        loop {
+            if self.ready {
+                return std::task::Poll::Ready(Ok(()));
+            } else {
+                ready!(self.inner.poll_ready(cx))?;
+                self.ready = true;
+            }
+        }
     }
 
-    fn call(&mut self, req: hyper::Request<Body>) -> Self::Future {
-        let clone = self.inner.clone();
-        let mut inner = std::mem::replace(&mut self.inner, clone);
-        let app_ctx = self.app_ctx.clone();
+    fn call(&mut self, mut req: hyper::Request<Body>) -> Self::Future {
+        assert!(self.ready);
+        self.ready = false;
+
+        req.extensions_mut().insert(self.app_ctx.clone());
+
+        let future = self.inner.call(req);
 
         Box::pin(async move {
-            let req_ctx = RequestContext {
-                uri: req.uri().to_string(),
-                claims: None,
-            };
-
-            let mut req = req;
-            req.extensions_mut().insert(app_ctx);
-            req.extensions_mut().insert(req_ctx);
-
-            let response = inner.call(req).await?;
-            Ok(response)
+            let res = future.await?;
+            Ok(res)
         })
     }
 }

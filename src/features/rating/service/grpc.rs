@@ -1,14 +1,14 @@
-//! Contains trait implementations for [`AppService`] and other app definitions.
+//! Contains GRPC definitions for the ratings feature.
 use crate::app::AppContext;
 
 use crate::features::{
     pb::app::{app_server::App, GetRatingRequest, GetRatingResponse},
-    rating::{service::AppService, use_cases},
+    rating::{service::RatingService, use_cases},
 };
 use tonic::{Request, Response, Status};
 
 #[tonic::async_trait]
-impl App for AppService {
+impl App for RatingService {
     #[tracing::instrument(level = "debug")]
     async fn get_rating(
         &self,

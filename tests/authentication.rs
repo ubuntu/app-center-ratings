@@ -63,10 +63,8 @@ fn verify_token(world: &mut AuthenticationWorld) {
         world.auth_error
     );
 
-    let config = Config::load().expect("Could not load config");
-
     for token in world.tokens.iter() {
-        helpers::assert::assert_token_is_valid(token, &config.jwt_secret);
+        helpers::assert::assert_token_is_valid(token);
     }
 }
 
@@ -98,7 +96,6 @@ async fn main() {
 
     AuthenticationWorld::cucumber()
         .repeat_skipped()
-        .init_tracing()
         .run_and_exit("tests/features/user/authentication.feature")
         .await
 }

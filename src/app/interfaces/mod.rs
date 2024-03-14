@@ -2,6 +2,6 @@
 
 pub mod authentication;
 pub mod middleware;
-pub mod routes;
+pub mod servers;
 
 mod errors;

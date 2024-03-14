@@ -1,4 +1,4 @@
-//! Trait impls for a given [`User`]
+//! Contains GRPC definitions for the user authentication and voting features.
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 
@@ -35,7 +35,7 @@ impl User for UserService {
         match use_cases::authenticate(&app_ctx, &id).await {
             Ok(user) => app_ctx
                 .infrastructure()
-                .jwt
+                .jwt_encoder
                 .encode(user.client_hash)
                 .map(|token| AuthenticateResponse { token })
                 .map(Response::new)

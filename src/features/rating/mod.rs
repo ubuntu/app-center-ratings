@@ -2,9 +2,9 @@
 //!
 //! [`AppService`]: service::AppService
 
-pub mod interface;
-pub mod service;
+pub use service::RatingService;
 
 mod errors;
 mod infrastructure;
+mod service;
 mod use_cases;
