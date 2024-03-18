@@ -8,7 +8,7 @@ edition = "2021"
 
 [dependencies]
 argon2 = "0.5.3"
-axum = "0.6.20" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues
+axum = "0.7.4" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues
 base64 = "0.22.0"
 chrono = { version = "0.4.34", default-features = false, features = [
     "std",
