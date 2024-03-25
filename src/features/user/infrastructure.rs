@@ -187,7 +187,7 @@ pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<
 }
 
 /// Convenience function for getting categories by their snap ID, since it takes multiple API calls
-async fn snapd_categories_by_snap_id(
+pub(crate) async fn snapd_categories_by_snap_id(
     client: &SnapdClient,
     snap_id: &str,
 ) -> Result<Vec<Category>, UserError> {
