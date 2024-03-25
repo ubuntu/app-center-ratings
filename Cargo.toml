@@ -5,6 +5,15 @@ license = "GPL-3.0-only"
 authors = ["Canonical"]
 version = "0.0.3"
 edition = "2021"
+default-run = "ratings"
+
+[[bin]]
+path = "src/main.rs"
+name = "ratings"
+
+[[bin]]
+path = "src/warmup.rs"
+name = "warmup"
 
 [dependencies]
 argon2 = "0.5.3"
