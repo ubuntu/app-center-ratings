@@ -10,7 +10,7 @@ use tonic::{Request, Response, Status};
 
 #[tonic::async_trait]
 impl Chart for ChartService {
-    #[tracing::instrument]
+    #[tracing::instrument(level = "debug")]
     async fn get_chart(
         &self,
         request: Request<GetChartRequest>,
