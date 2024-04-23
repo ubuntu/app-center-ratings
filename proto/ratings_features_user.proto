@@ -15,6 +15,7 @@ service User {
 }
 
 message AuthenticateRequest {
+  // sha256([$user:$machineId])
   string id = 1;
 }
 

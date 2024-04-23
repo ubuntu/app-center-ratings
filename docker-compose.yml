@@ -1,7 +1,6 @@
-version: '3'
+version: "3"
 
 services:
-
   postgres:
     build: ./docker/database
     restart: always
@@ -15,9 +14,3 @@ services:
       SERVICE_USER: ${DOCKER_SERVICE_USER}
       SERVICE_PASSWORD: ${DOCKER_SERVICE_PASSWORD}
       RATINGS_DB: ${DOCKER_RATINGS_DB}
-
-  redis:
-    image: redis
-    restart: always
-    ports:
-      - 6379:6379

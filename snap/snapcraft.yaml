@@ -1,6 +1,6 @@
 name: ratings
 base: core22
-version: '1.6'
+version: '1.8'
 license: GPL-3.0
 summary: Ubuntu App Ratings Service
 description: |

@@ -1,35 +1,38 @@
+//! Contains definitions for runningi the app context.
 use std::{net::SocketAddr, time::Duration};
 
-use crate::app::context::AppContext;
-use tonic::transport::Server;
 use tower::ServiceBuilder;
 use tracing::info;
 
-use crate::utils::{Config, Infrastructure, Migrator};
+use crate::{
+    app::{
+        context::AppContext,
+        interfaces::{middleware::ContextMiddlewareLayer, servers::AppCenterRatingsService},
+    },
+    utils::{Config, Infrastructure, Migrator},
+};
 
-use super::interfaces::routes::{build_reflection_service, build_servers};
-use super::interfaces::{authentication::authentication, middleware::ContextMiddlewareLayer};
-
+/// Runs the app given the associated [`Config`].
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     let migrator = Migrator::new(&config.migration_postgres_uri).await?;
     migrator.run().await?;
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
 
-    let layer = ServiceBuilder::new()
-        .timeout(Duration::from_secs(30))
-        .layer(ContextMiddlewareLayer::new(app_ctx))
-        .layer(tonic::service::interceptor(authentication))
-        .into_inner();
-
-    let server = Server::builder()
-        .layer(layer)
-        .add_service(build_reflection_service());
-    let server = build_servers(server);
+    info!("{} infrastructure initialized", config.name);
 
     let socket: SocketAddr = config.socket().parse()?;
-    info!("Binding to {socket}");
-    server.serve(socket).await?;
+    // Shred the secrets in `config`
+    drop(config);
 
+    let service = ServiceBuilder::new()
+        .timeout(Duration::from_secs(30))
+        .layer(ContextMiddlewareLayer::new(app_ctx))
+        .service(AppCenterRatingsService::with_default_routes());
+
+    let shared = tower::make::Shared::new(service);
+
+    info!("Binding to {socket}");
+    hyper::Server::bind(&socket).serve(shared).await?;
     Ok(())
 }

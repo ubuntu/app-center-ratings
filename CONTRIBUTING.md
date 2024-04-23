@@ -77,15 +77,14 @@ source "$HOME/.cargo/env"
 
 # Install build-time dependencies
 sudo apt update
-sudo apt install -y git gcc libssl-dev pkg-config
-sudo snap install --classic protobuf
-
-# (Optional) Install rockcraft for building the OCI image
-sudo snap install rockcraft --classic --channel edge
+sudo apt install -y git gcc libssl-dev pkg-config protobuf-compiler
 
 # (Optional) Install Docker for running the OCI image
 curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
 sh /tmp/get-docker.sh
+
+# For running the dotenv files
+cargo install dotenvy --features=cli
 ```
 
 ### Building and running the binaries
@@ -93,42 +92,13 @@ sh /tmp/get-docker.sh
 To build and run the binary during development:
 
 ```shell
-# Setup a .env file
-# You'll need to adjust the values in the resulting .env to point to a suitable PostgreSQL instance.
-cp example.env .env
-
+dotenvy -f .env_files/example.env docker compose up -d #or podman-compose up 
 # Build and run
-cargo run
+dotenvy -f .env_files/example.env cargo run --release
 ```
 
 To _just_ build the binary you can run `cargo build --release`. The result will be placed at
 `./target/release/ratings`.
-
-## Building and running the OCI image
-
-The OCI image for Ratings is built using [`rockcraft`](https://github.com/canonical/rockcraft).
-
-You can get started like so:
-
-```shell
-# Build the image
-rockcraft --verbose
-
-# Grab the version from the rockcraft.yaml
-version="$(grep -Po "^version: \K.+" rockcraft.yaml)"
-
-# Copy the image from the ROCK archive to the local docker daemon
-sudo /snap/rockcraft/current/bin/skopeo \
-    --insecure-policy \
-    copy oci-archive:"ratings_${version}_amd64.rock" docker-daemon:"ratings:${version}"
-
-# Run the service - replace the postgres var with valid database credentials
-docker run --rm \
-    -e POSTGRES="postgresql://user:password@localhost:5432/ratings" \
-    -e JWT_SECRET="deadbeef" \
-    -p 18080:18080 \
-    "ratings:${version}"
-```
 
 ### About the testsuite
 
@@ -152,21 +122,26 @@ Tests are located under the `tests/` folder and the coordination scripts are loc
 These tests require a database to run against. The easiest way to set up the database, run the tests and clean up is via the following commands:
 
 ```
-# Spin up and bootstrap a test db
-cargo make db-up
-
 # Run the tests
 cargo make full-test
 
-# To tear down the db
-cargo make db-down
-
 # Clean up docker images and build artifacts
 cargo make full-clean
-
 ```
 
 The test suite must pass before merging the PR to our main branch. Any new feature, change or fix must be covered by corresponding tests.
+Also please note that the `category` suite will take *quite a while* to finish, so be patient with it or skip it by manually running the tests you need with `cargo test --test <your-tests>` if you're not touching the category feature.
+
+Note that the above won't work if you use `podman` (unless you've put in effort to alias docker commands to `podman` and `podman-compose`),
+alternatively you can use:
+
+```
+dotenvy -f .env_files/test.env podman-compose up
+dotenvy -f .env_files/test-server.env cargo run
+dotenvy -f .env_files/test.env cargo test
+```
+
+In separate tabs (or `tmux` sessions etc), so long as you have the Docker repositories added as a `podman` source.
 
 ### Code style
 

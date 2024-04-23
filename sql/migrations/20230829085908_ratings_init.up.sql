@@ -11,7 +11,7 @@
 
 CREATE TABLE users (
    id SERIAL PRIMARY KEY,
-   client_hash CHAR(64) NOT NULL UNIQUE, -- sha256($MACHINE_ID$USER)
+   client_hash CHAR(64) NOT NULL UNIQUE, -- sha256([$user:$machineId])
    created TIMESTAMPTZ NOT NULL DEFAULT NOW(),
    last_seen TIMESTAMPTZ NOT NULL
 );

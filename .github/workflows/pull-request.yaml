@@ -2,8 +2,6 @@ name: Pull Request
 
 on:
   pull_request:
-    paths-ignore:
-      - vm_operator/**
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -11,6 +9,8 @@ concurrency:
 
 jobs:
   build:
-    uses: ./.github/workflows/build.yaml
+    uses: ./.github/workflows/build-and-test.yaml
   cla:
     uses: ./.github/workflows/cla.yaml
+  style-lints:
+    uses: ./.github/workflows/lints.yaml

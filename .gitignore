@@ -8,6 +8,7 @@
 *.rock
 *.nix
 
+/proto/*.rs
 venv/
 build/
 *.charm
@@ -15,3 +16,4 @@ build/
 .coverage
 __pycache__/
 *.py[cod]
+server.pid
