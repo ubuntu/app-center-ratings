@@ -19,7 +19,7 @@ dotenvy = "0.15"
 envy = "0.4"
 futures = "0.3"
 http = "1.0"
-http-body = "0.4.6"
+http-body = "1.0.0"
 hyper = { version = "0.14", features = ["full", "backports", "deprecated"] }
 jsonwebtoken = "9.2"
 log = { version = "0.4.21", features = ["serde"] }
