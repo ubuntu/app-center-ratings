@@ -35,7 +35,7 @@ enum Timeframe {
 // On 2024-02-03, it may need to be kept in sync.
 enum Category {
   ART_AND_DESIGN = 0;
-  BOOK_AND_REFERENCE = 1;
+  BOOKS_AND_REFERENCE = 1;
   DEVELOPMENT = 2;
   DEVICES_AND_IOT = 3;
   EDUCATION = 4;
