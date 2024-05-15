@@ -159,9 +159,9 @@ async fn generate_snaps(
 async fn warmup(_: &mut ChartWorld) {
     let config = Config::load().unwrap();
     let infra = Infrastructure::new(&config).await.unwrap();
-    let mut app_ctx = AppContext::new(&config, infra);
+    let app_ctx = AppContext::new(&config, infra);
 
-    ratings::utils::warmup::warmup(&mut app_ctx)
+    ratings::utils::warmup::warmup(&app_ctx)
         .await
         .expect("Could not warm up database");
 }
