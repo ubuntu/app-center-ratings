@@ -11,10 +11,6 @@ default-run = "ratings"
 path = "src/main.rs"
 name = "ratings"
 
-[[bin]]
-path = "src/warmup.rs"
-name = "warmup"
-
 [dependencies]
 argon2 = "0.5.3"
 axum = "0.6.20" # this *must* be pinned because 0.7.x relies on hyper 1.x causing a ton of type conversion issues

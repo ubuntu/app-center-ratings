@@ -9,3 +9,4 @@ pub mod infrastructure;
 pub mod jwt;
 pub mod log_util;
 pub mod migrator;
+pub mod warmup;

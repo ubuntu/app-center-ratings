@@ -133,13 +133,6 @@ pub struct VoteSummary {
     pub positive_votes: i64,
 }
 
-/// A single vote, either good or bad.
-#[derive(Debug, Clone)]
-pub struct Vote {
-    /// Whether the vote is an "upvote" or "downvote".
-    pub vote_up: bool,
-}
-
 /// Converts a given [`VoteSummary`] into a [`RatingsBand`], if applicable, along with a
 /// confidence interval if applicable.
 pub fn calculate_band(votes: &VoteSummary) -> (Option<f64>, RatingsBand) {

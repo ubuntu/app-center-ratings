@@ -1,5 +1,4 @@
 //! Errors related to user voting
-use snapd::SnapdClientError;
 use thiserror::Error;
 
 /// Errors that can occur when a user votes.
@@ -17,12 +16,6 @@ pub enum UserError {
     /// The user was unable to cast a vote
     #[error("failed to cast vote")]
     FailedToCastVote,
-    /// Errors from `snapd-rs`
-    #[error("an error occurred when calling snapd: {0}")]
-    SnapdError(#[from] SnapdClientError),
-    /// An error that occurred in category updating
-    #[error("an error occurred with the DB when getting categories: {0}")]
-    CategoryDBError(#[from] sqlx::Error),
     /// Anything else that can go wrong
     #[error("unknown user error")]
     Unknown,

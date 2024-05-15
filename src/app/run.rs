@@ -4,6 +4,8 @@ use std::{net::SocketAddr, time::Duration};
 use tower::ServiceBuilder;
 use tracing::info;
 
+use crate::utils::warmup;
+
 use crate::{
     app::{
         context::AppContext,
@@ -18,6 +20,10 @@ pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
     migrator.run().await?;
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
+
+    tracing::info!("Now fetching categories for every snap in the DB, this could take a while...");
+    // Fetch all the categories
+    warmup::warmup(&app_ctx).await?;
 
     info!("{} infrastructure initialized", config.name);
 
