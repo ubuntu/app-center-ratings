@@ -18,18 +18,20 @@ use crate::{
 
 /// Allow the warmup watchdog for refreshing stale date run once daily
 fn background_refresh(app_ctx: AppContext) -> JoinHandle<Result<Infallible, JoinError>> {
-
     let regular_warmup = task::spawn(async move {
-        let mut interval = tokio::time::interval(Duration::from_secs(60 * 60 * 24 /* once a day */));
+        let mut interval =
+            tokio::time::interval(Duration::from_secs(60 * 60 * 24 /* once a day */));
 
         loop {
             interval.tick().await;
-            let _ = warmup::warmup(&app_ctx).await.inspect_err(|e| tracing::error!("refreshing stage category data resulted in an error: {e}"));
+            let _ = warmup::warmup(&app_ctx).await.inspect_err(|e| {
+                tracing::error!("refreshing stage category data resulted in an error: {e}")
+            });
         }
     });
 
     tokio::task::spawn(regular_warmup)
-}   
+}
 
 /// Runs the app given the associated [`Config`].
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
