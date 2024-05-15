@@ -5,10 +5,12 @@ use futures::FutureExt;
 use helpers::client::*;
 use rand::{thread_rng, Rng};
 use ratings::{
-    app::AppContext, features::{
+    app::AppContext,
+    features::{
         common::entities::{calculate_band, VoteSummary},
         pb::chart::{Category, ChartData, Timeframe},
-    }, utils::{Config, Infrastructure}
+    },
+    utils::{Config, Infrastructure},
 };
 use sqlx::Connection;
 use strum::EnumString;
@@ -159,7 +161,9 @@ async fn warmup(_: &mut ChartWorld) {
     let infra = Infrastructure::new(&config).await.unwrap();
     let mut app_ctx = AppContext::new(&config, infra);
 
-    ratings::utils::warmup::warmup(&mut app_ctx).await.expect("Could not warm up database");
+    ratings::utils::warmup::warmup(&mut app_ctx)
+        .await
+        .expect("Could not warm up database");
 }
 
 #[when(expr = "the client fetches the top snaps")]
