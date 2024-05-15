@@ -109,8 +109,8 @@ pub async fn categorize(
 
 /// Performs a full warmup
 pub async fn warmup(ctx: &AppContext) -> Result<(), Box<dyn std::error::Error>> {
-    let snaps = all_snaps(&ctx).await?;
-    categorize(snaps, &ctx).await
+    let snaps = all_snaps(ctx).await?;
+    categorize(snaps, ctx).await
 }
 
 #[cfg(test)]
