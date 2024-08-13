@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - '*'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -47,10 +50,6 @@ jobs:
         with:
           toolchain: stable
 
-      # No replacement for actions-rs/rust-cargo
-      - name: Build release binary
-        run: cargo build --release
-
       - name: Log in to gchr.io
         uses: docker/login-action@v3
         with:
@@ -67,11 +66,11 @@ jobs:
             type=semver,pattern={{version}}
             type=sha,format=short
 
-      - name: Build and push image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          file: ./docker/ratings/Dockerfile
+      - name: Build rock
+        uses: canonical/craft-actions/rockcraft-pack@main
+        id: rockcraft
+
+      - name: Publish rock to GHCR
+        run: |
+          skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://ghcr.io/${{ steps.meta.outputs.tags }}
+
