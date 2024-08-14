@@ -12,14 +12,6 @@ description: |
   Backend service to support application ratings in the new Ubuntu Software Centre.
 run_user: _daemon_
 
-environment:
-  APP_ENV: dev
-  APP_HOST: 0.0.0.0
-  APP_LOG_LEVEL: info
-  APP_NAME: ratings
-  APP_PORT: 18080
-  APP_JWT_SECRET: "foo"
-
 services:
   ratings:
     override: replace
