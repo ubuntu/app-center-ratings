@@ -8,8 +8,6 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    uses: ./.github/workflows/build-and-test.yaml
   cla:
     uses: ./.github/workflows/cla.yaml
   style-lints:

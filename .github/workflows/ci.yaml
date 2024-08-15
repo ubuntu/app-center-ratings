@@ -1,34 +1,58 @@
-name: Check, build and publish
+name: CI
 
 on:
   push:
     branches:
       - main
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  pull_request:
+    branches:
+      - main
+
+  workflow_dispatch:
 
 jobs:
-  checks:
-    name: Test and lint
-    runs-on: ubuntu-22.04
-    permissions:
-      checks: write
+  build:
+    name: Build Ratings
+    runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler libprotobuf-dev
+          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - name: Check code formating
+        uses: mbrobbel/rustfmt-check@master
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Test and lint code
-        uses: ./.github/workflows/build-and-test.yaml
+      - name: Clippy linting
+        uses: giraffate/clippy-action@v1
+        with:
+          reporter: "github-pr-review"
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Dependencies security audit
+        uses: actions-rust-lang/audit@v1
+        with:
+          ignore: RUSTSEC-2023-0071 # patch not available att
+
+      - name: Setup and Run Tests
+        run: |
+          cargo install cargo-make
+          cargo install dotenvy --features=cli
+          cargo make full-test
 
   publish:
+    if: github.event_name == 'push'
     name: Publish to ghcr.io
+    needs: build
     runs-on: ubuntu-22.04
     permissions:
       contents: read
