@@ -20,8 +20,6 @@ pub struct Config {
     pub port: u16,
     /// The URI of the postgres database
     pub postgres_uri: String,
-    /// The URI of the migration resource for the DB
-    pub migration_postgres_uri: String,
 }
 
 impl Config {
