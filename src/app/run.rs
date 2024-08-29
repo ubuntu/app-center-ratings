@@ -14,7 +14,7 @@ use crate::{
 
 /// Runs the app given the associated [`Config`].
 pub async fn run(config: Config) -> Result<(), Box<dyn std::error::Error>> {
-    let migrator = Migrator::new(&config.migration_postgres_uri).await?;
+    let migrator = Migrator::new(&config.postgres_uri).await?;
     migrator.run().await?;
     let infra = Infrastructure::new(&config).await?;
     let app_ctx = AppContext::new(&config, infra);
