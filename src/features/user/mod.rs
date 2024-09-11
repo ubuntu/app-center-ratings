@@ -4,7 +4,8 @@ pub mod entities;
 
 pub use service::UserService;
 
+pub(crate) mod infrastructure;
+
 mod errors;
-mod infrastructure;
 mod service;
 mod use_cases;

@@ -2,6 +2,7 @@ Feature: List of top 20 snaps
     Background:
         Given a snap with id "3Iwi803Tk3KQwyD6jFiAJdlq8MLgBIoD" gets 100 votes where 75 are upvotes
         Given 25 test snaps gets between 150 and 200 votes, where 125 to 175 are upvotes
+        Given the database is warmed up
 
     Scenario: Tails opens the store homepage, seeing the top snaps
         When the client fetches the top snaps
