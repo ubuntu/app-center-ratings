@@ -4,6 +4,7 @@ RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get upgrade -y && rm -r
 
 WORKDIR /app
 COPY target/release/ratings /app/ratings
+COPY sql /app/sql
 
 EXPOSE 8080
 ENTRYPOINT ["/app/ratings"]

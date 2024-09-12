@@ -48,7 +48,7 @@ pub(crate) async fn get_votes_summary(
         builder
             .push(
                 r#" 
-                WHERE votes.snap_id IN (
+                AND votes.snap_id IN (
                     SELECT snap_categories.snap_id FROM snap_categories 
                     WHERE snap_categories.category = "#,
             )
