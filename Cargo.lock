@@ -2260,6 +2260,7 @@ name = "ratings_new"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "git2",
  "prost 0.13.3",
  "prost-types 0.13.3",
  "simple_test_case",
@@ -2267,6 +2268,7 @@ dependencies = [
  "thiserror",
  "tokio",
  "tonic 0.12.2",
+ "tonic-build",
  "tonic-reflection 0.12.2",
  "tracing",
  "tracing-subscriber",
