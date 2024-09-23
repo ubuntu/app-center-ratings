@@ -3,7 +3,7 @@ use std::path::Path;
 
 fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     // Define the path to the output directory within the `src` folder
-    let out_dir = Path::new("proto");
+    let out_dir = Path::new("src/protos");
     std::fs::create_dir_all(out_dir)?;
 
     let descriptor_set_path = format!(
@@ -12,10 +12,10 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let files = &[
-        "proto/ratings_features_app.proto",
-        "proto/ratings_features_chart.proto",
-        "proto/ratings_features_user.proto",
-        "proto/ratings_features_common.proto",
+        "protos/ratings_features_app.proto",
+        "protos/ratings_features_chart.proto",
+        "protos/ratings_features_user.proto",
+        "protos/ratings_features_common.proto",
     ];
 
     tonic_build::configure()
@@ -28,7 +28,7 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
             "Category",
             r#"#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]"#,
         )
-        .compile(files, &["proto"])?;
+        .compile(files, &["protos"])?;
 
     Ok(())
 }
