@@ -39,7 +39,7 @@ impl User {
         "#,
         )
         .bind(self.client_hash)
-        .fetch_one(connection)
+        .fetch_one(conn)
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -56,8 +56,8 @@ impl User {
         WHERE client_hash = $1
         "#,
         )
-        .bind(self.client_hash)
-        .execute(connection)
+        .bind(client_hash)
+        .execute(conn)
         .await
         .map_err(|error| {
             error!("{error:?}");

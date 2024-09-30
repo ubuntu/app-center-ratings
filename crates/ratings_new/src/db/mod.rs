@@ -113,28 +113,28 @@ mod test {
             },
         ];
 
-        let connection = conn!();
+        let conn = conn!();
 
         for user in test_users.into_iter() {
-            user.create_or_seen(connection).await?;
+            user.create_or_seen(conn).await?;
         }
 
         for vote in test_votes.into_iter() {
-            vote.save_to_db(connection).await?;
+            vote.save_to_db(conn).await?;
         }
 
         let votes_client_1 = vote::Vote::get_all_by_client_hash_and_snap_id(
-            connection,
             String::from(snap_id_1),
             String::from(client_hash_1),
+            conn,
         )
         .await
         .unwrap();
 
         let votes_client_2 = vote::Vote::get_all_by_client_hash_and_snap_id(
-            connection,
             String::from(snap_id_2),
             String::from(client_hash_2),
+            conn,
         )
         .await
         .unwrap();
