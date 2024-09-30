@@ -27,7 +27,7 @@ impl Vote {
         connection: &mut PgConnection,
         snap_id: String,
         client_hash: String,
-    ) -> Result<Vec<Vote>, DbError> {
+    ) -> Result<Vec<Vote>> {
         debug!("client_hash: '{}', snap_id: '{}'", &client_hash, &snap_id);
         let votes = sqlx::query_as(
             r#"
@@ -66,7 +66,7 @@ impl Vote {
         connection: &mut PgConnection,
         client_hash: String,
         snap_id_filter: Option<String>,
-    ) -> Result<Vec<Vote>, DbError> {
+    ) -> Result<Vec<Vote>> {
         let votes = sqlx::query_as(
             r#"
                 SELECT
@@ -100,7 +100,7 @@ impl Vote {
     }
 
     /// Saves a [`Vote`] to the database, if possible.
-    pub async fn save_to_db(self, connection: &mut PgConnection) -> Result<u64, DbError> {
+    pub async fn save_to_db(self, conn: &mut PgConnection) -> Result<u64> {
         let result = sqlx::query(
             r#"
         INSERT INTO votes (user_id_fk, snap_id, snap_revision, vote_up)

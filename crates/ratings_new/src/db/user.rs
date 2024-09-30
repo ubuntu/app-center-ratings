@@ -28,7 +28,7 @@ impl User {
     }
 
     /// Create a [`User`] entry, or note that the user has recently been seen
-    pub async fn create_or_seen(self, connection: &mut PgConnection) -> Result<Self, DbError> {
+    pub async fn create_or_seen(self, conn: &mut PgConnection) -> Result<Self> {
         let user_with_id = sqlx::query_as(
             r#"
         INSERT INTO users (client_hash, created, last_seen)
@@ -49,7 +49,7 @@ impl User {
         Ok(user_with_id)
     }
 
-    pub async fn delete(self, connection: &mut PgConnection) -> Result<(), DbError> {
+    pub async fn delete_by_client_hash(client_hash: String, conn: &mut PgConnection) -> Result<()> {
         sqlx::query(
             r#"
         DELETE FROM users

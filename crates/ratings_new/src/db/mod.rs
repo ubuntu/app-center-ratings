@@ -8,6 +8,7 @@ pub mod user;
 pub mod vote;
 
 pub type ClientHash = String;
+pub type Result<T> = std::result::Result<T, DbError>;
 
 /// Errors that can occur when a user votes.
 #[derive(Error, Debug)]
@@ -36,7 +37,7 @@ const MAX_POOL_CONNECTIONS: u32 = 5;
 
 static POOL: OnceCell<PgPool> = OnceCell::const_new();
 
-pub async fn init_pool_from_uri(postgres_uri: &str) -> Result<PgPool, sqlx::Error> {
+pub async fn init_pool_from_uri(postgres_uri: &str) -> Result<PgPool> {
     info!("Initialising DB connection pool");
     let pool = PgPoolOptions::new()
         .max_connections(MAX_POOL_CONNECTIONS)
@@ -46,7 +47,7 @@ pub async fn init_pool_from_uri(postgres_uri: &str) -> Result<PgPool, sqlx::Erro
     Ok(pool)
 }
 
-pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool, DbError> {
+pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool> {
     let pool = init_pool_from_uri(postgres_uri).await?;
     info!("Running DB migrations");
     let migrator = Migrator::new(postgres_uri).await?;
@@ -55,7 +56,7 @@ pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool
     Ok(pool)
 }
 
-pub async fn get_pool() -> Result<&'static PgPool, Box<dyn std::error::Error>> {
+pub async fn get_pool() -> Result<&'static PgPool> {
     let config = Config::get().await?;
     let pool = POOL
         .get_or_try_init(|| init_pool_from_uri_and_migrate(&config.postgres_uri))
@@ -80,7 +81,7 @@ mod test {
     use super::*;
 
     #[tokio::test]
-    async fn save_and_read_votes() -> Result<(), Box<dyn std::error::Error>> {
+    async fn save_and_read_votes() -> Result<()> {
         let client_hash_1 = "0000000000000000000000000000000000000000000000000000000000000001";
         let client_hash_2 = "0000000000000000000000000000000000000000000000000000000000000002";
         let snap_id_1 = "00000000000000000000000000000001";
