@@ -28,9 +28,6 @@ pub enum UserError {
     /// An error that occurred in category updating
     #[error("an error occurred with the DB when getting categories: {0}")]
     CategoryDBError(#[from] sqlx::Error),
-    /// Anything else that can go wrong
-    #[error("unknown user error")]
-    Unknown,
 }
 
 const MAX_POOL_CONNECTIONS: u32 = 5;
