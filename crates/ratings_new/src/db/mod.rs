@@ -1,9 +1,8 @@
+use crate::utils::{Config, Migrator};
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use thiserror::Error;
 use tokio::sync::OnceCell;
 use tracing::info;
-
-use crate::utils::{Config, Migrator};
 
 pub mod user;
 pub mod vote;

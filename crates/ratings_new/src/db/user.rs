@@ -1,6 +1,5 @@
+use super::{ClientHash, DbError, Result};
 use sqlx::{prelude::FromRow, types::time::OffsetDateTime, PgConnection};
-
-use super::{ClientHash, DbError};
 use tracing::error;
 
 /// Information about a user who may be rating snaps.
