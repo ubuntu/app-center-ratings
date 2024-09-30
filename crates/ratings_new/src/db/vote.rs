@@ -24,9 +24,9 @@ pub struct Vote {
 /// [`ClientHash`]: crate::features::user::entities::ClientHash
 impl Vote {
     pub async fn get_all_by_client_hash_and_snap_id(
-        connection: &mut PgConnection,
         snap_id: String,
         client_hash: String,
+        conn: &mut PgConnection,
     ) -> Result<Vec<Vote>> {
         debug!("client_hash: '{}', snap_id: '{}'", &client_hash, &snap_id);
         let votes = sqlx::query_as(
@@ -52,7 +52,7 @@ impl Vote {
         )
         .bind(client_hash)
         .bind(snap_id)
-        .fetch_all(connection)
+        .fetch_all(conn)
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -63,9 +63,9 @@ impl Vote {
     }
 
     pub async fn get_all_by_user(
-        connection: &mut PgConnection,
         client_hash: String,
         snap_id_filter: Option<String>,
+        conn: &mut PgConnection,
     ) -> Result<Vec<Vote>> {
         let votes = sqlx::query_as(
             r#"
@@ -89,7 +89,7 @@ impl Vote {
         )
         .bind(client_hash)
         .bind(snap_id_filter)
-        .fetch_all(connection)
+        .fetch_all(conn)
         .await
         .map_err(|error| {
             error!("{error:?}");
@@ -113,7 +113,7 @@ impl Vote {
         .bind(self.snap_id)
         .bind(self.snap_revision as i32)
         .bind(self.vote_up)
-        .execute(connection)
+        .execute(conn)
         .await
         .map_err(|error| {
             error!("{error:?}");
