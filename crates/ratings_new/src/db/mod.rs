@@ -123,17 +123,17 @@ mod test {
             vote.save_to_db(conn).await?;
         }
 
-        let votes_client_1 = vote::Vote::get_all_by_client_hash_and_snap_id(
-            String::from(snap_id_1),
+        let votes_client_1 = vote::Vote::get_all_by_client_hash(
             String::from(client_hash_1),
+            Some(String::from(snap_id_1)),
             conn,
         )
         .await
         .unwrap();
 
-        let votes_client_2 = vote::Vote::get_all_by_client_hash_and_snap_id(
-            String::from(snap_id_2),
+        let votes_client_2 = vote::Vote::get_all_by_client_hash(
             String::from(client_hash_2),
+            Some(String::from(snap_id_2)),
             conn,
         )
         .await
