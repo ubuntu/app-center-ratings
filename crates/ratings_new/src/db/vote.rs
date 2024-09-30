@@ -1,7 +1,6 @@
+use super::{ClientHash, DbError, Result};
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection};
 use tracing::{debug, error};
-
-use super::{ClientHash, DbError};
 
 /// A Vote, as submitted by a user
 #[derive(Debug, Clone, FromRow, PartialEq, Eq)]
