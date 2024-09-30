@@ -1,6 +1,6 @@
 use super::{ClientHash, DbError, Result};
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection};
-use tracing::{debug, error};
+use tracing::error;
 
 /// A Vote, as submitted by a user
 #[derive(Debug, Clone, FromRow, PartialEq, Eq)]
@@ -21,14 +21,13 @@ pub struct Vote {
 
 /// Gets votes for a snap with the given ID from a given [`ClientHash`]
 ///
-/// [`ClientHash`]: crate::features::user::entities::ClientHash
+/// [`ClientHash`]: crate::db::ClientHash
 impl Vote {
-    pub async fn get_all_by_client_hash_and_snap_id(
-        snap_id: String,
+    pub async fn get_all_by_client_hash(
         client_hash: String,
+        snap_id_filter: Option<String>,
         conn: &mut PgConnection,
     ) -> Result<Vec<Vote>> {
-        debug!("client_hash: '{}', snap_id: '{}'", &client_hash, &snap_id);
         let votes = sqlx::query_as(
             r#"
                 SELECT
@@ -47,45 +46,8 @@ impl Vote {
                 WHERE
                     users.client_hash = $1
                 AND
-                    votes.snap_id = $2
-        "#,
-        )
-        .bind(client_hash)
-        .bind(snap_id)
-        .fetch_all(conn)
-        .await
-        .map_err(|error| {
-            error!("{error:?}");
-            DbError::FailedToGetUserVote
-        })?;
-
-        Ok(votes)
-    }
-
-    pub async fn get_all_by_user(
-        client_hash: String,
-        snap_id_filter: Option<String>,
-        conn: &mut PgConnection,
-    ) -> Result<Vec<Vote>> {
-        let votes = sqlx::query_as(
-            r#"
-                SELECT
-                    votes.id,
-                    votes.created,
-                    votes.snap_id,
-                    votes.snap_revision,
-                    votes.vote_up
-                FROM
-                    users
-                INNER JOIN
-                    votes
-                ON
-                    users.id = votes.user_id_fk
-                WHERE
-                    users.client_hash = $1
-                AND
                     ($2 IS NULL OR votes.snap_id = $2);
-            "#,
+        "#,
         )
         .bind(client_hash)
         .bind(snap_id_filter)
