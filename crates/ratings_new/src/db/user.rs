@@ -3,7 +3,7 @@ use sqlx::{prelude::FromRow, types::time::OffsetDateTime, PgConnection};
 use tracing::error;
 
 /// Information about a user who may be rating snaps.
-#[derive(Debug, Clone, FromRow)]
+#[derive(Debug, FromRow)]
 pub struct User {
     /// The user's ID
     pub id: i32,
