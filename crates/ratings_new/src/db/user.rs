@@ -49,4 +49,21 @@ impl User {
 
         Ok(user_with_id)
     }
+
+    pub async fn delete(self, connection: &mut PgConnection) -> Result<(), UserError> {
+        sqlx::query(
+            r#"
+        DELETE FROM users
+        WHERE client_hash = $1
+        "#,
+        )
+        .bind(self.client_hash)
+        .execute(connection)
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToDeleteUserRecord
+        })?;
+        Ok(())
+    }
 }

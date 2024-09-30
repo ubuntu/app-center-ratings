@@ -63,6 +63,43 @@ impl Vote {
         Ok(votes)
     }
 
+    pub async fn get_all_by_user(
+        connection: &mut PgConnection,
+        client_hash: String,
+        snap_id_filter: Option<String>,
+    ) -> Result<Vec<Vote>, UserError> {
+        let votes = sqlx::query_as(
+            r#"
+                SELECT
+                    votes.id,
+                    votes.created,
+                    votes.snap_id,
+                    votes.snap_revision,
+                    votes.vote_up
+                FROM
+                    users
+                INNER JOIN
+                    votes
+                ON
+                    users.id = votes.user_id_fk
+                WHERE
+                    users.client_hash = $1
+                AND
+                    ($2 IS NULL OR votes.snap_id = $2);
+            "#,
+        )
+        .bind(client_hash)
+        .bind(snap_id_filter)
+        .fetch_all(connection)
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToGetUserVote
+        })?;
+
+        Ok(votes)
+    }
+
     /// Saves a [`Vote`] to the database, if possible.
     pub async fn save_to_db(self, connection: &mut PgConnection) -> Result<u64, UserError> {
         let result = sqlx::query(
