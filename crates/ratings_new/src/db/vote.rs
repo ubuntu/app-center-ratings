@@ -1,7 +1,7 @@
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection};
 use tracing::{debug, error};
 
-use super::{ClientHash, UserError};
+use super::{ClientHash, DbError};
 
 /// A Vote, as submitted by a user
 #[derive(Debug, Clone, FromRow, PartialEq, Eq)]
@@ -28,7 +28,7 @@ impl Vote {
         connection: &mut PgConnection,
         snap_id: String,
         client_hash: String,
-    ) -> Result<Vec<Vote>, UserError> {
+    ) -> Result<Vec<Vote>, DbError> {
         debug!("client_hash: '{}', snap_id: '{}'", &client_hash, &snap_id);
         let votes = sqlx::query_as(
             r#"
@@ -57,7 +57,7 @@ impl Vote {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            UserError::FailedToGetUserVote
+            DbError::FailedToGetUserVote
         })?;
 
         Ok(votes)
@@ -67,7 +67,7 @@ impl Vote {
         connection: &mut PgConnection,
         client_hash: String,
         snap_id_filter: Option<String>,
-    ) -> Result<Vec<Vote>, UserError> {
+    ) -> Result<Vec<Vote>, DbError> {
         let votes = sqlx::query_as(
             r#"
                 SELECT
@@ -94,14 +94,14 @@ impl Vote {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            UserError::FailedToGetUserVote
+            DbError::FailedToGetUserVote
         })?;
 
         Ok(votes)
     }
 
     /// Saves a [`Vote`] to the database, if possible.
-    pub async fn save_to_db(self, connection: &mut PgConnection) -> Result<u64, UserError> {
+    pub async fn save_to_db(self, connection: &mut PgConnection) -> Result<u64, DbError> {
         let result = sqlx::query(
             r#"
         INSERT INTO votes (user_id_fk, snap_id, snap_revision, vote_up)
@@ -118,7 +118,7 @@ impl Vote {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            UserError::FailedToCastVote
+            DbError::FailedToCastVote
         })?;
 
         Ok(result.rows_affected())

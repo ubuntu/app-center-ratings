@@ -12,7 +12,7 @@ pub type ClientHash = String;
 
 /// Errors that can occur when a user votes.
 #[derive(Error, Debug)]
-pub enum UserError {
+pub enum DbError {
     /// A record could not be created for the user
     #[error("failed to create user record")]
     FailedToCreateUserRecord,
@@ -26,8 +26,8 @@ pub enum UserError {
     #[error("failed to cast vote")]
     FailedToCastVote,
     /// An error that occurred in category updating
-    #[error("an error occurred with the DB when getting categories: {0}")]
-    CategoryDBError(#[from] sqlx::Error),
+    #[error(transparent)]
+    Sqlx(#[from] sqlx::Error),
 }
 
 const MAX_POOL_CONNECTIONS: u32 = 5;
@@ -44,9 +44,7 @@ pub async fn init_pool_from_uri(postgres_uri: &str) -> Result<PgPool, sqlx::Erro
     Ok(pool)
 }
 
-pub async fn init_pool_from_uri_and_migrate(
-    postgres_uri: &str,
-) -> Result<PgPool, Box<dyn std::error::Error>> {
+pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool, DbError> {
     let pool = init_pool_from_uri(postgres_uri).await?;
     info!("Running DB migrations");
     let migrator = Migrator::new(postgres_uri).await?;

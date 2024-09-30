@@ -1,7 +1,6 @@
 //! Resources for database migration
 use std::{
     env,
-    error::Error,
     fmt::{Debug, Formatter},
     sync::Arc,
 };
@@ -21,7 +20,7 @@ pub struct Migrator {
 
 impl Migrator {
     /// Attempts to create a new Migration object from the given resource URI.
-    pub async fn new(uri: &str) -> Result<Migrator, Box<dyn Error>> {
+    pub async fn new(uri: &str) -> Result<Migrator, sqlx::Error> {
         let pool = PgPoolOptions::new().max_connections(1).connect(uri).await?;
         let pool = Arc::new(pool);
         Ok(Migrator { pool })
