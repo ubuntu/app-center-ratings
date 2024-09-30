@@ -27,6 +27,9 @@ pub enum DbError {
     /// An error that occurred in category updating
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
+    /// An error that occurred in the configuration
+    #[error(transparent)]
+    Envy(#[from] envy::Error),
 }
 
 const MAX_POOL_CONNECTIONS: u32 = 5;
@@ -53,7 +56,7 @@ pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool
 }
 
 pub async fn get_pool() -> Result<&'static PgPool, Box<dyn std::error::Error>> {
-    let config = Config::load()?;
+    let config = Config::get().await?;
     let pool = POOL
         .get_or_try_init(|| init_pool_from_uri_and_migrate(&config.postgres_uri))
         .await?;
