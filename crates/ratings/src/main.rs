@@ -1,6 +1,4 @@
-mod app;
-mod features;
-mod utils;
+use ratings::{app, utils};
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {

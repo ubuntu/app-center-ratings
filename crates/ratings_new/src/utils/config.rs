@@ -1,0 +1,44 @@
+//! Utility functions and definitions for configuring the service.
+use dotenvy::dotenv;
+// use secrecy::SecretString;
+use serde::Deserialize;
+use tokio::sync::OnceCell;
+
+static CONFIG: OnceCell<Config> = OnceCell::const_new();
+
+/// Configuration for the general app center ratings backend service.
+#[derive(Deserialize, Debug, Clone)]
+pub struct Config {
+    /// Environment variables to use
+    pub env: String,
+    /// The host configuration
+    pub host: String,
+    /// The JWT secret value
+    // pub jwt_secret: SecretString,
+    /// Log level to use
+    pub log_level: String,
+    /// The service name
+    pub name: String,
+    /// The port to run on
+    pub port: u16,
+    /// The URI of the postgres database
+    pub postgres_uri: String,
+}
+
+impl Config {
+    /// Loads the configuration from environment variables
+    pub fn load() -> envy::Result<Config> {
+        dotenv().ok();
+        envy::prefixed("APP_").from_env::<Config>()
+    }
+
+    pub async fn get() -> Result<&'static Config, envy::Error> {
+        CONFIG.get_or_try_init(|| async { Config::load() }).await
+    }
+
+    /// Return a [`String`] representing the socket to run the service on
+    pub fn socket(&self) -> String {
+        let Config { port, host, .. } = self;
+        format!("{host}:{port}")
+    }
+}
