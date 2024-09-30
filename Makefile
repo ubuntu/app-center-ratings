@@ -10,7 +10,7 @@ db-down:
 	docker compose down
 
 test:
-	dotenvy -f .env_files/test-server.env cargo test --bin ratings_new
+	dotenvy -f .env_files/test-server.env cargo test --package ratings_new
 
 full-test: db-up-test test
 
