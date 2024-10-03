@@ -51,7 +51,7 @@ pub struct Vote {
 
 impl Vote {
     /// Converts this vote into its wire component for transfer over the network.
-    pub(crate) fn into_protobuf_vote(self) -> user::Vote {
+    pub fn into_protobuf_vote(self) -> user::Vote {
         let timestamp = Some(prost_types::Timestamp {
             seconds: self.timestamp.unix_timestamp(),
             nanos: 0,
