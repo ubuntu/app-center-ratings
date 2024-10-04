@@ -1,16 +1,41 @@
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
-    ListMyVotesRequest, ListMyVotesResponse, VoteRequest,
+    ListMyVotesRequest, ListMyVotesResponse, VoteRequest, Vote,
 };
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
+use tracing::warn;
 
 use ratings::{
     app::AppContext,
+    features::user::{
+        entities::{User as OldUser, Vote as OldVote},
+        infrastructure::{
+            create_or_seen_user, delete_user_by_client_hash, find_user_votes, save_vote_to_db,
+            update_category, get_snap_votes_by_client_hash,
+        },
+    },
     utils::jwt::Claims,
-    features::user::{infrastructure::create_or_seen_user, entities::User as OldUser}
 };
+
+// FIXME:
+// Temporary while we finalize entites and db layer
+impl Into<Vote> for OldVote {
+    fn into(self) -> Vote{
+        let timestamp = Some(prost_types::Timestamp {
+            seconds: self.timestamp.unix_timestamp(),
+            nanos: 0,
+        });
+
+        Vote {
+            snap_id: self.snap_id,
+            snap_revision: self.snap_revision as i32,
+            vote_up: self.vote_up,
+            timestamp,
+        }
+    }
+}
 
 #[tonic::async_trait]
 impl User for UserService {
@@ -31,7 +56,7 @@ impl User for UserService {
         }
 
         let user = OldUser::new(&id);
-        
+
         match create_or_seen_user(&app_ctx, user).await {
             Ok(user) => app_ctx
                 .infrastructure()
@@ -51,7 +76,7 @@ impl User for UserService {
             sub: client_hash, ..
         } = claims(&request);
 
-        match use_cases::delete_user(&app_ctx, &client_hash).await {
+        match delete_user_by_client_hash(&app_ctx, &client_hash).await {
             Ok(_) => Ok(Response::new(())),
             Err(_error) => Err(Status::unknown("Internal server error")),
         }
@@ -65,7 +90,7 @@ impl User for UserService {
         } = claims(&request);
         let request = request.into_inner();
 
-        let vote = Vote {
+        let vote = OldVote {
             client_hash,
             snap_id: request.snap_id,
             snap_revision: request.snap_revision as u32,
@@ -73,7 +98,12 @@ impl User for UserService {
             timestamp: OffsetDateTime::now_utc(),
         };
 
-        match use_cases::vote(&app_ctx, vote).await {
+        // Ignore but log warning, it's not fatal
+        update_category(&app_ctx, &vote.snap_id)
+            .await
+            .inspect_err(|e| warn!("{}", e));
+
+        match save_vote_to_db(&app_ctx, vote).await {
             Ok(_) => Ok(Response::new(())),
             Err(_error) => Err(Status::unknown("Internal server error")),
         }
@@ -94,13 +124,14 @@ impl User for UserService {
         } else {
             Some(snap_id_filter)
         };
-        let result = use_cases::list_my_votes(&app_ctx, client_hash, snap_id_filter).await;
+
+        let result = find_user_votes(&app_ctx, client_hash, snap_id_filter).await;
 
         match result {
             Ok(votes) => {
                 let votes = votes
                     .into_iter()
-                    .map(|vote| vote.into_protobuf_vote())
+                    .map(|vote| vote.into())
                     .collect();
                 let payload = ListMyVotesResponse { votes };
                 Ok(Response::new(payload))
@@ -121,13 +152,16 @@ impl User for UserService {
 
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
-        let result = use_cases::get_snap_votes(&app_ctx, snap_id, client_hash).await;
+        update_category(&app_ctx, &snap_id)
+            .await
+            .inspect_err(|e| warn!("{}", e));
+        let result = get_snap_votes_by_client_hash(&app_ctx, snap_id, client_hash).await;
 
         match result {
             Ok(votes) => {
                 let votes = votes
                     .into_iter()
-                    .map(|vote| vote.into_protobuf_vote())
+                    .map(|vote| vote.into())
                     .collect();
                 let payload = GetSnapVotesResponse { votes };
                 Ok(Response::new(payload))
@@ -170,94 +204,4 @@ impl From<UserService> for UserServer<UserService> {
     fn from(value: UserService) -> Self {
         UserServer::new(value)
     }
-}
-
-/// A Vote, as submitted by a user
-#[derive(Debug, Clone)]
-pub struct Vote {
-    /// The hash of the user client
-    pub client_hash: ClientHash,
-    /// The ID of the snap being voted on
-    pub snap_id: String,
-    /// The revision of the snap being voted on
-    pub snap_revision: u32,
-    /// Whether this is a positive or negative vote
-    pub vote_up: bool,
-    /// The timestamp of the vote
-    pub timestamp: OffsetDateTime,
-}
-
-impl Vote {
-    /// Converts this vote into its wire component for transfer over the network.
-    pub fn into_protobuf_vote(self) -> user::Vote {
-        let timestamp = Some(prost_types::Timestamp {
-            seconds: self.timestamp.unix_timestamp(),
-            nanos: 0,
-        });
-
-        user::Vote {
-            snap_id: self.snap_id,
-            snap_revision: self.snap_revision as i32,
-            vote_up: self.vote_up,
-            timestamp,
-        }
-    }
-}
-
-/// A hash of a given user client.
-pub type ClientHash = String;
-
-// /// Create a [`User`] entry, or note that the user has recently been seen, within the current
-// /// [`AppContext`].
-// pub async fn authenticate(app_ctx: &AppContext, id: &str) -> Result<User, UserError> {
-//     let user = User::new(id);
-//     create_or_seen_user(app_ctx, user).await
-// }
-
-/// Deletes a [`User`] with the given [`ClientHash`]
-///
-/// [`ClientHash`]: crate::features::user::entities::ClientHash
-pub async fn delete_user(app_ctx: &AppContext, client_hash: &str) -> Result<(), UserError> {
-    let result = delete_user_by_client_hash(app_ctx, client_hash).await;
-    result?;
-    Ok(())
-}
-
-/// Saves a [`Vote`] to the database, if possible.
-#[allow(unused_must_use)]
-pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
-    // Ignore but log warning, it's not fatal
-    update_category(app_ctx, &vote.snap_id)
-        .await
-        .inspect_err(|e| warn!("{}", e));
-    let result = save_vote_to_db(app_ctx, vote).await;
-    result?;
-    Ok(())
-}
-
-/// Gets votes for a snap with the given ID from a given [`ClientHash`]
-///
-/// [`ClientHash`]: crate::features::user::entities::ClientHash
-#[allow(unused_must_use)]
-pub async fn get_snap_votes(
-    app_ctx: &AppContext,
-    snap_id: String,
-    client_hash: String,
-) -> Result<Vec<Vote>, UserError> {
-    // Ignore but log warning, it's not fatal
-    update_category(app_ctx, &snap_id)
-        .await
-        .inspect_err(|e| warn!("{}", e));
-    get_snap_votes_by_client_hash(app_ctx, snap_id, client_hash).await
-}
-
-/// Retrieve all votes for a given [`User`], within the current [`AppContext`].
-///
-/// May be filtered for a given snap ID.
-pub async fn list_my_votes(
-    app_ctx: &AppContext,
-    client_hash: String,
-    snap_id_filter: Option<String>,
-) -> Result<Vec<Vote>, UserError> {
-    find_user_votes(app_ctx, client_hash, snap_id_filter).await
 }
