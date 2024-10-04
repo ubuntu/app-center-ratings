@@ -62,7 +62,7 @@ pub async fn create_or_seen_user(
 /// Deletes a [`User`] with the given [`ClientHash`]
 ///
 /// [`ClientHash`]: crate::features::user::entities::ClientHash
-pub(crate) async fn delete_user_by_client_hash(
+pub async fn delete_user_by_client_hash(
     app_ctx: &AppContext,
     client_hash: &str,
 ) -> Result<u64, UserError> {
@@ -95,7 +95,7 @@ pub(crate) async fn delete_user_by_client_hash(
 /// Gets votes for a snap with the given ID from a given [`ClientHash`]
 ///
 /// [`ClientHash`]: crate::features::user::entities::ClientHash
-pub(crate) async fn get_snap_votes_by_client_hash(
+pub async fn get_snap_votes_by_client_hash(
     app_ctx: &AppContext,
     snap_id: String,
     client_hash: String,
@@ -153,7 +153,7 @@ pub(crate) async fn get_snap_votes_by_client_hash(
 }
 
 /// Saves a [`Vote`] to the database, if possible.
-pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
+pub async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -204,73 +204,8 @@ async fn get_json<T: DeserializeOwned>(
     Ok(serde_json::from_str(&s)?)
 }
 
-/// Pull snap categories by for a given snapd_id from the snapcraft.io rest API
-async fn get_snap_categories(
-    snap_id: &str,
-    base: &str,
-    client: &reqwest::Client,
-) -> Result<Vec<Category>, UserError> {
-    let base_url = reqwest::Url::parse(base).map_err(|_| UserError::Unknown)?;
-
-    let assertions_url = base_url
-        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
-        .map_err(|_| UserError::Unknown)?;
-    let AssertionsResp {
-        headers: Headers { snap_name },
-    } = get_json(client, assertions_url, &[]).await?;
-
-    let info_url = base_url
-        .join(&format!("snaps/info/{snap_name}"))
-        .map_err(|_| UserError::Unknown)?;
-    let FindResp {
-        snap: SnapInfo { categories },
-    } = get_json(client, info_url, &[("fields", "categories")]).await?;
-
-    let res: Result<Vec<Category>, UserError> = categories
-        .into_iter()
-        .map(|c| Category::try_from(c.name.as_str()).map_err(|_| UserError::Unknown))
-        .collect();
-
-    return res;
-
-    // serde structs
-
-    #[derive(Debug, Deserialize)]
-    struct AssertionsResp {
-        headers: Headers,
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename_all = "kebab-case")]
-    struct Headers {
-        snap_name: String,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct FindResp {
-        snap: SnapInfo,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct SnapInfo {
-        categories: Vec<RawCategory>,
-    }
-
-    #[derive(Debug, Deserialize)]
-    struct RawCategory {
-        name: String,
-    }
-}
-
-/// Update the categories for a given snap.
-///
-/// In the case where we do not have categories, we need to fetch them and store them in the DB.
-/// This is racey without coordination so we check to see if any other tasks are currently attempting
-/// this and block on them completing if they are, if not then we set up the Notify and they block on us.
-pub(crate) async fn update_categories(
-    snap_id: &str,
-    app_ctx: &AppContext,
-) -> Result<(), UserError> {
+/// Update the category (we do this every time we get a vote for the time being)
+pub async fn update_category(app_ctx: &AppContext, snap_id: &str) -> Result<(), UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -366,7 +301,7 @@ async fn update_categories_inner(
 /// Retrieve all votes for a given [`User`], within the current [`AppContext`].
 ///
 /// May be filtered for a given snap ID.
-pub(crate) async fn find_user_votes(
+pub async fn find_user_votes(
     app_ctx: &AppContext,
     client_hash: String,
     snap_id_filter: Option<String>,
