@@ -18,7 +18,7 @@ use crate::{
 
 /// Create a [`User`] entry, or note that the user has recently been seen, within the current
 /// [`AppContext`].
-pub(crate) async fn create_or_seen_user(
+pub async fn create_or_seen_user(
     app_ctx: &AppContext,
     user: User,
 ) -> Result<User, UserError> {
