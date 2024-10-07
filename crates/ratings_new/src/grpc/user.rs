@@ -1,7 +1,7 @@
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
-    ListMyVotesRequest, ListMyVotesResponse, VoteRequest, Vote,
+    ListMyVotesRequest, ListMyVotesResponse, Vote, VoteRequest,
 };
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
@@ -12,28 +12,36 @@ use ratings::{
     features::user::{
         entities::{User as OldUser, Vote as OldVote},
         infrastructure::{
-            create_or_seen_user, delete_user_by_client_hash, find_user_votes, save_vote_to_db,
-            update_category, get_snap_votes_by_client_hash,
+            create_or_seen_user, delete_user_by_client_hash, find_user_votes,
+            get_snap_votes_by_client_hash, save_vote_to_db, update_category,
         },
     },
     utils::jwt::Claims,
 };
 
-// FIXME:
-// Temporary while we finalize entites and db layer
-impl Into<Vote> for OldVote {
-    fn into(self) -> Vote{
-        let timestamp = Some(prost_types::Timestamp {
-            seconds: self.timestamp.unix_timestamp(),
-            nanos: 0,
-        });
+/// The length we expect a client hash to be, in bytes
+pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
 
-        Vote {
-            snap_id: self.snap_id,
-            snap_revision: self.snap_revision as i32,
-            vote_up: self.vote_up,
-            timestamp,
-        }
+/// An empty struct used to construct a [`UserServer`]
+#[derive(Copy, Clone, Debug, Default)]
+pub struct UserService;
+
+impl UserService {
+    /// The paths which are accessible without authentication, if any
+    pub const PUBLIC_PATHS: [&'static str; 2] = [
+        "ratings.features.user.User/Register",
+        "ratings.features.user.User/Authenticate",
+    ];
+
+    /// Converts this service into its corresponding server
+    pub fn to_server(self) -> UserServer<UserService> {
+        self.into()
+    }
+}
+
+impl From<UserService> for UserServer<UserService> {
+    fn from(value: UserService) -> Self {
+        UserServer::new(value)
     }
 }
 
@@ -129,10 +137,7 @@ impl User for UserService {
 
         match result {
             Ok(votes) => {
-                let votes = votes
-                    .into_iter()
-                    .map(|vote| vote.into())
-                    .collect();
+                let votes = votes.into_iter().map(|vote| vote.into()).collect();
                 let payload = ListMyVotesResponse { votes };
                 Ok(Response::new(payload))
             }
@@ -159,14 +164,29 @@ impl User for UserService {
 
         match result {
             Ok(votes) => {
-                let votes = votes
-                    .into_iter()
-                    .map(|vote| vote.into())
-                    .collect();
+                let votes = votes.into_iter().map(|vote| vote.into()).collect();
                 let payload = GetSnapVotesResponse { votes };
                 Ok(Response::new(payload))
             }
             Err(_error) => Err(Status::unknown("Internal server error")),
+        }
+    }
+}
+
+// FIXME:
+// Temporary while we finalize entites and db layer
+impl Into<Vote> for OldVote {
+    fn into(self) -> Vote {
+        let timestamp = Some(prost_types::Timestamp {
+            seconds: self.timestamp.unix_timestamp(),
+            nanos: 0,
+        });
+
+        Vote {
+            snap_id: self.snap_id,
+            snap_revision: self.snap_revision as i32,
+            vote_up: self.vote_up,
+            timestamp,
         }
     }
 }
@@ -178,30 +198,4 @@ fn claims<T>(request: &Request<T>) -> Claims {
         .get::<Claims>()
         .expect("expected request to have claims")
         .clone()
-}
-
-/// The length we expect a client hash to be, in bytes
-pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
-
-/// An empty struct used to construct a [`UserServer`]
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UserService;
-
-impl UserService {
-    /// The paths which are accessible without authentication, if any
-    pub const PUBLIC_PATHS: [&'static str; 2] = [
-        "ratings.features.user.User/Register",
-        "ratings.features.user.User/Authenticate",
-    ];
-
-    /// Converts this service into its corresponding server
-    pub fn to_server(self) -> UserServer<UserService> {
-        self.into()
-    }
-}
-
-impl From<UserService> for UserServer<UserService> {
-    fn from(value: UserService) -> Self {
-        UserServer::new(value)
-    }
 }
