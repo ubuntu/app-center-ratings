@@ -14,7 +14,7 @@ use crate::{
     },
 };
 
-use super::infrastructure::update_category;
+use super::infrastructure::update_categories;
 
 /// Create a [`User`] entry, or note that the user has recently been seen, within the current
 /// [`AppContext`].
@@ -36,11 +36,12 @@ pub async fn delete_user(app_ctx: &AppContext, client_hash: &str) -> Result<(), 
 #[allow(unused_must_use)]
 pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
     // Ignore but log warning, it's not fatal
-    update_category(app_ctx, &vote.snap_id)
+    update_categories(app_ctx, &vote.snap_id)
         .await
         .inspect_err(|e| warn!("{}", e));
-    let result = save_vote_to_db(app_ctx, vote).await;
-    result?;
+    
+    save_vote_to_db(app_ctx, vote).await?;
+
     Ok(())
 }
 
@@ -54,9 +55,10 @@ pub async fn get_snap_votes(
     client_hash: String,
 ) -> Result<Vec<Vote>, UserError> {
     // Ignore but log warning, it's not fatal
-    update_category(app_ctx, &snap_id)
+    update_categories(app_ctx, &snap_id)
         .await
         .inspect_err(|e| warn!("{}", e));
+
     get_snap_votes_by_client_hash(app_ctx, snap_id, client_hash).await
 }
 
