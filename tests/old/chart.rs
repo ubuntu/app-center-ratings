@@ -1,4 +1,6 @@
-#![cfg(test)]
+mod common;
+
+use common::TestHelper;
 
 use cucumber::{given, then, when, Parameter, World};
 use futures::FutureExt;
