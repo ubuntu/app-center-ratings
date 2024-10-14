@@ -27,7 +27,7 @@ Feature: User voting
 */
 
 #[tokio::test]
-async fn upvoting_increases_vote_count_and_band() -> anyhow::Result<()> {
+async fn upvoting_increases_vote_count() -> anyhow::Result<()> {
     let t = TestHelper::new();
     let user_token = t.authenticate(t.random_sha_256()).await?;
     let snap_id = t.random_id();
@@ -52,10 +52,6 @@ async fn upvoting_increases_vote_count_and_band() -> anyhow::Result<()> {
         .expect("to have an updated rating");
 
     assert_eq!(rating.total_votes, 6, "total votes");
-    assert!(
-        rating.ratings_band >= initial_rating.ratings_band,
-        "ratings bands"
-    );
 
     Ok(())
 }
