@@ -1,10 +1,8 @@
-FROM ubuntu:latest
+FROM rust:1.81.0
 
-RUN DEBIAN_FRONTEND=noninteractive apt-get update && apt-get upgrade -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl jq protobuf-compiler
+RUN cargo install cargo-watch
 
 WORKDIR /app
-COPY target/release/ratings /app/ratings
-COPY sql/migrations /app/sql/migrations
 
-EXPOSE 8080
-ENTRYPOINT ["/app/ratings"]
+ENTRYPOINT ["cargo watch -x run"]

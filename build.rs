@@ -1,4 +1,4 @@
-use git2::Repository;
+// use git2::Repository;
 use std::path::Path;
 
 fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
@@ -32,26 +32,30 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
-
-fn include_build_info() -> Result<(), Box<dyn std::error::Error>> {
-    let repo = Repository::open(std::env::current_dir()?)?;
-    let head = repo.head()?;
-    let branch = head
-        .name()
-        .unwrap()
-        .strip_prefix("refs/heads/")
-        .unwrap_or("no-branch");
-    println!("cargo:rustc-env=GIT_BRANCH={}", branch);
-
-    let commit_sha = repo.head()?.target().unwrap();
-    println!("cargo:rustc-env=GIT_HASH={}", commit_sha);
-
-    Ok(())
-}
+ 
+// fn include_build_info() -> Result<(), Box<dyn std::error::Error>> {
+//     let repo = Repository::open(std::env::current_dir()?)?;
+//     let head = repo.head()?;
+//     let branch = head
+//         .name()
+//         .unwrap()
+//         .strip_prefix("refs/heads/")
+//         .unwrap_or("no-branch");
+//     println!("cargo:rustc-env=GIT_BRANCH={}", branch);
+//
+//     let commit_sha = repo.head()?.target().unwrap();
+//     println!("cargo:rustc-env=GIT_HASH={}", commit_sha);
+//
+//     Ok(())
+// }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_proto()?;
-    include_build_info()?;
+    // Running this in docker compose breaks the build and we only need it for
+    // the admin API we are planning on ripping out anyway
+    // include_build_info()?;
+    println!("cargo:rustc-env=GIT_BRANCH=branch");
+    println!("cargo:rustc-env=GIT_HASH=hash");
 
     Ok(())
 }
