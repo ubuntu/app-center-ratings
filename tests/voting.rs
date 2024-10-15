@@ -1,7 +1,7 @@
 mod common;
 
-use common::TestHelper;
-use ratings::features::common::entities::RatingsBand::{self, *};
+use common::{Category, TestHelper};
+// use ratings::features::common::entities::RatingsBand::{self, *};
 use simple_test_case::test_case;
 
 /*
@@ -36,7 +36,9 @@ async fn voting_increases_vote_count(vote_up: bool) -> anyhow::Result<()> {
 
     let user_token = t.authenticate(t.random_sha_256()).await?;
     let snap_revision = 1;
-    let snap_id = t.test_snap_with_initial_votes(snap_revision, 3, 2).await?;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 3, 2, &[Category::Social])
+        .await?;
 
     let initial_rating = t.get_rating(&snap_id, &user_token).await?;
     assert_eq!(initial_rating.total_votes, 5, "initial total votes");

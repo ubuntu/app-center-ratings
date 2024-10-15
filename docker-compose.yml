@@ -19,7 +19,7 @@ services:
 
   ratings:
     container_name: ratings
-    build: ./docker/ratings
+    build: ./docker/server
     ports:
       - 8080:8080
     environment:
@@ -31,12 +31,12 @@ services:
       APP_NAME: "ratings"
       APP_PORT: "8080"
       APP_POSTGRES_URI: "postgresql://migration_user:strongpassword@db:5432/ratings"
-      #APP_SNAPCRAFT_IO_URI: "http://snapcraft-mock:8000/"
-      APP_SNAPCRAFT_IO_URI: "https://api.snapcraft.io/v2/"
+      APP_SNAPCRAFT_IO_URI: "http://snapcraft-mock:11111/"
+      #APP_SNAPCRAFT_IO_URI: "https://api.snapcraft.io/v2/"
       APP_ADMIN_USER: "shadow"
       APP_ADMIN_PASSWORD: "maria"
     volumes:
-      - /run/snapd.socket:/run/snapd.socket
+      #- /run/snapd.socket:/run/snapd.socket
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
@@ -44,18 +44,18 @@ services:
     depends_on:
       - db
 
-  # snapcraft-mock:
-  #   container_name: snapcraft-mock
-  #   build: ./docker/ratings
-  #   ports:
-  #     - 8000:8000
-  #   volumes:
-  #     - ../mock_server/:/app
-  #     - cargo-cache:/usr/local/cargo/registry
-  #     - target-cache:/app/target
-  #   environment:
-  #     RUST_LOG: "info,hyper=error"
-  #   entrypoint: "cargo watch -i 'tests/**' -x run"
+  snapcraft-mock:
+    container_name: snapcraft-mock
+    build: ./docker/server
+    ports:
+      - 11111:11111
+    volumes:
+      - ./mock_server/:/app
+      - cargo-cache:/usr/local/cargo/registry
+      - target-cache:/app/target
+    environment:
+      RUST_LOG: "info,hyper=error"
+    entrypoint: "cargo watch -i 'tests/**' -x run"
 
 volumes:
   cargo-cache: null

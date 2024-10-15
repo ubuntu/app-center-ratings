@@ -7,9 +7,7 @@ use ratings::{
         common::entities::Rating,
         pb::{
             app::{app_client::AppClient, GetRatingRequest},
-            chart::{
-                chart_client::ChartClient, Category, GetChartRequest, GetChartResponse, Timeframe,
-            },
+            chart::{chart_client::ChartClient, GetChartRequest, GetChartResponse, Timeframe},
             user::{
                 user_client::UserClient, AuthenticateRequest, AuthenticateResponse,
                 GetSnapVotesRequest, GetSnapVotesResponse, VoteRequest,
@@ -17,6 +15,7 @@ use ratings::{
         },
     },
 };
+use reqwest::Client;
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 use tonic::{
@@ -25,7 +24,11 @@ use tonic::{
     Request, Response, Status,
 };
 
+// re-export to simplify setting up test data in the test files
+pub use ratings::features::pb::chart::Category;
+
 // TODO: read these from the environment rather than hard coding
+const MOCK_ADMIN_URL: &str = "http://127.0.0.1:11111/__admin__/register-snap";
 const HOST: &str = "0.0.0.0";
 const PORT: u16 = 8080;
 
@@ -54,12 +57,14 @@ fn rnd_string(len: usize) -> String {
 #[derive(Debug, Clone)]
 pub struct TestHelper {
     url: String,
+    client: Client,
 }
 
 impl TestHelper {
     pub fn new() -> Self {
         Self {
             url: format!("http://{}:{}/", HOST, PORT),
+            client: Client::new(),
         }
     }
 
@@ -78,13 +83,28 @@ impl TestHelper {
     // Data generation
 
     /// NOTE: total needs to be above 25 in order to generate a rating
-    pub async fn test_snap_with_initial_votes(&self, revision: i32, upvotes: u64, downvotes: u64) -> anyhow::Result<String> {
+    pub async fn test_snap_with_initial_votes(
+        &self,
+        revision: i32,
+        upvotes: u64,
+        downvotes: u64,
+        categories: &[Category],
+    ) -> anyhow::Result<String> {
         let snap_id = self.random_id();
+        let str_categories: Vec<String> = categories.iter().map(|c| c.to_string()).collect();
+        self.client
+            .post(format!("{MOCK_ADMIN_URL}/{snap_id}"))
+            .body(str_categories.join(","))
+            .send()
+            .await?;
+
         if upvotes > 0 {
-            self.generate_votes(&snap_id, revision, true, upvotes).await?;
+            self.generate_votes(&snap_id, revision, true, upvotes)
+                .await?;
         }
         if downvotes > 0 {
-            self.generate_votes(&snap_id, revision, false, downvotes).await?;
+            self.generate_votes(&snap_id, revision, false, downvotes)
+                .await?;
         }
 
         Ok(snap_id)
@@ -144,7 +164,6 @@ impl TestHelper {
                     .await
             }));
         }
-
 
         for res in join_all(tasks).await {
             // unwrapping twice as the join itself can error as well as the

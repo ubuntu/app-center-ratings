@@ -1,6 +1,7 @@
 .vscode
 .idea
 /target
+mock_server/target
 .env
 .env_test
 .DS_STORE
