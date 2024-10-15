@@ -1,3 +1,4 @@
+use anyhow::anyhow;
 use futures::future::join_all;
 use rand::{distributions::Alphanumeric, Rng};
 use ratings::{
@@ -76,6 +77,19 @@ impl TestHelper {
 
     // Data generation
 
+    /// NOTE: total needs to be above 25 in order to generate a rating
+    pub async fn test_snap_with_initial_votes(&self, revision: i32, upvotes: u64, downvotes: u64) -> anyhow::Result<String> {
+        let snap_id = self.random_id();
+        if upvotes > 0 {
+            self.generate_votes(&snap_id, revision, true, upvotes).await?;
+        }
+        if downvotes > 0 {
+            self.generate_votes(&snap_id, revision, false, downvotes).await?;
+        }
+
+        Ok(snap_id)
+    }
+
     pub fn random_sha_256(&self) -> String {
         let data = rnd_string(100);
         let mut hasher = Sha256::new();
@@ -152,16 +166,18 @@ impl TestHelper {
             .expect("failed to connect")
     }
 
-    pub async fn get_rating(&self, id: &str, token: &str) -> anyhow::Result<Option<Rating>> {
+    pub async fn get_rating(&self, id: &str, token: &str) -> anyhow::Result<Rating> {
         let rating = client!(AppClient, self.channel().await, token)
             .get_rating(GetRatingRequest {
                 snap_id: id.to_string(),
             })
             .await?
             .into_inner()
-            .rating;
+            .rating
+            .ok_or(anyhow!("no rating for {id}"))?
+            .into();
 
-        Ok(rating.map(Into::into))
+        Ok(rating)
     }
 
     pub async fn get_chart(

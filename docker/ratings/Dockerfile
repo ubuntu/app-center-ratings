@@ -5,4 +5,4 @@ RUN cargo install cargo-watch
 
 WORKDIR /app
 
-ENTRYPOINT ["cargo watch -x run"]
+ENTRYPOINT ["cargo watch -i 'tests/**' -x run"]

@@ -38,7 +38,7 @@ services:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
-    entrypoint: "cargo watch -x run"
+    entrypoint: "cargo watch -i 'tests/**' -x run"
     depends_on:
       - db
 

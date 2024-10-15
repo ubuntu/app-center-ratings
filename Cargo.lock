@@ -1759,6 +1759,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2",
+ "simple_test_case",
  "snapd",
  "sqlx",
  "strum",
@@ -2154,6 +2155,17 @@ dependencies = [
  "num-traits",
  "thiserror",
  "time",
+]
+
+[[package]]
+name = "simple_test_case"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d0649fa40b80dcacda1cabd018fd47b6b0c7fbbda6e1c3f658a6c4d5926500a"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
