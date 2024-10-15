@@ -17,7 +17,9 @@ impl AppContext {
         let inner = AppContextInner {
             infra,
             config: config.clone(),
+            http_client: reqwest::Client::new(),
         };
+
         Self(Arc::new(inner))
     }
 
@@ -30,6 +32,11 @@ impl AppContext {
     pub fn config(&self) -> &Config {
         &self.0.config
     }
+
+    /// A reference to the shared HTTP client
+    pub fn http_client(&self) -> &reqwest::Client {
+        &self.0.http_client
+    }
 }
 
 /// Contains the overall state and configuration of the app, only meant to be used
@@ -40,4 +47,6 @@ struct AppContextInner {
     infra: Infrastructure,
     /// App configuration settings.
     config: Config,
+    /// An HTTP client for pulling data from snapcraft.io
+    http_client: reqwest::Client,
 }

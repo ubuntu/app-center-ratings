@@ -20,6 +20,8 @@ pub struct Config {
     pub port: u16,
     /// The URI of the postgres database
     pub postgres_uri: String,
+    /// The base URI for snapcraft.io
+    pub snapcraft_io_uri: String,
 }
 
 impl Config {

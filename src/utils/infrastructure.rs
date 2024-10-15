@@ -5,7 +5,6 @@ use std::{
     sync::Arc,
 };
 
-use snapd::SnapdClient;
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
 use tokio::sync::OnceCell;
 use tracing::level_filters::LevelFilter;
@@ -23,8 +22,6 @@ static RELOAD_HANDLE: tokio::sync::OnceCell<Handle<LevelFilter, Registry>> = Onc
 pub struct Infrastructure {
     /// The postgres DB
     pub postgres: Arc<PgPool>,
-    /// The client for making snapd requests
-    pub snapd_client: SnapdClient,
     /// The reload handle for the logger
     pub log_reload_handle: &'static Handle<LevelFilter, Registry>,
     /// The utility which lets us encode user tokens with our JWT credentials
@@ -50,7 +47,6 @@ impl Infrastructure {
         Ok(Infrastructure {
             postgres,
             jwt_encoder,
-            snapd_client: Default::default(),
             log_reload_handle: reload_handle,
         })
     }
