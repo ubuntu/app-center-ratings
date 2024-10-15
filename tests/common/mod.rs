@@ -27,10 +27,9 @@ use tonic::{
 // re-export to simplify setting up test data in the test files
 pub use ratings::features::pb::chart::Category;
 
-// TODO: read these from the environment rather than hard coding
-const MOCK_ADMIN_URL: &str = "http://127.0.0.1:11111/__admin__/register-snap";
-const HOST: &str = "0.0.0.0";
-const PORT: u16 = 8080;
+const MOCK_ADMIN_URL: &str = env!("MOCK_ADMIN_URL");
+const HOST: &str = env!("HOST");
+const PORT: &str = env!("PORT");
 
 macro_rules! client {
     ($client:ident, $channel:expr, $token:expr) => {
@@ -260,11 +259,9 @@ impl TestHelper {
 
     pub async fn authenticate(&self, id: String) -> anyhow::Result<String> {
         let resp: AuthenticateResponse = UserClient::connect(self.url.clone())
-            .await
-            .unwrap()
+            .await?
             .authenticate(AuthenticateRequest { id })
-            .await
-            .unwrap()
+            .await?
             .into_inner();
 
         Ok(resp.token)

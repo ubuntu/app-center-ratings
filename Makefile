@@ -6,6 +6,14 @@ up:
 down:
 	@docker-compose down
 
+.PHONY: tests
+tests:
+	@APP_JWT_SECRET='deadbeef' \
+		MOCK_ADMIN_URL='http://127.0.0.1:11111/__admin__/register-snap' \
+		HOST='0.0.0.0' \
+		PORT='8080' \
+		cargo test
+
 .PHONY: rebuild-local
 rebuild-local:
 	@docker-compose build
