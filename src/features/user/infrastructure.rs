@@ -1,8 +1,5 @@
 //! Infrastructure for user handling
-use snapd::{
-    api::{convenience::SnapNameFromId, find::FindSnapByName},
-    SnapdClient,
-};
+use serde::{de::DeserializeOwned, Deserialize};
 use sqlx::{Acquire, Executor, Row};
 use tracing::error;
 
@@ -186,18 +183,81 @@ pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<
     Ok(result.rows_affected())
 }
 
-/// Convenience function for getting categories by their snap ID, since it takes multiple API calls
-async fn snapd_categories_by_snap_id(
-    client: &SnapdClient,
-    snap_id: &str,
-) -> Result<Vec<Category>, UserError> {
-    let snap_name = SnapNameFromId::get_name(snap_id.into(), client).await?;
-
-    Ok(FindSnapByName::get_categories(snap_name, client)
+async fn get_json<T: DeserializeOwned>(
+    client: &reqwest::Client,
+    url: reqwest::Url,
+    query: &[(&str, &str)],
+) -> Result<T, UserError> {
+    let s = client
+        .get(url)
+        .header("User-Agent", "ratings-service")
+        .header("Snap-Device-Series", 16)
+        .query(query)
+        .send()
         .await?
+        .error_for_status()?
+        .text()
+        .await?;
+
+    Ok(serde_json::from_str(&s)?)
+}
+
+/// Pull snap categories by for a given snapd_id from the snapcraft.io rest API
+async fn get_snap_categories(
+    snap_id: &str,
+    base: &str,
+    client: &reqwest::Client,
+) -> Result<Vec<Category>, UserError> {
+    let base_url = reqwest::Url::parse(base).map_err(|_| UserError::Unknown)?;
+
+    let assertions_url = base_url
+        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
+        .map_err(|_| UserError::Unknown)?;
+    let AssertionsResp {
+        headers: Headers { snap_name },
+    } = get_json(client, assertions_url, &[]).await?;
+
+    let info_url = base_url
+        .join(&format!("snaps/info/{snap_name}"))
+        .map_err(|_| UserError::Unknown)?;
+    let FindResp {
+        snap: SnapInfo { categories },
+    } = get_json(client, info_url, &[("fields", "categories")]).await?;
+
+    let res: Result<Vec<Category>, UserError> = categories
         .into_iter()
-        .map(|v| Category::try_from(v.name.as_ref()).expect("got unknown category?"))
-        .collect())
+        .map(|c| Category::try_from(c.name.as_str()).map_err(|_| UserError::Unknown))
+        .collect();
+
+    return res;
+
+    // serde structs
+
+    #[derive(Debug, Deserialize)]
+    struct AssertionsResp {
+        headers: Headers,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    struct Headers {
+        snap_name: String,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct FindResp {
+        snap: SnapInfo,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct SnapInfo {
+        categories: Vec<RawCategory>,
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct RawCategory {
+        name: String,
+    }
 }
 
 /// Update the category (we do this every time we get a vote for the time being)
@@ -211,9 +271,9 @@ pub(crate) async fn update_category(app_ctx: &AppContext, snap_id: &str) -> Resu
             UserError::Unknown
         })?;
 
-    let snapd_client = &app_ctx.infrastructure().snapd_client;
-
-    let categories = snapd_categories_by_snap_id(snapd_client, snap_id).await?;
+    let client = app_ctx.http_client();
+    let base = &app_ctx.config().snapcraft_io_uri;
+    let categories = get_snap_categories(snap_id, base, client).await?;
 
     // Do a transaction because bulk querying doesn't seem to work cleanly
     let mut tx = pool.begin().await?;
@@ -299,26 +359,19 @@ pub(crate) async fn find_user_votes(
 }
 
 #[cfg(test)]
-mod test {
-    use std::collections::HashSet;
+mod tests {
+    use super::*;
 
-    use snapd::SnapdClient;
-
-    use crate::features::pb::chart::Category;
-
-    use super::snapd_categories_by_snap_id;
-    const TESTING_SNAP_ID: &str = "3Iwi803Tk3KQwyD6jFiAJdlq8MLgBIoD";
-    const TESTING_SNAP_CATEGORIES: [Category; 2] = [Category::Utilities, Category::Development];
-
+    // Can be run explicitly to validate the behaviour of the API calls we make against
+    // snapcraft.io but we don't want to do this in local testing or CI by default.
+    #[ignore = "hits snapcraft.io"]
     #[tokio::test]
-    async fn get_categories() {
-        let categories = snapd_categories_by_snap_id(&SnapdClient::default(), TESTING_SNAP_ID)
-            .await
-            .unwrap();
+    async fn get_snap_categories_works() {
+        let client = reqwest::Client::new();
+        let base = "https://api.snapcraft.io/v2/";
+        let snap_id = "NeoQngJVBf2wKC48bxnF2xqmfEFGdVnx"; // steam
+        let categories = get_snap_categories(snap_id, base, &client).await.unwrap();
 
-        assert_eq!(
-            TESTING_SNAP_CATEGORIES.into_iter().collect::<HashSet<_>>(),
-            categories.into_iter().collect::<HashSet<_>>()
-        )
+        assert_eq!(categories, vec![Category::Games]);
     }
 }

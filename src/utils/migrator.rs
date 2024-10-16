@@ -24,6 +24,7 @@ impl Migrator {
     pub async fn new(uri: &str) -> Result<Migrator, Box<dyn Error>> {
         let pool = PgPoolOptions::new().max_connections(1).connect(uri).await?;
         let pool = Arc::new(pool);
+
         Ok(Migrator { pool })
     }
 
@@ -43,6 +44,7 @@ impl Migrator {
             sqlx::migrate::Migrator::new(std::path::Path::new(&Self::migrations_path())).await?;
 
         m.run(&mut self.pool.acquire().await?).await?;
+
         Ok(())
     }
 
