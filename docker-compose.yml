@@ -42,6 +42,10 @@ services:
     entrypoint: "cargo watch -i 'tests/**' -x run"
     depends_on:
       - db
+    healthcheck:
+      test: [ "CMD-SHELL", "nc -z -w5 localhost 8080" ]
+      interval: 5s
+      retries: 50
 
   snapcraft-mock:
     container_name: snapcraft-mock

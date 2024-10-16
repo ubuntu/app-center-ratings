@@ -2,6 +2,10 @@
 up:
 	@docker-compose up
 
+.PHONY: up-detached
+up-detached:
+	@docker-compose up --detach
+
 .PHONY: down
 down:
 	@docker-compose down
@@ -10,9 +14,6 @@ down:
 test:
 	@cargo test --lib
 
-.PHONY: test-all
-test-all: test integration-test
-
 .PHONY: integration-test
 integration-test: clear-db-data
 	@APP_JWT_SECRET='deadbeef' \
@@ -20,6 +21,20 @@ integration-test: clear-db-data
 		HOST='0.0.0.0' \
 		PORT='8080' \
 		cargo test --test '*'
+
+.PHONY: test-all
+test-all: test integration-test
+
+.PHONY: wait-for-server
+wait-for-server:
+	@echo "Waiting for ratings server to start on port 8080..."
+	@until docker-compose ps | grep -E '^ratings\s' | grep healthy; do \
+		echo "..."; \
+		sleep 1; \
+	done
+
+.PHONY: ci-test
+ci-test: up-detached wait-for-server test-all down
 
 .PHONY: clear-db-data
 clear-db-data:

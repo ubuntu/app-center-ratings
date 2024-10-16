@@ -63,8 +63,8 @@ impl TestHelper {
         Self {
             server_url: format!(
                 "http://{}:{}/",
-                HOST.expect("the integration tests need to be run using make test"),
-                PORT.expect("the integration tests need to be run using make test")
+                HOST.expect("the integration tests need to be run using make integration-test"),
+                PORT.expect("the integration tests need to be run using make integration-test")
             ),
             mock_admin_url: MOCK_ADMIN_URL.unwrap(),
             client: Client::new(),
