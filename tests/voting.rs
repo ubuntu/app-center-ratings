@@ -1,4 +1,4 @@
-mod common;
+pub mod common;
 
 use common::{Category, TestHelper};
 use ratings::features::common::entities::RatingsBand::{self, *};

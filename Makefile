@@ -6,13 +6,24 @@ up:
 down:
 	@docker-compose down
 
-.PHONY: tests
-tests:
+.PHONY: test
+test:
+	@cargo test --lib
+
+.PHONY: test-all
+test-all: test integration-test
+
+.PHONY: integration-test
+integration-test: clear-db-data
 	@APP_JWT_SECRET='deadbeef' \
 		MOCK_ADMIN_URL='http://127.0.0.1:11111/__admin__/register-snap' \
 		HOST='0.0.0.0' \
 		PORT='8080' \
-		cargo test
+		cargo test --test '*'
+
+.PHONY: clear-db-data
+clear-db-data:
+	@docker-compose exec -T db psql -U postgres ratings < tests/clear-db.sql
 
 .PHONY: rebuild-local
 rebuild-local:

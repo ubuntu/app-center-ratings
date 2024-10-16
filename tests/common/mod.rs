@@ -7,10 +7,10 @@ use ratings::{
         common::entities::Rating,
         pb::{
             app::{app_client::AppClient, GetRatingRequest},
-            chart::{chart_client::ChartClient, GetChartRequest, GetChartResponse, Timeframe},
+            chart::{chart_client::ChartClient, ChartData, GetChartRequest, Timeframe},
             user::{
-                user_client::UserClient, AuthenticateRequest, AuthenticateResponse,
-                GetSnapVotesRequest, GetSnapVotesResponse, VoteRequest,
+                user_client::UserClient, AuthenticateRequest, GetSnapVotesRequest, Vote,
+                VoteRequest,
             },
         },
     },
@@ -21,15 +21,16 @@ use std::fmt::Write;
 use tonic::{
     metadata::MetadataValue,
     transport::{Channel, Endpoint},
-    Request, Response, Status,
+    Request,
 };
 
 // re-export to simplify setting up test data in the test files
 pub use ratings::features::pb::chart::Category;
 
-const MOCK_ADMIN_URL: &str = env!("MOCK_ADMIN_URL");
-const HOST: &str = env!("HOST");
-const PORT: &str = env!("PORT");
+// NOTE: these are set by the 'tests' Makefile target
+const MOCK_ADMIN_URL: Option<&str> = option_env!("MOCK_ADMIN_URL");
+const HOST: Option<&str> = option_env!("HOST");
+const PORT: Option<&str> = option_env!("PORT");
 
 macro_rules! client {
     ($client:ident, $channel:expr, $token:expr) => {
@@ -50,36 +51,30 @@ fn rnd_string(len: usize) -> String {
         .collect()
 }
 
-// NOTE: Deliberately not including the helpers for testing setting the log level or
-//       fetching the API info.
-
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct TestHelper {
-    url: String,
+    server_url: String,
+    mock_admin_url: &'static str,
     client: Client,
 }
 
 impl TestHelper {
     pub fn new() -> Self {
         Self {
-            url: format!("http://{}:{}/", HOST, PORT),
+            server_url: format!(
+                "http://{}:{}/",
+                HOST.expect("the integration tests need to be run using make test"),
+                PORT.expect("the integration tests need to be run using make test")
+            ),
+            mock_admin_url: MOCK_ADMIN_URL.unwrap(),
             client: Client::new(),
         }
     }
-
-    // JWT assertions
 
     pub fn assert_valid_jwt(&self, value: &str) {
         let jwt = JwtVerifier::from_env().expect("unable to init JwtVerifier");
         assert!(jwt.decode(value).is_ok(), "value should be a valid jwt");
     }
-
-    pub fn assert_invalid_jwt(&self, value: &str) {
-        let jwt = JwtVerifier::from_env().expect("unable to init JwtVerifier");
-        assert!(jwt.decode(value).is_err(), "expected invalid jwt");
-    }
-
-    // Data generation
 
     /// NOTE: total needs to be above 25 in order to generate a rating
     pub async fn test_snap_with_initial_votes(
@@ -92,7 +87,7 @@ impl TestHelper {
         let snap_id = self.random_id();
         let str_categories: Vec<String> = categories.iter().map(|c| c.to_string()).collect();
         self.client
-            .post(format!("{MOCK_ADMIN_URL}/{snap_id}"))
+            .post(format!("{}/{snap_id}", self.mock_admin_url))
             .body(str_categories.join(","))
             .send()
             .await?;
@@ -165,19 +160,18 @@ impl TestHelper {
         }
 
         for res in join_all(tasks).await {
-            // unwrapping twice as the join itself can error as well as the
-            // underlying call to register_and_vote
-            _ = res;
-            //res.unwrap().unwrap();
+            // Unwrapping twice as the join itself can error as well as the
+            // underlying call to register_and_vote.
+            // This is here so that tests panic in test generation if there
+            // are any issues rather than carrying on with malformed data
+            res.unwrap().unwrap();
         }
 
         Ok(())
     }
 
-    // GRPC client interactions
-
     async fn channel(&self) -> Channel {
-        Endpoint::from_shared(self.url.clone())
+        Endpoint::from_shared(self.server_url.clone())
             .expect("failed to create Endpoint")
             .connect()
             .await
@@ -185,44 +179,32 @@ impl TestHelper {
     }
 
     pub async fn get_rating(&self, id: &str, token: &str) -> anyhow::Result<Rating> {
-        let rating = client!(AppClient, self.channel().await, token)
+        let resp = client!(AppClient, self.channel().await, token)
             .get_rating(GetRatingRequest {
                 snap_id: id.to_string(),
             })
             .await?
-            .into_inner()
-            .rating
-            .ok_or(anyhow!("no rating for {id}"))?
-            .into();
+            .into_inner();
 
-        Ok(rating)
+        resp.rating
+            .map(Into::into)
+            .ok_or(anyhow!("no rating for {id}"))
     }
 
     pub async fn get_chart(
         &self,
-        timeframe: Timeframe,
-        token: &str,
-    ) -> Result<Response<GetChartResponse>, Status> {
-        client!(ChartClient, self.channel().await, token)
-            .get_chart(GetChartRequest {
-                timeframe: timeframe.into(),
-                category: None,
-            })
-            .await
-    }
-
-    pub async fn get_chart_of_category(
-        &self,
-        timeframe: Timeframe,
         category: Option<Category>,
         token: &str,
-    ) -> Result<Response<GetChartResponse>, Status> {
-        client!(ChartClient, self.channel().await, token)
+    ) -> anyhow::Result<Vec<ChartData>> {
+        let resp = client!(ChartClient, self.channel().await, token)
             .get_chart(GetChartRequest {
-                timeframe: timeframe.into(),
+                timeframe: Timeframe::Unspecified.into(),
                 category: category.map(|v| v.into()),
             })
-            .await
+            .await?
+            .into_inner();
+
+        Ok(resp.ordered_chart_data)
     }
 
     pub async fn vote(
@@ -231,34 +213,33 @@ impl TestHelper {
         snap_revision: i32,
         vote_up: bool,
         token: &str,
-    ) -> Result<Response<()>, Status> {
+    ) -> anyhow::Result<()> {
         client!(UserClient, self.channel().await, token)
             .vote(VoteRequest {
                 snap_id: snap_id.to_string(),
                 snap_revision,
                 vote_up,
             })
-            .await
+            .await?;
+
+        Ok(())
     }
 
     pub async fn get_snap_votes(
         &self,
         token: &str,
         request: GetSnapVotesRequest,
-    ) -> Result<Response<GetSnapVotesResponse>, Status> {
-        client!(UserClient, self.channel().await, token)
+    ) -> anyhow::Result<Vec<Vote>> {
+        let resp = client!(UserClient, self.channel().await, token)
             .get_snap_votes(request)
-            .await
-    }
+            .await?
+            .into_inner();
 
-    pub async fn delete(&self, token: &str) -> Result<Response<()>, Status> {
-        client!(UserClient, self.channel().await, token)
-            .delete(())
-            .await
+        Ok(resp.votes)
     }
 
     pub async fn authenticate(&self, id: String) -> anyhow::Result<String> {
-        let resp: AuthenticateResponse = UserClient::connect(self.url.clone())
+        let resp = UserClient::connect(self.server_url.clone())
             .await?
             .authenticate(AuthenticateRequest { id })
             .await?

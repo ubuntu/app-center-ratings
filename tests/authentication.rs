@@ -1,4 +1,4 @@
-mod common;
+pub mod common;
 
 use common::TestHelper;
 use simple_test_case::test_case;

@@ -8,7 +8,7 @@ use axum::{
 use serde_json::json;
 use std::{
     collections::HashMap,
-    sync::{Arc, Mutex},
+    sync::{Arc, RwLock},
 };
 use tracing::{info, warn};
 use tracing_subscriber::EnvFilter;
@@ -16,7 +16,7 @@ use uuid::Uuid;
 
 const PORT: u16 = 11111;
 
-type State = Arc<Mutex<StateInner>>;
+type State = Arc<RwLock<StateInner>>;
 
 #[derive(Default, Debug)]
 pub struct StateInner {
@@ -59,7 +59,7 @@ async fn register_snap(
     let categories: Vec<String> = categories.split(',').map(|c| c.to_string()).collect();
     let snap_name = Uuid::new_v4().to_string();
 
-    let mut guard = state.lock().unwrap();
+    let mut guard = state.write().unwrap();
     guard.id_map.insert(snap_id, snap_name.clone());
     guard.categories.insert(snap_name, categories);
 
@@ -71,7 +71,7 @@ async fn snap_assertions(
     Extension(state): Extension<State>,
 ) -> impl IntoResponse {
     info!("getting snap assertions for {snap_id}");
-    let guard = state.lock().unwrap();
+    let guard = state.read().unwrap();
 
     match guard.id_map.get(&snap_id) {
         Some(name) => (
@@ -94,7 +94,7 @@ async fn snap_info(
     Extension(state): Extension<State>,
 ) -> impl IntoResponse {
     info!("getting categories for {snap_name}");
-    let guard = state.lock().unwrap();
+    let guard = state.read().unwrap();
 
     match guard.categories.get(&snap_name) {
         Some(cats) => {

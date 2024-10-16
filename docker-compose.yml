@@ -36,7 +36,6 @@ services:
       APP_ADMIN_USER: "shadow"
       APP_ADMIN_PASSWORD: "maria"
     volumes:
-      #- /run/snapd.socket:/run/snapd.socket
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
       - target-cache:/app/target
