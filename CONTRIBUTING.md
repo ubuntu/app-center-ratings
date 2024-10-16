@@ -70,78 +70,71 @@ Once merged to the main branch, `po` files and any documentation change will be 
 
 ### Setup on Ubuntu
 
-```shell
+```bash
 # Install the Rust toolchain
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
 source "$HOME/.cargo/env"
 
 # Install build-time dependencies
-sudo apt update
-sudo apt install -y git gcc libssl-dev pkg-config protobuf-compiler
+sudo apt-get update
+sudo apt-get install -y git gcc libssl-dev pkg-config protobuf-compiler
 
-# (Optional) Install Docker for running the OCI image
+# Install Docker for running the OCI image and integration tests
+sudo apt-get docker-compose
+sudo usermod -aG docker $USER
+newgrp docker
+
+# Alternatively, if you wish to install docker using the script provided by
+# Docker themselves:
 curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
 sh /tmp/get-docker.sh
-
-# For running the dotenv files
-cargo install dotenvy --features=cli
 ```
 
-### Building and running the binaries
+### Building and running the server
 
-To build and run the binary during development:
+For local development there is a docker-compose file that can be used to run
+the server alongside a local Postgres database for manual tesing and execution
+of the integration test suite. The `Makefile` in the root of the repo has a
+number of targets for running common actions within the project:
 
-```shell
-dotenvy -f .env_files/example.env docker compose up -d #or podman-compose up 
-# Build and run
-dotenvy -f .env_files/example.env cargo run --release
+```bash
+# To build the release artifact (located in ./target/release/ratings)
+make build
+
+# To start the local stack:
+make up
+
+# To stop the local stack
+make down
+
+# To run only the unit tests
+make test
+
+# To run only the integration tests (requires the local stack to be up)
+make integration-test
+
+# To run all tests (requires the local stack to be up)
+make test-all
 ```
-
-To _just_ build the binary you can run `cargo build --release`. The result will be placed at
-`./target/release/ratings`.
 
 ### About the testsuite
 
-The project includes a comprehensive testsuite made of unit and integration tests. All the tests must pass before the review is considered. If you have troubles with the testsuite, feel free to mention it on your PR description.
+The project includes a comprehensive testsuite made of unit and integration
+tests. All the tests must pass before the review is considered. If you have
+troubles with the testsuite, feel free to mention it on your PR description.
 
-Currently (but to be changed) this test suite makes use of `cargo-make` and `docker` to coordinate tests. 
+Unit tests are located within the files containing the code they are testing.
 
-To install these dependencies:
+Integration tests located in `./tests/` and run against the local docker-compose
+stack (see the [Building and running the server](#building-and-running-the-server)
+section above for details).
 
-```
-# Install cargo-make
-cargo install cargo-make
+The test suite must pass before merging the PR to our main branch. Any new
+feature, change or fix must be covered by corresponding tests.
 
-# Install docker
-curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-sh /tmp/get-docker.sh
-```
-
-Tests are located under the `tests/` folder and the coordination scripts are located in the `Makefile.toml` file.
-
-These tests require a database to run against. The easiest way to set up the database, run the tests and clean up is via the following commands:
-
-```
-# Run the tests
-cargo make full-test
-
-# Clean up docker images and build artifacts
-cargo make full-clean
-```
-
-The test suite must pass before merging the PR to our main branch. Any new feature, change or fix must be covered by corresponding tests.
-Also please note that the `category` suite will take *quite a while* to finish, so be patient with it or skip it by manually running the tests you need with `cargo test --test <your-tests>` if you're not touching the category feature.
-
-Note that the above won't work if you use `podman` (unless you've put in effort to alias docker commands to `podman` and `podman-compose`),
-alternatively you can use:
-
-```
-dotenvy -f .env_files/test.env podman-compose up
-dotenvy -f .env_files/test-server.env cargo run
-dotenvy -f .env_files/test.env cargo test
-```
-
-In separate tabs (or `tmux` sessions etc), so long as you have the Docker repositories added as a `podman` source.
+For more information on writing Rust tests, the following likes are useful:
+  - <https://doc.rust-lang.org/book/ch11-01-writing-tests.html>
+  - <https://doc.rust-lang.org/rust-by-example/testing/unit_testing.html>
 
 ### Code style
 
@@ -149,7 +142,8 @@ This project follow the [rust style-guide](https://doc.rust-lang.org/1.0.0/style
 
 ## Contributor License Agreement
 
-It is required to sign the [Contributor License Agreement](https://ubuntu.com/legal/contributors) in order to contribute to this project.
+It is required to sign the [Contributor License Agreement](https://ubuntu.com/legal/contributors)
+in order to contribute to this project.
 
 An automated test is executed on PRs to check if it has been accepted.
 
@@ -157,4 +151,5 @@ This project is covered by [THIS LICENSE](LICENSE).
 
 ## Getting Help
 
-Join us in the [Ubuntu Community](https://discourse.ubuntu.com/c/desktop/8) and post your question there with a descriptive tag.
+Join us in the [Ubuntu Community](https://discourse.ubuntu.com/c/desktop/8) and
+post your question there with a descriptive tag.

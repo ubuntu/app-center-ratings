@@ -1,3 +1,7 @@
+.PHONY: build
+build:
+	@cargo build --release
+
 .PHONY: up
 up:
 	@docker-compose up
