@@ -30,4 +30,3 @@ async fn valid_client_hashes_can_authenticate_multiple_times() -> anyhow::Result
 
     Ok(())
 }
-
