@@ -19,7 +19,7 @@ services:
 
   ratings:
     container_name: ratings
-    build: ./docker/server
+    build: ./docker/local
     ports:
       - 8080:8080
     environment:
@@ -49,7 +49,7 @@ services:
 
   snapcraft-mock:
     container_name: snapcraft-mock
-    build: ./docker/server
+    build: ./docker/local
     ports:
       - 11111:11111
     volumes:
