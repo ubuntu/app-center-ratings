@@ -39,7 +39,7 @@ pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
     update_categories(app_ctx, &vote.snap_id)
         .await
         .inspect_err(|e| warn!("{}", e));
-    
+
     save_vote_to_db(app_ctx, vote).await?;
 
     Ok(())
