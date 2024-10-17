@@ -1,12 +1,13 @@
 //! Utilities and structs for creating server infrastructure (database, etc).
 use std::{
+    collections::HashMap,
     error::Error,
     fmt::{Debug, Formatter},
     sync::Arc,
 };
 
 use sqlx::{pool::PoolConnection, postgres::PgPoolOptions, PgPool, Postgres};
-use tokio::sync::OnceCell;
+use tokio::sync::{Mutex, Notify, OnceCell};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{reload::Handle, Registry};
 
@@ -26,6 +27,9 @@ pub struct Infrastructure {
     pub log_reload_handle: &'static Handle<LevelFilter, Registry>,
     /// The utility which lets us encode user tokens with our JWT credentials
     pub jwt_encoder: Arc<JwtEncoder>,
+    /// In progress category updates that we need to block on
+    /// FIXME: The logic for this should really live here but it's all DB related.
+    pub category_updates: Arc<Mutex<HashMap<String, Arc<Notify>>>>,
 }
 
 impl Infrastructure {
@@ -48,6 +52,7 @@ impl Infrastructure {
             postgres,
             jwt_encoder,
             log_reload_handle: reload_handle,
+            category_updates: Default::default(),
         })
     }
 

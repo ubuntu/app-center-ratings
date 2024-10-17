@@ -1,6 +1,8 @@
 //! Infrastructure for user handling
 use serde::{de::DeserializeOwned, Deserialize};
-use sqlx::{Acquire, Executor, Row};
+use sqlx::{pool::PoolConnection, Postgres, QueryBuilder, Row};
+use std::sync::Arc;
+use tokio::sync::Notify;
 use tracing::error;
 
 use crate::{
@@ -260,8 +262,15 @@ async fn get_snap_categories(
     }
 }
 
-/// Update the category (we do this every time we get a vote for the time being)
-pub(crate) async fn update_category(app_ctx: &AppContext, snap_id: &str) -> Result<(), UserError> {
+/// Update the categories for a given snap.
+///
+/// In the case where we do not have categories, we need to fetch them and store them in the DB.
+/// This is racey without coordination so we check to see if any other tasks are currently attempting
+/// this and block on them completing if they are, if not then we set up the Notify and they block on us.
+pub(crate) async fn update_categories(
+    snap_id: &str,
+    app_ctx: &AppContext,
+) -> Result<(), UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -271,30 +280,86 @@ pub(crate) async fn update_category(app_ctx: &AppContext, snap_id: &str) -> Resu
             UserError::Unknown
         })?;
 
+    let (n_rows,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM snap_categories WHERE snap_id = $1;")
+            .bind(snap_id)
+            .fetch_one(&mut *pool)
+            .await
+            .map_err(|error| {
+                error!("{error:?}");
+                UserError::FailedToCastVote
+            })?;
+
+    // If we have categories for the requested snap in place already then skip updating.
+    // Eventually we will need to update and refresh categories over time but the assumption for now is
+    // that snap categories do not change frequently so we do not need to eagerly update them.
+    if n_rows > 0 {
+        return Ok(());
+    }
+
+    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
+    let (notifier, should_wait) = match guard.get(&snap_id.to_string()) {
+        Some(notifier) => (notifier.clone(), true),
+        None => (Arc::new(Notify::new()), false),
+    };
+
+    if should_wait {
+        // Another task is updating the categories for this snap so wait for it to complete and then
+        // return: https://docs.rs/tokio/latest/tokio/sync/struct.Notify.html#method.notified
+        drop(guard);
+        notifier.notified().await;
+        return Ok(());
+    }
+
+    // At this point we can release the mutex for other calls to update_categories to proceed while
+    // we update the DB state for the snap_id we are interested in. Any calls between now and when
+    // we complete the update will block on the notifier we insert here.
+    guard.insert(snap_id.to_string(), notifier.clone());
+    drop(guard);
+
+    // We can't early return while holding the Notifier as that will leave any waiting tasks
+    // blocked. Rather than attempt to retry at this stage we allow for stale category data
+    // until a new task attempts to get data for the same snap.
+    if let Err(e) = update_categories_inner(snap_id, pool, app_ctx).await {
+        error!(%snap_id, "unable to update snap categories: {e}");
+    }
+
+    // Grab the mutex around the category_updates so any incoming tasks block behind us and then
+    // notify all blocked tasks before removing the Notify from the map.
+    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
+    notifier.notify_waiters();
+    guard.remove(&snap_id.to_string());
+
+    Ok(())
+}
+
+async fn update_categories_inner(
+    snap_id: &str,
+    mut pool: PoolConnection<Postgres>,
+    app_ctx: &AppContext,
+) -> Result<(), UserError> {
     let client = app_ctx.http_client();
     let base = &app_ctx.config().snapcraft_io_uri;
     let categories = get_snap_categories(snap_id, base, client).await?;
 
-    // Do a transaction because bulk querying doesn't seem to work cleanly
-    let mut tx = pool.begin().await?;
+    // The trailing space after the query here is important as the builder will append directly to
+    // the string provided.
+    let mut query_builder: QueryBuilder<Postgres> =
+        QueryBuilder::new("INSERT INTO snap_categories(snap_id, category) ");
 
-    // Reset the categories since we're refreshing all of them
-    tx.execute(
-        sqlx::query("DELETE FROM snap_categories WHERE snap_categories.snap_id = $1;")
-            .bind(snap_id),
-    )
-    .await?;
+    query_builder.push_values(categories, |mut b, category| {
+        b.push_bind(snap_id).push_bind(category);
+    });
 
-    for category in categories.iter() {
-        tx.execute(
-            sqlx::query("INSERT INTO snap_categories (snap_id, category) VALUES ($1, $2); ")
-                .bind(snap_id)
-                .bind(category),
-        )
-        .await?;
-    }
+    query_builder
+        .build()
+        .execute(&mut *pool)
+        .await
+        .map_err(|error| {
+            error!("{error:?}");
+            UserError::FailedToCastVote
+        })?;
 
-    tx.commit().await?;
     Ok(())
 }
 

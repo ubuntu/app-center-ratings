@@ -131,9 +131,7 @@ impl TestHelper {
         vote_up: bool,
     ) -> anyhow::Result<()> {
         let id: String = self.random_sha_256();
-        // The first call registers and the second authenticates
         let token = self.authenticate(id.clone()).await?;
-        self.authenticate(id).await?;
         self.vote(snap_id, snap_revision, vote_up, &token).await?;
 
         Ok(())
