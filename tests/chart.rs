@@ -14,17 +14,14 @@ async fn category_chart_returns_expected_top_snap() -> anyhow::Result<()> {
     let t = TestHelper::new();
 
     // Generate a random set of snaps within the given category
-    let mut tasks = Vec::with_capacity(25);
+    let mut total = 0;
     for _ in 0..25 {
         let client = t.clone();
-        tasks.push(tokio::spawn(async move {
-            let (upvotes, downvotes) = random_votes(50, 100, 25, 75);
-            client
-                .test_snap_with_initial_votes(1, upvotes, downvotes, &[Category::Development])
-                .await
-        }));
+        let (upvotes, downvotes) = random_votes(50, 100, 25, 75);
+        client
+            .test_snap_with_initial_votes(1, upvotes, downvotes, &[Category::Development])
+            .await?;
     }
-    join_all(tasks).await;
 
     // A snap that should be returned as the top snap for the category
     let snap_id = t
