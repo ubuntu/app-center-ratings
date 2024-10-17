@@ -1,6 +1,6 @@
 //! Infrastructure for user handling
 use serde::{de::DeserializeOwned, Deserialize};
-use sqlx::{Postgres, QueryBuilder, Row};
+use sqlx::{pool::PoolConnection, Postgres, QueryBuilder, Row};
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tracing::error;
@@ -268,8 +268,8 @@ async fn get_snap_categories(
 /// This is racey without coordination so we check to see if any other tasks are currently attempting
 /// this and block on them completing if they are, if not then we set up the Notify and they block on us.
 pub(crate) async fn update_categories(
-    app_ctx: &AppContext,
     snap_id: &str,
+    app_ctx: &AppContext,
 ) -> Result<(), UserError> {
     let mut pool = app_ctx
         .infrastructure()
@@ -279,9 +279,6 @@ pub(crate) async fn update_categories(
             error!("{error:?}");
             UserError::Unknown
         })?;
-
-    // Take the mutex first so we don't race between checking the current table state and updating
-    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
 
     let (n_rows,): (i64,) =
         sqlx::query_as("SELECT COUNT(*) FROM snap_categories WHERE snap_id = $1;")
@@ -300,6 +297,7 @@ pub(crate) async fn update_categories(
         return Ok(());
     }
 
+    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
     let (notifier, should_wait) = match guard.get(&snap_id.to_string()) {
         Some(notifier) => (notifier.clone(), true),
         None => (Arc::new(Notify::new()), false),
@@ -319,6 +317,27 @@ pub(crate) async fn update_categories(
     guard.insert(snap_id.to_string(), notifier.clone());
     drop(guard);
 
+    // We can't early return while holding the Notifier as that will leave any waiting tasks
+    // blocked. Rather than attempt to retry at this stage we allow for stale category data
+    // until a new task attempts to get data for the same snap.
+    if let Err(e) = update_categories_inner(snap_id, pool, app_ctx).await {
+        error!(%snap_id, "unable to update snap categories: {e}");
+    }
+
+    // Grab the mutex around the category_updates so any incoming tasks block behind us and then
+    // notify all blocked tasks before removing the Notify from the map.
+    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
+    notifier.notify_waiters();
+    guard.remove(&snap_id.to_string());
+
+    Ok(())
+}
+
+async fn update_categories_inner(
+    snap_id: &str,
+    mut pool: PoolConnection<Postgres>,
+    app_ctx: &AppContext,
+) -> Result<(), UserError> {
     let client = app_ctx.http_client();
     let base = &app_ctx.config().snapcraft_io_uri;
     let categories = get_snap_categories(snap_id, base, client).await?;
@@ -340,12 +359,6 @@ pub(crate) async fn update_categories(
             error!("{error:?}");
             UserError::FailedToCastVote
         })?;
-
-    // Grab the mutex around the category_updates so any incoming tasks block behind us and then
-    // notify all blocked tasks before removing the Notify from the map.
-    let mut guard = app_ctx.infrastructure().category_updates.lock().await;
-    notifier.notify_waiters();
-    guard.remove(&snap_id.to_string());
 
     Ok(())
 }

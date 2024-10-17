@@ -5,7 +5,6 @@
 pub mod common;
 
 use common::{Category, TestHelper};
-use futures::future::join_all;
 use rand::{thread_rng, Rng};
 
 // !! This test expects to be the only one making use of the "Development" category
@@ -14,10 +13,9 @@ async fn category_chart_returns_expected_top_snap() -> anyhow::Result<()> {
     let t = TestHelper::new();
 
     // Generate a random set of snaps within the given category
-    let mut total = 0;
     for _ in 0..25 {
         let client = t.clone();
-        let (upvotes, downvotes) = random_votes(50, 100, 25, 75);
+        let (upvotes, downvotes) = random_votes(25, 50, 15, 35);
         client
             .test_snap_with_initial_votes(1, upvotes, downvotes, &[Category::Development])
             .await?;
@@ -25,7 +23,7 @@ async fn category_chart_returns_expected_top_snap() -> anyhow::Result<()> {
 
     // A snap that should be returned as the top snap for the category
     let snap_id = t
-        .test_snap_with_initial_votes(1, 100, 0, &[Category::Development])
+        .test_snap_with_initial_votes(1, 50, 0, &[Category::Development])
         .await?;
 
     let user_token = t.authenticate(t.random_sha_256()).await?;

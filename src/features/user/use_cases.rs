@@ -36,7 +36,7 @@ pub async fn delete_user(app_ctx: &AppContext, client_hash: &str) -> Result<(), 
 #[allow(unused_must_use)]
 pub async fn vote(app_ctx: &AppContext, vote: Vote) -> Result<(), UserError> {
     // Ignore but log warning, it's not fatal
-    update_categories(app_ctx, &vote.snap_id)
+    update_categories(&vote.snap_id, app_ctx)
         .await
         .inspect_err(|e| warn!("{}", e));
 
@@ -55,7 +55,7 @@ pub async fn get_snap_votes(
     client_hash: String,
 ) -> Result<Vec<Vote>, UserError> {
     // Ignore but log warning, it's not fatal
-    update_categories(app_ctx, &snap_id)
+    update_categories(&snap_id, app_ctx)
         .await
         .inspect_err(|e| warn!("{}", e));
 
