@@ -4,6 +4,7 @@ use thiserror::Error;
 use tokio::sync::OnceCell;
 use tracing::info;
 
+pub mod categories;
 pub mod user;
 pub mod vote;
 
@@ -152,6 +153,25 @@ mod test {
         assert_eq!(second_vote.client_hash, client_hash_2);
         assert_eq!(second_vote.snap_revision, 2);
         assert!(!second_vote.vote_up);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn update_categories() -> Result<()> {
+        let conn = conn!();
+        let snap_id = "00000000000000000000000000000001";
+        let cats = vec![categories::Category::ArtAndDesign];
+
+        assert!(!categories::Categories::is_set_for_snap(snap_id, conn)
+            .await
+            .unwrap());
+        categories::Categories::set_for_snap(snap_id, cats, conn)
+            .await
+            .unwrap();
+        assert!(categories::Categories::is_set_for_snap(snap_id, conn)
+            .await
+            .unwrap());
 
         Ok(())
     }
