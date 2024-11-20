@@ -1,4 +1,4 @@
-use super::{ClientHash, DbError, Result};
+use super::{ClientHash, Error, Result};
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection};
 use tracing::error;
 
@@ -55,7 +55,7 @@ impl Vote {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            DbError::FailedToGetUserVote
+            Error::FailedToGetUserVote
         })?;
 
         Ok(votes)
@@ -79,7 +79,7 @@ impl Vote {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            DbError::FailedToCastVote
+            Error::FailedToCastVote
         })?;
 
         Ok(result.rows_affected())

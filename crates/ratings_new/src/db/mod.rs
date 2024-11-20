@@ -1,4 +1,4 @@
-use crate::utils::{Config, Migrator};
+use crate::Config;
 use sqlx::{postgres::PgPoolOptions, PgPool};
 use thiserror::Error;
 use tokio::sync::OnceCell;
@@ -8,12 +8,22 @@ pub mod categories;
 pub mod user;
 pub mod vote;
 
+mod migrator;
+use migrator::Migrator;
+
+#[macro_export]
+macro_rules! conn {
+    { } => {
+        &mut *($crate::db::get_pool().await?.acquire().await?)
+    }
+}
+
 pub type ClientHash = String;
-pub type Result<T> = std::result::Result<T, DbError>;
+pub type Result<T> = std::result::Result<T, Error>;
 
 /// Errors that can occur when a user votes.
 #[derive(Error, Debug)]
-pub enum DbError {
+pub enum Error {
     /// A record could not be created for the user
     #[error("failed to create user record")]
     FailedToCreateUserRecord,
@@ -62,24 +72,16 @@ pub async fn get_pool() -> Result<&'static PgPool> {
     let pool = POOL
         .get_or_try_init(|| init_pool_from_uri_and_migrate(&config.postgres_uri))
         .await?;
+
     Ok(pool)
 }
 
-#[macro_export]
-macro_rules! conn {
-    { } => {
-        &mut *($crate::db::get_pool().await?.acquire().await?)
-    }
-}
-
 #[cfg(test)]
-mod test {
+mod tests {
+    use super::*;
+    use crate::conn;
     use sqlx::types::time::OffsetDateTime;
     use tracing_subscriber::EnvFilter;
-
-    use crate::conn;
-
-    use super::*;
 
     #[tokio::test]
     async fn save_and_read_votes() -> Result<()> {
