@@ -163,13 +163,13 @@ mod test {
         let snap_id = "00000000000000000000000000000001";
         let cats = vec![categories::Category::ArtAndDesign];
 
-        assert!(!categories::Categories::is_set_for_snap(snap_id, conn)
+        assert!(!categories::snap_has_categories(snap_id, conn)
             .await
             .unwrap());
-        categories::Categories::set_for_snap(snap_id, cats, conn)
+        categories::set_categories_for_snap(snap_id, cats, conn)
             .await
             .unwrap();
-        assert!(categories::Categories::is_set_for_snap(snap_id, conn)
+        assert!(categories::snap_has_categories(snap_id, conn)
             .await
             .unwrap());
 
