@@ -1,4 +1,3 @@
-use git2::Repository;
 use std::path::Path;
 
 fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
@@ -33,25 +32,8 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn include_build_info() -> Result<(), Box<dyn std::error::Error>> {
-    let repo = Repository::open(std::env::current_dir()?.parent().unwrap().parent().unwrap())?;
-    let head = repo.head()?;
-    let branch = head
-        .name()
-        .unwrap()
-        .strip_prefix("refs/heads/")
-        .unwrap_or("no-branch");
-    println!("cargo:rustc-env=GIT_BRANCH={}", branch);
-
-    let commit_sha = repo.head()?.target().unwrap();
-    println!("cargo:rustc-env=GIT_HASH={}", commit_sha);
-
-    Ok(())
-}
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_proto()?;
-    include_build_info()?;
 
     Ok(())
 }

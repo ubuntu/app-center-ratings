@@ -1,6 +1,6 @@
 //! Utility functions and definitions for configuring the service.
 use dotenvy::dotenv;
-// use secrecy::SecretString;
+use secrecy::SecretString;
 use serde::Deserialize;
 use tokio::sync::OnceCell;
 
@@ -14,7 +14,7 @@ pub struct Config {
     /// The host configuration
     pub host: String,
     /// The JWT secret value
-    // pub jwt_secret: SecretString,
+    pub jwt_secret: SecretString,
     /// Log level to use
     pub log_level: String,
     /// The service name
@@ -23,22 +23,26 @@ pub struct Config {
     pub port: u16,
     /// The URI of the postgres database
     pub postgres_uri: String,
+    /// The base URI for snapcraft.io
+    pub snapcraft_io_uri: String,
 }
 
 impl Config {
     /// Loads the configuration from environment variables
     pub fn load() -> envy::Result<Config> {
         dotenv().ok();
+
         envy::prefixed("APP_").from_env::<Config>()
     }
 
-    pub async fn get() -> Result<&'static Config, envy::Error> {
+    pub async fn get() -> envy::Result<&'static Config> {
         CONFIG.get_or_try_init(|| async { Config::load() }).await
     }
 
     /// Return a [`String`] representing the socket to run the service on
     pub fn socket(&self) -> String {
         let Config { port, host, .. } = self;
+
         format!("{host}:{port}")
     }
 }

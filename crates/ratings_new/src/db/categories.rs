@@ -1,7 +1,7 @@
-use super::Result;
+use crate::db::Result;
 use sqlx::{PgConnection, Postgres, QueryBuilder};
 
-#[derive(sqlx::Type)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, strum::EnumString, strum::Display)]
 #[repr(i32)]
 pub enum Category {
     ArtAndDesign = 0,
@@ -49,5 +49,6 @@ pub async fn set_categories_for_snap(
     });
 
     query_builder.build().execute(conn).await?;
+
     Ok(())
 }
