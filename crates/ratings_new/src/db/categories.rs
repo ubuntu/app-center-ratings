@@ -26,32 +26,28 @@ pub enum Category {
     Utilities = 19,
 }
 
-pub struct Categories {}
+pub async fn snap_has_categories(snap_id: &str, conn: &mut PgConnection) -> Result<bool> {
+    let (n_rows,): (i64,) =
+        sqlx::query_as("SELECT COUNT(*) FROM snap_categories WHERE snap_id = $1;")
+            .bind(snap_id)
+            .fetch_one(conn)
+            .await?;
 
-impl Categories {
-    pub async fn is_set_for_snap(snap_id: &str, conn: &mut PgConnection) -> Result<bool> {
-        let (n_rows,): (i64,) =
-            sqlx::query_as("SELECT COUNT(*) FROM snap_categories WHERE snap_id = $1;")
-                .bind(snap_id)
-                .fetch_one(conn)
-                .await?;
+    Ok(n_rows > 0)
+}
 
-        Ok(n_rows > 0)
-    }
+pub async fn set_categories_for_snap(
+    snap_id: &str,
+    categories: Vec<Category>,
+    conn: &mut PgConnection,
+) -> Result<()> {
+    let mut query_builder: QueryBuilder<Postgres> =
+        QueryBuilder::new("INSERT INTO snap_categories(snap_id, category) ");
 
-    pub async fn set_for_snap(
-        snap_id: &str,
-        categories: Vec<Category>,
-        conn: &mut PgConnection,
-    ) -> Result<()> {
-        let mut query_builder: QueryBuilder<Postgres> =
-            QueryBuilder::new("INSERT INTO snap_categories(snap_id, category) ");
+    query_builder.push_values(categories, |mut b, category| {
+        b.push_bind(snap_id).push_bind(category);
+    });
 
-        query_builder.push_values(categories, |mut b, category| {
-            b.push_bind(snap_id).push_bind(category);
-        });
-
-        query_builder.build().execute(conn).await?;
-        Ok(())
-    }
+    query_builder.build().execute(conn).await?;
+    Ok(())
 }
