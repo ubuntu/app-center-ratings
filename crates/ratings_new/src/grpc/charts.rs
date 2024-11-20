@@ -91,12 +91,15 @@ impl Chart for ChartService {
                 };
                 Ok(Response::new(payload))
             }
-            Err(error) => match error {
-                ChartError::NotFound => {
-                    Err(Status::not_found("Cannot find data for given timeframe."))
+            Err(e) => {
+                error!("Error in get_votes_summary: {:?}", e);
+                match e {
+                    ChartError::NotFound => {
+                        Err(Status::not_found("Cannot find data for given timeframe."))
+                    }
+                    _ => Err(Status::unknown("Internal server error")),
                 }
-                _ => Err(Status::unknown("Internal server error")),
-            },
+            }
         }
     }
 }
