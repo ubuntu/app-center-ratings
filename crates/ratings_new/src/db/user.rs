@@ -1,4 +1,4 @@
-use super::{ClientHash, DbError, Result};
+use crate::db::{ClientHash, Error, Result};
 use sqlx::{prelude::FromRow, types::time::OffsetDateTime, PgConnection};
 use tracing::error;
 
@@ -43,7 +43,7 @@ impl User {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            DbError::FailedToCreateUserRecord
+            Error::FailedToCreateUserRecord
         })?;
 
         Ok(user_with_id)
@@ -61,8 +61,9 @@ impl User {
         .await
         .map_err(|error| {
             error!("{error:?}");
-            DbError::FailedToDeleteUserRecord
+            Error::FailedToDeleteUserRecord
         })?;
+
         Ok(())
     }
 }

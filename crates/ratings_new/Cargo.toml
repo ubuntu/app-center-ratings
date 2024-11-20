@@ -4,14 +4,19 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-chrono = "0.4.38"
-dotenvy = "0.15.7"
-envy = "0.4.2"
+dotenvy = "0.15"
+envy = "0.4"
+jsonwebtoken = "9.2"
 prost = "0.13.3"
 prost-types = "0.13.3"
-serde = { version = "1.0.210", features = ["derive"] }
-sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "postgres", "chrono", "migrate", "time"] }
+reqwest = "0.12"
+secrecy = { version = "0.8.0", features = ["serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.114"
+sqlx = { version = "0.8.2", features = ["runtime-tokio-rustls", "postgres", "migrate", "time"] }
+strum = { version = "0.26.2", features = ["derive"] }
 thiserror = "1.0.64"
+time = "0.3"
 tokio = { version = "1.40.0", features = ["full"] }
 tonic = "0.12.2"
 tonic-reflection = "0.12.2"
@@ -22,5 +27,4 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 simple_test_case = "1.2.0"
 
 [build-dependencies]
-git2 = { version = "0.18.2", default-features = false }
 tonic-build = { version = "0.11", features = ["prost"] }
