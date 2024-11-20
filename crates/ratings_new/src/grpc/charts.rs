@@ -1,17 +1,27 @@
 //! Definitions and utilities for building the [`ChartService`] for using the [`Chart`] feature.
 //!
 //! [`Chart`]: crate::features::chart::entities::Chart
-use ratings::features::chart::{errors::ChartError, entities::Chart as OldChart};
-use crate::proto::chart::{chart_server::{ChartServer, Chart}, GetChartRequest, GetChartResponse};
+use crate::proto::{
+    chart::{
+        chart_server::{Chart, ChartServer},
+        ChartData, GetChartRequest, GetChartResponse,
+    },
+    common::Rating,
+};
+use ratings::features::{
+    chart::{
+        entities::{Chart as OldChart, ChartData as OldChartData},
+        errors::ChartError,
+    },
+    common::entities::Rating as OldRating,
+};
 
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 use ratings::{
-    app::AppContext,
-    features::chart::infrastructure::get_votes_summary,
-    features::pb::chart::Category,
-    features::pb::chart::Timeframe,
+    app::AppContext, features::chart::infrastructure::get_votes_summary,
+    features::pb::chart::Category, features::pb::chart::Timeframe,
 };
 
 /// An empty struct denoting that allows the building of a [`ChartServer`].
@@ -58,18 +68,20 @@ impl Chart for ChartService {
 
         let timeframe = Timeframe::try_from(timeframe).unwrap_or(Timeframe::Unspecified);
 
-        let result = get_votes_summary(&app_ctx, timeframe, category).await.map_err(|error| {
-            error!("{error:?}");
-            ChartError::Unknown
-        });
+        let result = get_votes_summary(&app_ctx, timeframe, category)
+            .await
+            .map_err(|error| {
+                error!("{error:?}");
+                ChartError::Unknown
+            });
 
         match result {
             Ok(c) => {
                 let chart = OldChart::new(timeframe, c);
-                let ordered_chart_data = chart 
+                let ordered_chart_data = chart
                     .chart_data
                     .into_iter()
-                    .map(|chart_data| chart_data.into_protobuf_chart_data())
+                    .map(|chart_data| chart_data.into())
                     .collect();
 
                 let payload = GetChartResponse {
@@ -85,6 +97,26 @@ impl Chart for ChartService {
                 }
                 _ => Err(Status::unknown("Internal server error")),
             },
+        }
+    }
+}
+
+// FIXME: replace with types from db refactor when that is merged in.
+impl From<OldChartData> for ChartData {
+    fn from(value: OldChartData) -> ChartData {
+        ChartData {
+            raw_rating: value.raw_rating,
+            rating: Some(value.rating.into()),
+        }
+    }
+}
+
+impl From<OldRating> for Rating {
+    fn from(value: OldRating) -> Rating {
+        Rating {
+            snap_id: value.snap_id,
+            total_votes: value.total_votes,
+            ratings_band: value.ratings_band as i32,
         }
     }
 }
