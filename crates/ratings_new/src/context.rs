@@ -22,17 +22,17 @@ pub enum Error {
 }
 
 pub struct Context {
-    pub jwt_encoder: Arc<JwtEncoder>,
-    pub http_client: Arc<reqwest::Client>,
+    pub jwt_encoder: JwtEncoder,
+    pub http_client: reqwest::Client,
     /// In progress category updates that we need to block on
-    pub category_updates: Arc<Mutex<HashMap<String, Arc<Notify>>>>,
+    pub category_updates: Mutex<HashMap<String, Arc<Notify>>>,
 }
 
 impl Context {
     pub fn new(config: &Config) -> Result<Self, Error> {
         Ok(Self {
-            jwt_encoder: Arc::new(JwtEncoder::from_secret(&config.jwt_secret)?),
-            http_client: Arc::new(reqwest::Client::new()),
+            jwt_encoder: JwtEncoder::from_secret(&config.jwt_secret)?,
+            http_client: reqwest::Client::new(),
             category_updates: Default::default(),
         })
     }
