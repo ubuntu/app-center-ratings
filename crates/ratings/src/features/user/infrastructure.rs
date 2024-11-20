@@ -18,10 +18,7 @@ use crate::{
 
 /// Create a [`User`] entry, or note that the user has recently been seen, within the current
 /// [`AppContext`].
-pub async fn create_or_seen_user(
-    app_ctx: &AppContext,
-    user: User,
-) -> Result<User, UserError> {
+pub async fn create_or_seen_user(app_ctx: &AppContext, user: User) -> Result<User, UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -267,10 +264,7 @@ async fn get_snap_categories(
 /// In the case where we do not have categories, we need to fetch them and store them in the DB.
 /// This is racey without coordination so we check to see if any other tasks are currently attempting
 /// this and block on them completing if they are, if not then we set up the Notify and they block on us.
-pub async fn update_categories(
-    snap_id: &str,
-    app_ctx: &AppContext,
-) -> Result<(), UserError> {
+pub async fn update_categories(snap_id: &str, app_ctx: &AppContext) -> Result<(), UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
