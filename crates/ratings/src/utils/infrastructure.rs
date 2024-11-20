@@ -26,7 +26,6 @@ pub struct Infrastructure {
     /// The reload handle for the logger
     pub log_reload_handle: &'static Handle<LevelFilter, Registry>,
     /// The utility which lets us encode user tokens with our JWT credentials
-   
     // FIXME
     // Init this on the user service. It only is used by User Service, so dont need it in main /
     // arc'd

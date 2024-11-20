@@ -42,7 +42,7 @@ impl AppContext {
     }
 
     /// A reference to the JWT Encoder
-    pub fn jwt_encoder(&self) -> &JwtEncoder{
+    pub fn jwt_encoder(&self) -> &JwtEncoder {
         &self.0.jwt_encoder
     }
 }
@@ -57,5 +57,5 @@ struct AppContextInner {
     /// An HTTP client for pulling data from snapcraft.io
     http_client: reqwest::Client,
     /// A JWT encoder for authentication
-    jwt_encoder: Arc<JwtEncoder>
+    jwt_encoder: Arc<JwtEncoder>,
 }

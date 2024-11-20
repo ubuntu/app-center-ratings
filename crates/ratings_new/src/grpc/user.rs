@@ -53,7 +53,10 @@ impl User for UserService {
         &self,
         mut request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        let app_ctx = request.extensions_mut().remove::<AppContext>().expect("Expected AppContext to be present");
+        let app_ctx = request
+            .extensions_mut()
+            .remove::<AppContext>()
+            .expect("Expected AppContext to be present");
         let AuthenticateRequest { id } = request.into_inner();
 
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
@@ -201,7 +204,8 @@ impl User for UserService {
             }
             Err(e) => {
                 error!("Error in get_snap_votes_by_client_hash: {:?}", e);
-                Err(Status::unknown("Internal server error"))},
+                Err(Status::unknown("Internal server error"))
+            }
         }
     }
 }
