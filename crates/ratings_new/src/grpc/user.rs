@@ -1,3 +1,5 @@
+use crate::Context;
+
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
@@ -6,18 +8,6 @@ use crate::proto::user::{
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
-
-use ratings::{
-    app::AppContext,
-    features::user::{
-        entities::{User as OldUser, Vote as OldVote},
-        infrastructure::{
-            create_or_seen_user, delete_user_by_client_hash, find_user_votes,
-            get_snap_votes_by_client_hash, save_vote_to_db, update_categories,
-        },
-    },
-    utils::jwt::Claims,
-};
 
 /// The length we expect a client hash to be, in bytes
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
@@ -53,9 +43,9 @@ impl User for UserService {
         &self,
         mut request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        let app_ctx = request
+        let ctx = request
             .extensions_mut()
-            .remove::<AppContext>()
+            .remove::<Context>()
             .expect("Expected AppContext to be present");
         let AuthenticateRequest { id } = request.into_inner();
 
@@ -69,9 +59,9 @@ impl User for UserService {
 
         let user = OldUser::new(&id);
 
-        match create_or_seen_user(&app_ctx, user).await {
-            Ok(user) => app_ctx
-                .jwt_encoder()
+        match create_or_seen_user(&ctx, user).await {
+            Ok(user) => ctx
+                .jwt_encoder
                 .encode(user.client_hash)
                 // Match on the encode, build the ok / error varients in there, out of a chain.
                 .map(|token| AuthenticateResponse { token })
@@ -84,15 +74,15 @@ impl User for UserService {
     #[tracing::instrument(level = "debug", skip_all)] // skip_all skips logging what all the
                                                       // arguments were
     async fn delete(&self, mut request: Request<()>) -> Result<Response<()>, Status> {
-        let app_ctx = request
+        let ctx = request
             .extensions_mut()
-            .remove::<AppContext>()
+            .remove::<Context>()
             .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
 
-        match delete_user_by_client_hash(&app_ctx, &client_hash).await {
+        match delete_user_by_client_hash(&ctx, &client_hash).await {
             // FIXME (maybe?)
             // favor a into pattern if we do this in many places
             Ok(_) => Ok(Response::new(())),
@@ -105,9 +95,9 @@ impl User for UserService {
 
     #[tracing::instrument(level = "debug", skip_all)]
     async fn vote(&self, mut request: Request<VoteRequest>) -> Result<Response<()>, Status> {
-        let app_ctx = request
+        let ctx = request
             .extensions_mut()
-            .remove::<AppContext>()
+            .remove::<Context>()
             .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
@@ -127,7 +117,7 @@ impl User for UserService {
             .await
             .inspect_err(|e| warn!("{}", e));
 
-        match save_vote_to_db(&app_ctx, vote).await {
+        match save_vote_to_db(&ctx, vote).await {
             Ok(_) => Ok(Response::new(())),
 
             Err(e) => {
@@ -142,9 +132,9 @@ impl User for UserService {
         &self,
         mut request: Request<ListMyVotesRequest>,
     ) -> Result<Response<ListMyVotesResponse>, Status> {
-        let app_ctx = request
+        let ctx = request
             .extensions_mut()
-            .remove::<AppContext>()
+            .remove::<Context>()
             .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
@@ -156,7 +146,7 @@ impl User for UserService {
             Some(snap_id_filter)
         };
 
-        let result = find_user_votes(&app_ctx, client_hash, snap_id_filter).await;
+        let result = find_user_votes(&ctx, client_hash, snap_id_filter).await;
 
         match result {
             Ok(votes) => {
@@ -178,9 +168,9 @@ impl User for UserService {
         mut request: Request<GetSnapVotesRequest>,
     ) -> Result<Response<GetSnapVotesResponse>, Status> {
         // FIXME: will turn into con macro
-        let app_ctx = request
+        let ctx = request
             .extensions_mut()
-            .remove::<AppContext>()
+            .remove::<Context>()
             .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
@@ -189,11 +179,11 @@ impl User for UserService {
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
         // Ignore but log warning, it's not fatal
-        let _ = update_categories(&snap_id, &app_ctx)
+        let _ = update_categories(&snap_id, &ctx)
             .await
             .inspect_err(|e| warn!("{}", e));
 
-        let result = get_snap_votes_by_client_hash(&app_ctx, snap_id, client_hash).await;
+        let result = get_snap_votes_by_client_hash(&ctx, snap_id, client_hash).await;
 
         match result {
             Ok(votes) => {
