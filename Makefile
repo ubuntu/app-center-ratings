@@ -18,6 +18,10 @@ down:
 test:
 	@cargo test --lib
 
+.PHONY: db-test
+db-test:
+	@cargo test --lib --features db_tests
+
 .PHONY: integration-test
 integration-test: clear-db-data
 	@APP_JWT_SECRET='deadbeef' \
@@ -27,7 +31,7 @@ integration-test: clear-db-data
 		cargo test --test '*' $(ARGS)
 
 .PHONY: test-all
-test-all: test integration-test
+test-all: db-test integration-test
 
 .PHONY: wait-for-server
 wait-for-server:

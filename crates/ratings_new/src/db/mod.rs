@@ -83,6 +83,7 @@ mod tests {
     use sqlx::types::time::OffsetDateTime;
     use tracing_subscriber::EnvFilter;
 
+    #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
     async fn save_and_read_votes() -> Result<()> {
         let client_hash_1 = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -159,6 +160,7 @@ mod tests {
         Ok(())
     }
 
+    #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
     async fn update_categories() -> Result<()> {
         let conn = conn!();
