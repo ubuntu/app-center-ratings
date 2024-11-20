@@ -57,7 +57,7 @@ impl Timeframe {
 /// The categories that can be selected, these
 /// are taken directly from  `curl -sS -X GET --unix-socket /run/snapd.socket "<http://localhost/v2/categories"`>
 /// On 2024-02-03, it may need to be kept in sync.
-#[derive(sqlx::Type, strum::EnumString, strum::Display)]
+#[derive(sqlx::Type, strum::EnumString)]
 #[strum(serialize_all = "kebab_case", ascii_case_insensitive)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
