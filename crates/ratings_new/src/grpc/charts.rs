@@ -1,20 +1,14 @@
 //! Definitions and utilities for building the [`ChartService`] for using the [`Chart`] feature.
 //!
 //! [`Chart`]: crate::features::chart::entities::Chart
-use crate::proto::{
-    chart::{
+use crate::proto::chart::{
         chart_server::{Chart, ChartServer},
         ChartData, GetChartRequest, GetChartResponse,
-    },
-    common::Rating,
-};
-use ratings::features::{
-    chart::{
+    };
+use ratings::features::chart::{
         entities::{Chart as OldChart, ChartData as OldChartData},
         errors::ChartError,
-    },
-    common::entities::Rating as OldRating,
-};
+    };
 
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -110,16 +104,6 @@ impl From<OldChartData> for ChartData {
         ChartData {
             raw_rating: value.raw_rating,
             rating: Some(value.rating.into()),
-        }
-    }
-}
-
-impl From<OldRating> for Rating {
-    fn from(value: OldRating) -> Rating {
-        Rating {
-            snap_id: value.snap_id,
-            total_votes: value.total_votes,
-            ratings_band: value.ratings_band as i32,
         }
     }
 }
