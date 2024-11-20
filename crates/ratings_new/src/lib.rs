@@ -8,3 +8,4 @@ pub mod ratings;
 
 pub use config::Config;
 pub use context::Context;
+pub mod auth;
