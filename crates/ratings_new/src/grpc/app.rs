@@ -1,10 +1,8 @@
 //! Contains generation and definitions for the [`AppService`]
-use crate::proto::app::app_server::AppServer;
+use crate::{proto::app::app_server::AppServer, Context};
 use crate::proto::common::Rating;
 
 //replace
-use ratings::{app::AppContext, features::common::entities::Rating as OldRating};
-use ratings::features::rating::infrastructure::get_votes_by_snap_id;
 use tracing::error;
 
 use crate::proto::app::{app_server::App, GetRatingRequest, GetRatingResponse};
@@ -37,7 +35,7 @@ impl App for RatingService {
         &self,
         request: Request<GetRatingRequest>,
     ) -> Result<tonic::Response<GetRatingResponse>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+        let ctx = request.extensions().get::<Context>().unwrap().clone();
 
         let GetRatingRequest { snap_id } = request.into_inner();
 
@@ -47,7 +45,7 @@ impl App for RatingService {
 
         // let result = use_cases::get_rating(&app_ctx, snap_id).await;
         
-        match get_votes_by_snap_id(&app_ctx, &snap_id).await {
+        match get_votes_by_snap_id(&ctx, &snap_id).await {
             Ok(votes) => {
                 let rating = OldRating::new(votes);
                 let payload = GetRatingResponse {

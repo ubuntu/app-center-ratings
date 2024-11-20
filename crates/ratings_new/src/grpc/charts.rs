@@ -1,22 +1,13 @@
 //! Definitions and utilities for building the [`ChartService`] for using the [`Chart`] feature.
 //!
 //! [`Chart`]: crate::features::chart::entities::Chart
-use crate::proto::chart::{
+use crate::{proto::chart::{
         chart_server::{Chart, ChartServer},
         ChartData, GetChartRequest, GetChartResponse,
-    };
-use ratings::features::chart::{
-        entities::{Chart as OldChart, ChartData as OldChartData},
-        errors::ChartError,
-    };
+    }, Context};
 
 use tonic::{Request, Response, Status};
 use tracing::error;
-
-use ratings::{
-    app::AppContext, features::chart::infrastructure::get_votes_summary,
-    features::pb::chart::Category, features::pb::chart::Timeframe,
-};
 
 /// An empty struct denoting that allows the building of a [`ChartServer`].
 #[derive(Copy, Clone, Debug, Default)]
@@ -45,7 +36,7 @@ impl Chart for ChartService {
         &self,
         request: Request<GetChartRequest>,
     ) -> Result<Response<GetChartResponse>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+        let ctx = request.extensions().get::<Context>().unwrap().clone();
 
         let GetChartRequest {
             timeframe,
@@ -62,7 +53,7 @@ impl Chart for ChartService {
 
         let timeframe = Timeframe::try_from(timeframe).unwrap_or(Timeframe::Unspecified);
 
-        let result = get_votes_summary(&app_ctx, timeframe, category)
+        let result = get_votes_summary(&ctx, timeframe, category)
             .await
             .map_err(|error| {
                 error!("{error:?}");
