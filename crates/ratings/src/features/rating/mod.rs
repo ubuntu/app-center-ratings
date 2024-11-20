@@ -5,6 +5,6 @@
 pub use service::RatingService;
 
 mod errors;
-mod infrastructure;
+pub mod infrastructure;
 mod service;
 mod use_cases;
