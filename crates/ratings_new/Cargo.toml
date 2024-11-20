@@ -30,6 +30,7 @@ tonic = "0.12.2"
 tonic-reflection = "0.12.2"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+strum = "0.26.3"
 
 [dev-dependencies]
 simple_test_case = "1.2.0"
