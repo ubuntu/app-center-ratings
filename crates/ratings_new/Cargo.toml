@@ -3,6 +3,14 @@ name = "ratings_new"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+# Used to prevent tests that need a running DB from executing unless explicitly requested
+# Annotate such tests with the following:
+#   #[cfg_attr(not(feature = "db_tests"), ignore)]
+#
+# Execute the tests using "cargo test --features db_tests"
+db_tests = []
+
 [dependencies]
 dotenvy = "0.15"
 envy = "0.4"
