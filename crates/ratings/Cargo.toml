@@ -30,6 +30,7 @@ rand = "0.8"
 reqwest = "0.12"
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0.114"
 sha2 = "0.10"
 snapd = { git = "https://github.com/ZoopOTheGoop/snapd-rs", branch = "framework" }
 sqlx = { version = "0.8", features = [
@@ -56,24 +57,3 @@ cucumber = { version = "0.20.2", features = ["libtest", "tracing"] }
 lazy_static = "1.4.0"
 regex = "1.10.3"
 serde_json = "1.0.114"
-
-
-[[test]]
-name = "voting"
-harness = false
-
-[[test]]
-name = "authentication"
-harness = false
-
-[[test]]
-name = "chart"
-harness = false
-
-[[test]]
-name = "log_level"
-harness = false
-
-[[test]]
-name = "api_info"
-harness = false
