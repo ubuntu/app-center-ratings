@@ -5,7 +5,7 @@ use crate::proto::user::{
 };
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
-use tracing::warn;
+use tracing::{error, warn};
 
 use ratings::{
     app::AppContext,
@@ -13,7 +13,7 @@ use ratings::{
         entities::{User as OldUser, Vote as OldVote},
         infrastructure::{
             create_or_seen_user, delete_user_by_client_hash, find_user_votes,
-            get_snap_votes_by_client_hash, save_vote_to_db, update_category,
+            get_snap_votes_by_client_hash, save_vote_to_db, update_categories,
         },
     },
     utils::jwt::Claims,
@@ -51,9 +51,9 @@ impl User for UserService {
     #[tracing::instrument(level = "debug")]
     async fn authenticate(
         &self,
-        request: Request<AuthenticateRequest>,
+        mut request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+        let app_ctx = request.extensions_mut().remove::<AppContext>().expect("Expected AppContext to be present");
         let AuthenticateRequest { id } = request.into_inner();
 
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
@@ -68,11 +68,7 @@ impl User for UserService {
 
         match create_or_seen_user(&app_ctx, user).await {
             Ok(user) => app_ctx
-                // FIXME:
-                // auth.rs can have this live in it. This is not related to grpc / infra call && is
-                // hard to follow
-                .infrastructure()
-                .jwt_encoder
+                .jwt_encoder()
                 .encode(user.client_hash)
                 // Match on the encode, build the ok / error varients in there, out of a chain.
                 .map(|token| AuthenticateResponse { token })
@@ -84,28 +80,35 @@ impl User for UserService {
 
     #[tracing::instrument(level = "debug", skip_all)] // skip_all skips logging what all the
                                                       // arguments were
-    async fn delete(&self, request: Request<()>) -> Result<Response<()>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+    async fn delete(&self, mut request: Request<()>) -> Result<Response<()>, Status> {
+        let app_ctx = request
+            .extensions_mut()
+            .remove::<AppContext>()
+            .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
-        } = claims(&request);
+        } = claims(&mut request);
 
         match delete_user_by_client_hash(&app_ctx, &client_hash).await {
             // FIXME (maybe?)
             // favor a into pattern if we do this in many places
             Ok(_) => Ok(Response::new(())),
-            // FIXME
-            // We are obscuring the error at this point. We should log what we obscured.
-            Err(_error) => Err(Status::unknown("Internal server error")),
+            Err(e) => {
+                error!("Error in delete_user_by_client_hash: {:?}", e);
+                Err(Status::unknown("Internal server error"))
+            }
         }
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
-    async fn vote(&self, request: Request<VoteRequest>) -> Result<Response<()>, Status> {
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+    async fn vote(&self, mut request: Request<VoteRequest>) -> Result<Response<()>, Status> {
+        let app_ctx = request
+            .extensions_mut()
+            .remove::<AppContext>()
+            .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
-        } = claims(&request);
+        } = claims(&mut request);
         let request = request.into_inner();
 
         let vote = OldVote {
@@ -117,23 +120,29 @@ impl User for UserService {
         };
 
         // Ignore but log warning, it's not fatal
-        update_category(&app_ctx, &vote.snap_id)
+        update_categories(&vote.snap_id, &app_ctx)
             .await
             .inspect_err(|e| warn!("{}", e));
 
         match save_vote_to_db(&app_ctx, vote).await {
             Ok(_) => Ok(Response::new(())),
-            Err(_error) => Err(Status::unknown("Internal server error")),
+
+            Err(e) => {
+                error!("Error in save_vote_to_db: {:?}", e);
+                Err(Status::unknown("Internal server error"))
+            }
         }
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
     async fn list_my_votes(
         &self,
-        request: Request<ListMyVotesRequest>,
+        mut request: Request<ListMyVotesRequest>,
     ) -> Result<Response<ListMyVotesResponse>, Status> {
-        // FIXME: see extensions_mut work elsewhere
-        let app_ctx = request.extensions().get::<AppContext>().unwrap().clone();
+        let app_ctx = request
+            .extensions_mut()
+            .remove::<AppContext>()
+            .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -153,9 +162,10 @@ impl User for UserService {
 
                 Ok(Response::new(payload))
             }
-            // FIXME:
-            // Obscuring error = log old one
-            Err(_error) => Err(Status::unknown("Internal server error")),
+            Err(e) => {
+                error!("Error in find_user_votes: {:?}", e);
+                Err(Status::unknown("Internal server error"))
+            }
         }
     }
 
@@ -165,17 +175,21 @@ impl User for UserService {
         mut request: Request<GetSnapVotesRequest>,
     ) -> Result<Response<GetSnapVotesResponse>, Status> {
         // FIXME: will turn into con macro
-        // NOTEME: expect.
-        let app_ctx = request.extensions_mut().remove::<AppContext>().expect("Expected AppContext to be present");
+        let app_ctx = request
+            .extensions_mut()
+            .remove::<AppContext>()
+            .expect("Expected AppContext to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
 
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
-        update_category(&app_ctx, &snap_id)
+        // Ignore but log warning, it's not fatal
+        update_categories(&snap_id, &app_ctx)
             .await
             .inspect_err(|e| warn!("{}", e));
+
         let result = get_snap_votes_by_client_hash(&app_ctx, snap_id, client_hash).await;
 
         match result {
@@ -185,24 +199,24 @@ impl User for UserService {
 
                 Ok(Response::new(payload))
             }
-            Err(_error) => Err(Status::unknown("Internal server error")),
+            Err(e) => {
+                error!("Error in get_snap_votes_by_client_hash: {:?}", e);
+                Err(Status::unknown("Internal server error"))},
         }
     }
 }
 
-// Into lives here, entity lives 
-// FIXME: Swap for From, you'll get into for free
-impl Into<Vote> for OldVote {
-    fn into(self) -> Vote {
+impl From<OldVote> for Vote {
+    fn from(value: OldVote) -> Vote {
         let timestamp = Some(prost_types::Timestamp {
-            seconds: self.timestamp.unix_timestamp(),
-            nanos: 0,
+            seconds: value.timestamp.unix_timestamp(),
+            nanos: value.timestamp.nanosecond() as i32,
         });
 
         Vote {
-            snap_id: self.snap_id,
-            snap_revision: self.snap_revision as i32,
-            vote_up: self.vote_up,
+            snap_id: value.snap_id,
+            snap_revision: value.snap_revision as i32,
+            vote_up: value.vote_up,
             timestamp,
         }
     }
