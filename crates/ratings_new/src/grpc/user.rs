@@ -123,7 +123,7 @@ impl User for UserService {
         };
 
         // Ignore but log warning, it's not fatal
-        update_categories(&vote.snap_id, &app_ctx)
+        let _ = update_categories(&vote.snap_id, &app_ctx)
             .await
             .inspect_err(|e| warn!("{}", e));
 
@@ -189,7 +189,7 @@ impl User for UserService {
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
         // Ignore but log warning, it's not fatal
-        update_categories(&snap_id, &app_ctx)
+        let _ = update_categories(&snap_id, &app_ctx)
             .await
             .inspect_err(|e| warn!("{}", e));
 

@@ -2423,6 +2423,7 @@ dependencies = [
  "jsonwebtoken",
  "prost 0.13.3",
  "prost-types 0.13.3",
+ "ratings",
  "reqwest",
  "secrecy",
  "serde",
