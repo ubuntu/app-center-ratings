@@ -2419,6 +2419,7 @@ version = "0.1.0"
 dependencies = [
  "dotenvy",
  "envy",
+ "git2",
  "jsonwebtoken",
  "prost 0.13.3",
  "prost-types 0.13.3",
