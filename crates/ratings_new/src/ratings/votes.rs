@@ -1,22 +1,16 @@
-// FIXME: Remove these dependencies
-use ratings::features::{chart::errors::ChartError, common::entities::VoteSummary, rating::errors::AppError, user::{
-    entities::Vote,
-    errors::UserError,
-}};
-
 use sqlx::PgConnection;
-use crate::Context;
-use ratings::{
-    features::pb::chart::Category,
-    features::pb::chart::Timeframe,
-};
+use crate::{db::vote::Vote, Context};
+use super::Error;
+
+// FIXME: Remove these dependencies
+use ratings::features::{common::entities::VoteSummary, pb::chart::{Category, Timeframe}};
 
 /// Saves a [`Vote`] to the database, if possible.
 pub async fn save_vote_to_db(
     app_ctx: &Context,
     vote: Vote,
     conn: &mut PgConnection,
-) -> Result<u64, UserError> {
+) -> Result<u64, Error> {
     todo!()
 }
 
@@ -28,7 +22,7 @@ pub async fn find_user_votes(
     client_hash: String,
     snap_id_filter: Option<String>,
     conn: &mut PgConnection,
-) -> Result<Vec<Vote>, UserError> {
+) -> Result<Vec<Vote>, Error> {
     todo!()
 }
 
@@ -40,7 +34,7 @@ pub async fn get_snap_votes_by_client_hash(
     snap_id: String,
     client_hash: String,
     conn: &mut PgConnection,
-) -> Result<Vec<Vote>, UserError> {
+) -> Result<Vec<Vote>, Error> {
     todo!()
 }
 
@@ -53,7 +47,7 @@ pub async fn get_votes_by_snap_id(
     app_ctx: &Context,
     snap_id: &str,
     conn: &mut PgConnection,
-) -> Result<VoteSummary, AppError> {
+) -> Result<VoteSummary, Error> {
     todo!()
 }
 
@@ -65,6 +59,6 @@ pub async fn get_votes_summary(
     timeframe: Timeframe,
     category: Option<Category>,
     conn: &mut PgConnection,
-) -> Result<Vec<VoteSummary>, ChartError> {
+) -> Result<Vec<VoteSummary>, Error> {
     todo!()
 }

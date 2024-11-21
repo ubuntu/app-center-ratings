@@ -1,8 +1,7 @@
 // FIXME: Remove these dependencies
-use ratings::features::user::entities::{User as OldUser, Vote as OldVote};
 use sqlx::PgConnection;
 
-use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash}, votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context};
+use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash}, votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context, db::user::User as DbUser, db::vote::Vote as DbVote};
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
@@ -63,7 +62,7 @@ impl User for UserService {
         }
         
         // FIXME: replace with new struct
-        let user = OldUser::new(&id);
+        let user = DbUser::new(&id);
 
         match create_or_seen_user(&ctx, user, &mut conn).await {
             Ok(user) => ctx
@@ -112,7 +111,7 @@ impl User for UserService {
         } = claims(&mut request);
         let request = request.into_inner();
 
-        let vote = OldVote {
+        let vote = DbVote {
             client_hash,
             snap_id: request.snap_id,
             snap_revision: request.snap_revision as u32,
@@ -210,8 +209,8 @@ impl User for UserService {
     }
 }
 
-impl From<OldVote> for Vote {
-    fn from(value: OldVote) -> Vote {
+impl From<DbVote> for Vote {
+    fn from(value: DbVote) -> Vote {
         let timestamp = Some(prost_types::Timestamp {
             seconds: value.timestamp.unix_timestamp(),
             nanos: value.timestamp.nanosecond() as i32,

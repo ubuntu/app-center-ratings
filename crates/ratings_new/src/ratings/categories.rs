@@ -6,33 +6,10 @@ use crate::{
 use serde::{de::DeserializeOwned, Deserialize};
 use sqlx::PgConnection;
 use std::sync::Arc;
-use thiserror::Error;
 use tokio::sync::Notify;
 use tracing::error;
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error(transparent)]
-    Db(#[from] crate::db::Error),
-
-    #[error(transparent)]
-    Envy(#[from] envy::Error),
-
-    #[error(transparent)]
-    Sqlx(#[from] sqlx::Error),
-
-    #[error(transparent)]
-    Strum(#[from] strum::ParseError),
-
-    #[error("invalid url: {0}")]
-    InvalidUrl(String),
-
-    #[error(transparent)]
-    SnapcraftIo(#[from] reqwest::Error),
-
-    #[error(transparent)]
-    Json(#[from] serde_json::Error),
-}
+use super::Error;
 
 /// Update the categories for a given snap.
 ///
