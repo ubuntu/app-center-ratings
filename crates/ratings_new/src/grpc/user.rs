@@ -53,14 +53,10 @@ impl user_server::User for UserService {
         }
 
         match User::create_or_seen(&id, conn!()).await {
-            Ok(user) => {
-                let token = match self.ctx.jwt_encoder.encode(user.client_hash) {
-                    Ok(token) => token,
-                    Err(_) => return Err(Status::internal("internal error")),
-                };
-
-                Ok(Response::new(AuthenticateResponse { token }))
-            }
+            Ok(user) => match self.ctx.jwt_encoder.encode(user.client_hash) {
+                Ok(token) => Ok(Response::new(AuthenticateResponse { token })),
+                Err(_) => Err(Status::internal("internal error")),
+            },
 
             Err(_error) => Err(Status::invalid_argument("id")),
         }
