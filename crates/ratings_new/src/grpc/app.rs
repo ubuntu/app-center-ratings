@@ -3,9 +3,9 @@
 // FIXME: Remove these dependencies
 use ratings::features::common::entities::Rating as OldRating;
 
+use crate::proto::common::Rating;
 use crate::ratings::votes::get_votes_by_snap_id;
 use crate::{proto::app::app_server::AppServer, Context};
-use crate::proto::common::Rating;
 
 use sqlx::PgConnection;
 //replace
@@ -41,8 +41,14 @@ impl App for RatingService {
         &self,
         mut request: Request<GetRatingRequest>,
     ) -> Result<tonic::Response<GetRatingResponse>, Status> {
-        let ctx = request.extensions_mut().remove::<Context>().expect("Expected Context to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let ctx = request
+            .extensions_mut()
+            .remove::<Context>()
+            .expect("Expected Context to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
 
         let GetRatingRequest { snap_id } = request.into_inner();
 
@@ -51,7 +57,7 @@ impl App for RatingService {
         }
 
         // let result = use_cases::get_rating(&app_ctx, snap_id).await;
-        
+
         match get_votes_by_snap_id(&ctx, &snap_id, &mut conn).await {
             Ok(votes) => {
                 let rating = OldRating::new(votes);
@@ -60,16 +66,16 @@ impl App for RatingService {
                 };
                 Ok(Response::new(payload))
             }
-            Err(e) => 
-            {
+            Err(e) => {
                 error!("Error calling get_votes_by_snap_id: {:?}", e);
-                Err(Status::unknown("Internal server error")) },
+                Err(Status::unknown("Internal server error"))
+            }
         }
     }
 }
 
-impl From<OldRating> for Rating{
-    fn from(value: OldRating) -> Rating{
+impl From<OldRating> for Rating {
+    fn from(value: OldRating) -> Rating {
         Rating {
             snap_id: value.snap_id,
             total_votes: value.total_votes,

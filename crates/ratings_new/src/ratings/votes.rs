@@ -1,9 +1,12 @@
-use sqlx::PgConnection;
-use crate::{db::vote::Vote, Context};
 use super::Error;
+use crate::{db::vote::Vote, Context};
+use sqlx::PgConnection;
 
 // FIXME: Remove these dependencies
-use ratings::features::{common::entities::VoteSummary, pb::chart::{Category, Timeframe}};
+use ratings::features::{
+    common::entities::VoteSummary,
+    pb::chart::{Category, Timeframe},
+};
 
 /// Saves a [`Vote`] to the database, if possible.
 pub async fn save_vote_to_db(
