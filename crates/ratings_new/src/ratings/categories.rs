@@ -1,15 +1,14 @@
 //! Updating snap categories from data in snapcraft.io
 use crate::{
     db::{set_categories_for_snap, snap_has_categories, Category},
-    Config, Context,
+    ratings::Error,
+    Context,
 };
 use serde::{de::DeserializeOwned, Deserialize};
 use sqlx::PgConnection;
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tracing::error;
-
-use super::Error;
 
 /// Update the categories for a given snap.
 ///
@@ -51,7 +50,7 @@ pub async fn update_categories(
     // We can't early return while holding the Notifier as that will leave any waiting tasks
     // blocked. Rather than attempt to retry at this stage we allow for stale category data
     // until a new task attempts to get data for the same snap.
-    let base = &Config::get().await?.snapcraft_io_uri;
+    let base = &ctx.config.snapcraft_io_uri;
     if let Err(e) = update_categories_inner(snap_id, base, &ctx.http_client, conn).await {
         error!(%snap_id, "unable to update snap categories: {e}");
     }
