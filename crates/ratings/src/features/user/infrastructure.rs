@@ -18,10 +18,7 @@ use crate::{
 
 /// Create a [`User`] entry, or note that the user has recently been seen, within the current
 /// [`AppContext`].
-pub(crate) async fn create_or_seen_user(
-    app_ctx: &AppContext,
-    user: User,
-) -> Result<User, UserError> {
+pub async fn create_or_seen_user(app_ctx: &AppContext, user: User) -> Result<User, UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -62,7 +59,7 @@ pub(crate) async fn create_or_seen_user(
 /// Deletes a [`User`] with the given [`ClientHash`]
 ///
 /// [`ClientHash`]: crate::features::user::entities::ClientHash
-pub(crate) async fn delete_user_by_client_hash(
+pub async fn delete_user_by_client_hash(
     app_ctx: &AppContext,
     client_hash: &str,
 ) -> Result<u64, UserError> {
@@ -95,7 +92,7 @@ pub(crate) async fn delete_user_by_client_hash(
 /// Gets votes for a snap with the given ID from a given [`ClientHash`]
 ///
 /// [`ClientHash`]: crate::features::user::entities::ClientHash
-pub(crate) async fn get_snap_votes_by_client_hash(
+pub async fn get_snap_votes_by_client_hash(
     app_ctx: &AppContext,
     snap_id: String,
     client_hash: String,
@@ -153,7 +150,7 @@ pub(crate) async fn get_snap_votes_by_client_hash(
 }
 
 /// Saves a [`Vote`] to the database, if possible.
-pub(crate) async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
+pub async fn save_vote_to_db(app_ctx: &AppContext, vote: Vote) -> Result<u64, UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -267,10 +264,7 @@ async fn get_snap_categories(
 /// In the case where we do not have categories, we need to fetch them and store them in the DB.
 /// This is racey without coordination so we check to see if any other tasks are currently attempting
 /// this and block on them completing if they are, if not then we set up the Notify and they block on us.
-pub(crate) async fn update_categories(
-    snap_id: &str,
-    app_ctx: &AppContext,
-) -> Result<(), UserError> {
+pub async fn update_categories(snap_id: &str, app_ctx: &AppContext) -> Result<(), UserError> {
     let mut pool = app_ctx
         .infrastructure()
         .repository()
@@ -366,7 +360,7 @@ async fn update_categories_inner(
 /// Retrieve all votes for a given [`User`], within the current [`AppContext`].
 ///
 /// May be filtered for a given snap ID.
-pub(crate) async fn find_user_votes(
+pub async fn find_user_votes(
     app_ctx: &AppContext,
     client_hash: String,
     snap_id_filter: Option<String>,

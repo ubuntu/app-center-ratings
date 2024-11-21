@@ -14,7 +14,7 @@ use tracing::error;
 
 /// Retrieves the vote summary in the given [`AppContext`] over a given [`Timeframe`]
 /// from the database.
-pub(crate) async fn get_votes_summary(
+pub async fn get_votes_summary(
     app_ctx: &AppContext,
     timeframe: Timeframe,
     category: Option<Category>,

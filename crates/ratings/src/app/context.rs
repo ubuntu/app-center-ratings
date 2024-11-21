@@ -2,10 +2,10 @@
 
 use std::sync::Arc;
 
-use crate::utils::{Config, Infrastructure};
+use crate::utils::{jwt::JwtEncoder, Config, Infrastructure};
 
 /// An atomically reference counted app state.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppContext(Arc<AppContextInner>);
 
 #[allow(dead_code)]
@@ -14,10 +14,13 @@ impl AppContext {
     ///
     /// The [`Config`] will be cloned.
     pub fn new(config: &Config, infra: Infrastructure) -> Self {
+        let jwt_encoder = JwtEncoder::from_config(config).unwrap();
+        let jwt_encoder = Arc::new(jwt_encoder);
         let inner = AppContextInner {
             infra,
             config: config.clone(),
             http_client: reqwest::Client::new(),
+            jwt_encoder,
         };
 
         Self(Arc::new(inner))
@@ -37,11 +40,15 @@ impl AppContext {
     pub fn http_client(&self) -> &reqwest::Client {
         &self.0.http_client
     }
+
+    /// A reference to the JWT Encoder
+    pub fn jwt_encoder(&self) -> &JwtEncoder {
+        &self.0.jwt_encoder
+    }
 }
 
 /// Contains the overall state and configuration of the app, only meant to be used
 /// in terms of the [`AppContext`].
-#[derive(Debug)]
 struct AppContextInner {
     /// Contains JWT and postgres infrastructure for the app.
     infra: Infrastructure,
@@ -49,4 +56,6 @@ struct AppContextInner {
     config: Config,
     /// An HTTP client for pulling data from snapcraft.io
     http_client: reqwest::Client,
+    /// A JWT encoder for authentication
+    jwt_encoder: Arc<JwtEncoder>,
 }

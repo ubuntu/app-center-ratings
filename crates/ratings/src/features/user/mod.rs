@@ -4,7 +4,7 @@ pub mod entities;
 
 pub use service::UserService;
 
-mod errors;
-mod infrastructure;
-mod service;
-mod use_cases;
+pub mod errors;
+pub mod infrastructure;
+pub mod service;
+pub mod use_cases;

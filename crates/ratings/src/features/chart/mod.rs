@@ -4,7 +4,7 @@ pub mod entities;
 
 pub use service::ChartService;
 
-mod errors;
-mod infrastructure;
+pub mod errors;
+pub mod infrastructure;
 mod service;
 mod use_cases;
