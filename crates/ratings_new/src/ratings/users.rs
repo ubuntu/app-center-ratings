@@ -1,11 +1,8 @@
 // FIXME: Remove these dependencies
-use ratings::features::user::{
-    entities::{User, Vote},
-    errors::UserError,
-};
 use sqlx::PgConnection;
 
-use crate::Context;
+use crate::{db::{user::User, vote::Vote}, Context};
+use super::Error;
 
 /// Create a [`User`] entry, or note that the user has recently been seen, within the current
 /// [`AppContext`].
@@ -13,7 +10,7 @@ pub async fn create_or_seen_user(
     ctx: &Context,
     user: User,
     conn: &mut PgConnection,
-) -> Result<User, UserError> {
+) -> Result<User, Error> {
     todo!()
 }
 
@@ -24,7 +21,7 @@ pub async fn delete_user_by_client_hash(
     ctx: &Context,
     client_hash: &str,
     conn: &mut PgConnection,
-) -> Result<u64, UserError> {
+) -> Result<u64, Error> {
     todo!()
 }
 
@@ -33,7 +30,8 @@ pub async fn save_vote_to_db(
     app_ctx: &Context,
     vote: Vote,
     conn: &mut PgConnection,
-) -> Result<u64, UserError> {
+) -> Result<u64, Error> {
+    let _ = vote;
     todo!()
 }
 
@@ -45,7 +43,7 @@ pub async fn find_user_votes(
     client_hash: String,
     snap_id_filter: Option<String>,
     conn: &mut PgConnection,
-) -> Result<Vec<Vote>, UserError> {
+) -> Result<Vec<Vote>, Error> {
     todo!()
 }
 
@@ -57,6 +55,6 @@ pub async fn get_snap_votes_by_client_hash(
     snap_id: String,
     client_hash: String,
     conn: &mut PgConnection,
-) -> Result<Vec<Vote>, UserError> {
+) -> Result<Vec<Vote>, Error> {
     todo!()
 }
