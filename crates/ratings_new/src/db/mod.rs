@@ -14,7 +14,7 @@ use migrator::Migrator;
 #[macro_export]
 macro_rules! conn {
     { } => {
-        &mut *($crate::db::get_pool().await?.acquire().await?)
+        &mut *($crate::db::get_pool().await?.acquire().await.map_err($crate::db::Error::from)?)
     }
 }
 

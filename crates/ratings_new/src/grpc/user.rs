@@ -1,22 +1,35 @@
+use std::sync::Arc;
+
 // FIXME: Remove these dependencies
 use sqlx::PgConnection;
 
-use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash}, votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context, db::user::User as DbUser, db::vote::Vote as DbVote};
-use crate::proto::user::{
+use crate::{conn, proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
     ListMyVotesRequest, ListMyVotesResponse, Vote, VoteRequest,
+}};
+use crate::{
+    context::Claims,
+    db::user::User as DbUser,
+    db::vote::Vote as DbVote,
+    ratings::{
+        categories::update_categories,
+        users::{create_or_seen_user, delete_user_by_client_hash},
+        votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db},
+    },
+    Context,
 };
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
-use tracing::{error, warn};
 
 /// The length we expect a client hash to be, in bytes
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
 
 /// An empty struct used to construct a [`UserServer`]
-#[derive(Copy, Clone, Debug, Default)]
-pub struct UserService;
+#[derive(Clone)]
+pub struct UserService {
+    ctx: Arc<Context>,
+}
 // Store jwt encoder here. If needed in multiple places, arc it.
 
 impl UserService {
@@ -40,17 +53,12 @@ impl From<UserService> for UserServer<UserService> {
 
 #[tonic::async_trait]
 impl User for UserService {
-    #[tracing::instrument(level = "debug")]
     async fn authenticate(
         &self,
-        mut request: Request<AuthenticateRequest>,
+        request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected AppContext to be present");
         // TODO: is there where we expect the pg_connection?
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let mut conn = conn!();
         let AuthenticateRequest { id } = request.into_inner();
 
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
@@ -60,12 +68,12 @@ impl User for UserService {
             );
             return Err(Status::invalid_argument(error));
         }
-        
+
         // FIXME: replace with new struct
         let user = DbUser::new(&id);
 
-        match create_or_seen_user(&ctx, user, &mut conn).await {
-            Ok(user) => ctx
+        match create_or_seen_user(user, &self.ctx, &mut conn).await {
+            Ok(user) => self.ctx
                 .jwt_encoder
                 .encode(user.client_hash)
                 // Match on the encode, build the ok / error varients in there, out of a chain.
@@ -76,14 +84,15 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all)] // skip_all skips logging what all the
-                                                      // arguments were
     async fn delete(&self, mut request: Request<()>) -> Result<Response<()>, Status> {
         let ctx = request
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -99,13 +108,15 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
     async fn vote(&self, mut request: Request<VoteRequest>) -> Result<Response<()>, Status> {
         let ctx = request
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -134,7 +145,6 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
     async fn list_my_votes(
         &self,
         mut request: Request<ListMyVotesRequest>,
@@ -143,7 +153,10 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -170,7 +183,6 @@ impl User for UserService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
     async fn get_snap_votes(
         &self,
         mut request: Request<GetSnapVotesRequest>,
@@ -180,7 +192,10 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);

@@ -18,10 +18,7 @@ use sqlx::PgConnection;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
-use ratings::{
-    features::pb::chart::Category,
-    features::pb::chart::Timeframe,
-};
+use ratings::{features::pb::chart::Category, features::pb::chart::Timeframe};
 
 /// An empty struct denoting that allows the building of a [`ChartServer`].
 #[derive(Copy, Clone, Debug, Default)]
@@ -50,8 +47,14 @@ impl Chart for ChartService {
         &self,
         mut request: Request<GetChartRequest>,
     ) -> Result<Response<GetChartResponse>, Status> {
-        let ctx = request.extensions_mut().remove::<Context>().expect("Expected Context to be present");
-        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
+        let ctx = request
+            .extensions_mut()
+            .remove::<Context>()
+            .expect("Expected Context to be present");
+        let mut conn = request
+            .extensions_mut()
+            .remove::<PgConnection>()
+            .expect("Expected PgConnection to be present");
 
         let GetChartRequest {
             timeframe,
