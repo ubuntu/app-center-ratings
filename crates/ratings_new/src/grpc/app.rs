@@ -1,25 +1,20 @@
-// FIXME: Remove these dependencies
-use ratings::features::common::entities::Rating as OldRating;
-
 use crate::{
     conn,
+    db::VoteSummary,
     proto::{
         app::{
             app_server::{App, AppServer},
             GetRatingRequest, GetRatingResponse,
         },
-        common::Rating,
+        common::Rating as PbRating,
     },
-    ratings::votes::get_votes_by_snap_id,
-    Context,
+    ratings::Rating,
 };
-
+use tonic::{Request, Response, Status};
 use tracing::error;
 
-use tonic::{Request, Response, Status};
-
 /// The general service governing retrieving ratings for the store app.
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Clone)]
 pub struct RatingService;
 
 impl RatingService {
@@ -28,13 +23,7 @@ impl RatingService {
 
     /// Converts this service into its corresponding server
     pub fn to_server(self) -> AppServer<RatingService> {
-        self.into()
-    }
-}
-
-impl From<RatingService> for AppServer<RatingService> {
-    fn from(value: RatingService) -> Self {
-        AppServer::new(value)
+        AppServer::new(self)
     }
 }
 
@@ -42,42 +31,34 @@ impl From<RatingService> for AppServer<RatingService> {
 impl App for RatingService {
     async fn get_rating(
         &self,
-        mut request: Request<GetRatingRequest>,
+        request: Request<GetRatingRequest>,
     ) -> Result<tonic::Response<GetRatingResponse>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected Context to be present");
-        let conn = conn!();
         let GetRatingRequest { snap_id } = request.into_inner();
-
         if snap_id.is_empty() {
             return Err(Status::invalid_argument("snap id"));
         }
 
-        match get_votes_by_snap_id(&ctx, &snap_id, conn).await {
+        match VoteSummary::get_by_snap_id(&snap_id, conn!()).await {
             Ok(votes) => {
-                let rating = OldRating::new(votes);
-                let payload = GetRatingResponse {
-                    rating: Some(rating.into()),
-                };
-                Ok(Response::new(payload))
+                let Rating {
+                    snap_id,
+                    total_votes,
+                    ratings_band,
+                } = Rating::from(votes);
+
+                Ok(Response::new(GetRatingResponse {
+                    rating: Some(PbRating {
+                        snap_id,
+                        total_votes,
+                        ratings_band: ratings_band as i32,
+                    }),
+                }))
             }
+
             Err(e) => {
                 error!("Error calling get_votes_by_snap_id: {:?}", e);
                 Err(Status::unknown("Internal server error"))
             }
-        }
-    }
-}
-
-// FIXME: Remove
-impl From<OldRating> for Rating {
-    fn from(value: OldRating) -> Rating {
-        Rating {
-            snap_id: value.snap_id,
-            total_votes: value.total_votes,
-            ratings_band: value.ratings_band as i32,
         }
     }
 }

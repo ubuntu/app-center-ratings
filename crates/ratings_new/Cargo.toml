@@ -30,11 +30,9 @@ tonic = "0.12.2"
 tonic-reflection = "0.12.2"
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
-ratings = {path = "../ratings"}
 
 [dev-dependencies]
 simple_test_case = "1.2.0"
 
 [build-dependencies]
-git2 = { version = "0.18.2", default-features = false }
 tonic-build = { version = "0.11", features = ["prost"] }

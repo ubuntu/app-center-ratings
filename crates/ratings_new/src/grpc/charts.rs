@@ -1,25 +1,19 @@
 use crate::{
     conn,
-    proto::chart::{
-        chart_server::{Chart, ChartServer},
-        ChartData, GetChartRequest, GetChartResponse,
+    db::{Category, Timeframe, VoteSummary},
+    proto::{
+        chart::{
+            chart_server::{self, ChartServer},
+            ChartData as PbChartData, GetChartRequest, GetChartResponse,
+        },
+        common::{Rating as PbRating, RatingsBand as PbRatingsBand},
     },
-    ratings::votes::get_votes_summary,
-    Context,
+    ratings::{Chart, ChartData, Rating, RatingsBand},
 };
-
-// FIXME: remove these dependencies
-use ratings::features::chart::{
-    entities::{Chart as OldChart, ChartData as OldChartData},
-    errors::ChartError,
-};
-use ratings::{features::pb::chart::Category, features::pb::chart::Timeframe};
-
 use tonic::{Request, Response, Status};
 use tracing::error;
 
-/// An empty struct denoting that allows the building of a [`ChartServer`].
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug)]
 pub struct ChartService;
 
 impl ChartService {
@@ -28,84 +22,85 @@ impl ChartService {
 
     /// Converts this service into its corresponding server
     pub fn to_server(self) -> ChartServer<ChartService> {
-        self.into()
-    }
-}
-
-impl From<ChartService> for ChartServer<ChartService> {
-    fn from(value: ChartService) -> Self {
-        ChartServer::new(value)
+        ChartServer::new(self)
     }
 }
 
 #[tonic::async_trait]
-impl Chart for ChartService {
+impl chart_server::Chart for ChartService {
     async fn get_chart(
         &self,
-        mut request: Request<GetChartRequest>,
+        request: Request<GetChartRequest>,
     ) -> Result<Response<GetChartResponse>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected Context to be present");
-        let conn = conn!();
         let GetChartRequest {
             timeframe,
             category,
         } = request.into_inner();
 
         let category = match category {
-            Some(category) => Some(
-                Category::try_from(category)
-                    .map_err(|_| Status::invalid_argument("invalid category value"))?,
+            Some(c) => Some(
+                Category::from_repr(c).ok_or(Status::invalid_argument("invalid category value"))?,
             ),
             None => None,
         };
 
-        let timeframe = Timeframe::try_from(timeframe).unwrap_or(Timeframe::Unspecified);
-
-        let result = get_votes_summary(&ctx, timeframe, category, conn)
-            .await
-            .map_err(|error| {
-                error!("{error:?}");
-                ChartError::Unknown
-            });
+        let timeframe = Timeframe::from_repr(timeframe).unwrap_or(Timeframe::Unspecified);
+        let result = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await;
 
         match result {
-            Ok(c) => {
-                let chart = OldChart::new(timeframe, c);
-                let ordered_chart_data = chart
-                    .chart_data
-                    .into_iter()
-                    .map(|chart_data| chart_data.into())
-                    .collect();
+            Ok(summaries) if summaries.is_empty() => {
+                Err(Status::not_found("Cannot find data for given timeframe."))
+            }
+
+            Ok(summaries) => {
+                let chart = Chart::new(timeframe, summaries);
+                let ordered_chart_data = chart.data.into_iter().map(|cd| cd.into()).collect();
 
                 let payload = GetChartResponse {
-                    timeframe: timeframe.into(),
-                    category: category.map(|v| v.into()),
+                    timeframe: timeframe as i32,
+                    category: category.map(|c| c as i32),
                     ordered_chart_data,
                 };
+
                 Ok(Response::new(payload))
             }
+
             Err(e) => {
-                error!("Error in get_votes_summary: {:?}", e);
-                match e {
-                    ChartError::NotFound => {
-                        Err(Status::not_found("Cannot find data for given timeframe."))
-                    }
-                    _ => Err(Status::unknown("Internal server error")),
-                }
+                error!("unable to fetch vote summary: {e}");
+                Err(Status::unknown("Internal server error"))
             }
         }
     }
 }
 
-// FIXME: replace with types from db refactor when that is merged in.
-impl From<OldChartData> for ChartData {
-    fn from(value: OldChartData) -> ChartData {
-        ChartData {
+impl From<ChartData> for PbChartData {
+    fn from(value: ChartData) -> Self {
+        Self {
             raw_rating: value.raw_rating,
             rating: Some(value.rating.into()),
+        }
+    }
+}
+
+impl From<Rating> for PbRating {
+    fn from(r: Rating) -> Self {
+        Self {
+            snap_id: r.snap_id,
+            total_votes: r.total_votes,
+            ratings_band: r.ratings_band as i32,
+        }
+    }
+}
+
+impl From<RatingsBand> for PbRatingsBand {
+    fn from(rb: RatingsBand) -> Self {
+        match rb {
+            RatingsBand::VeryGood => Self::VeryGood,
+            RatingsBand::Good => Self::Good,
+            RatingsBand::Neutral => Self::Neutral,
+            RatingsBand::Poor => Self::Poor,
+            RatingsBand::VeryPoor => Self::VeryPoor,
+            RatingsBand::InsufficientVotes => Self::InsufficientVotes,
         }
     }
 }

@@ -1,6 +1,6 @@
 //! Updating snap categories from data in snapcraft.io
 use crate::{
-    db::categories::{set_categories_for_snap, snap_has_categories, Category},
+    db::{set_categories_for_snap, snap_has_categories, Category},
     Config, Context,
 };
 use serde::{de::DeserializeOwned, Deserialize};
