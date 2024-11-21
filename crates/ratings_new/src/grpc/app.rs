@@ -1,7 +1,13 @@
 //! Contains generation and definitions for the [`AppService`]
+
+// FIXME: Remove these dependencies
+use ratings::features::common::entities::Rating as OldRating;
+
+use crate::ratings::votes::get_votes_by_snap_id;
 use crate::{proto::app::app_server::AppServer, Context};
 use crate::proto::common::Rating;
 
+use sqlx::PgConnection;
 //replace
 use tracing::error;
 
@@ -33,9 +39,10 @@ impl App for RatingService {
     #[tracing::instrument(level = "debug")]
     async fn get_rating(
         &self,
-        request: Request<GetRatingRequest>,
+        mut request: Request<GetRatingRequest>,
     ) -> Result<tonic::Response<GetRatingResponse>, Status> {
-        let ctx = request.extensions().get::<Context>().unwrap().clone();
+        let ctx = request.extensions_mut().remove::<Context>().expect("Expected Context to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
 
         let GetRatingRequest { snap_id } = request.into_inner();
 
@@ -45,7 +52,7 @@ impl App for RatingService {
 
         // let result = use_cases::get_rating(&app_ctx, snap_id).await;
         
-        match get_votes_by_snap_id(&ctx, &snap_id).await {
+        match get_votes_by_snap_id(&ctx, &snap_id, &mut conn).await {
             Ok(votes) => {
                 let rating = OldRating::new(votes);
                 let payload = GetRatingResponse {
