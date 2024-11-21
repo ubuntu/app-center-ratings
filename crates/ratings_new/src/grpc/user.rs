@@ -2,7 +2,7 @@
 use ratings::features::user::entities::{User as OldUser, Vote as OldVote};
 use sqlx::PgConnection;
 
-use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash, find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context};
+use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash}, votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context};
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,

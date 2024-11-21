@@ -1,13 +1,27 @@
 //! Definitions and utilities for building the [`ChartService`] for using the [`Chart`] feature.
 //!
 //! [`Chart`]: crate::features::chart::entities::Chart
-use crate::{proto::chart::{
+use crate::{
+    proto::chart::{
         chart_server::{Chart, ChartServer},
         ChartData, GetChartRequest, GetChartResponse,
-    }, Context};
+    },
+    ratings::votes::get_votes_summary,
+    Context,
+};
+use ratings::features::chart::{
+    entities::{Chart as OldChart, ChartData as OldChartData},
+    errors::ChartError,
+};
 
+use sqlx::PgConnection;
 use tonic::{Request, Response, Status};
 use tracing::error;
+
+use ratings::{
+    features::pb::chart::Category,
+    features::pb::chart::Timeframe,
+};
 
 /// An empty struct denoting that allows the building of a [`ChartServer`].
 #[derive(Copy, Clone, Debug, Default)]
@@ -34,9 +48,10 @@ impl Chart for ChartService {
     #[tracing::instrument]
     async fn get_chart(
         &self,
-        request: Request<GetChartRequest>,
+        mut request: Request<GetChartRequest>,
     ) -> Result<Response<GetChartResponse>, Status> {
-        let ctx = request.extensions().get::<Context>().unwrap().clone();
+        let ctx = request.extensions_mut().remove::<Context>().expect("Expected Context to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
 
         let GetChartRequest {
             timeframe,
@@ -53,7 +68,7 @@ impl Chart for ChartService {
 
         let timeframe = Timeframe::try_from(timeframe).unwrap_or(Timeframe::Unspecified);
 
-        let result = get_votes_summary(&ctx, timeframe, category)
+        let result = get_votes_summary(&ctx, timeframe, category, &mut conn)
             .await
             .map_err(|error| {
                 error!("{error:?}");
