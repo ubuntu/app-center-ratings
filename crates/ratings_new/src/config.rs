@@ -2,9 +2,6 @@
 use dotenvy::dotenv;
 use secrecy::SecretString;
 use serde::Deserialize;
-use tokio::sync::OnceCell;
-
-static CONFIG: OnceCell<Config> = OnceCell::const_new();
 
 /// Configuration for the general app center ratings backend service.
 #[derive(Deserialize, Debug, Clone)]
@@ -33,10 +30,6 @@ impl Config {
         dotenv().ok();
 
         envy::prefixed("APP_").from_env::<Config>()
-    }
-
-    pub async fn get() -> envy::Result<&'static Config> {
-        CONFIG.get_or_try_init(|| async { Config::load() }).await
     }
 
     /// Return a [`String`] representing the socket to run the service on

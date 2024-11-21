@@ -1,5 +1,5 @@
-use super::{ClientHash, Error, Result};
-use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection};
+use crate::db::{categories::Category, ClientHash, Error, Result};
+use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection, QueryBuilder};
 use tracing::error;
 
 /// A Vote, as submitted by a user
@@ -19,12 +19,12 @@ pub struct Vote {
     pub timestamp: OffsetDateTime,
 }
 
-/// Gets votes for a snap with the given ID from a given [`ClientHash`]
-///
-/// [`ClientHash`]: crate::db::ClientHash
 impl Vote {
+    /// Gets votes for a snap with the given ID from a given [`ClientHash`]
+    ///
+    /// [`ClientHash`]: crate::db::ClientHash
     pub async fn get_all_by_client_hash(
-        client_hash: String,
+        client_hash: &str,
         snap_id_filter: Option<String>,
         conn: &mut PgConnection,
     ) -> Result<Vec<Vote>> {
@@ -83,5 +83,92 @@ impl Vote {
         })?;
 
         Ok(result.rows_affected())
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::FromRepr)]
+#[repr(i32)]
+pub enum Timeframe {
+    Unspecified,
+    Week,
+    Month,
+}
+
+/// A summary of votes for a given snap, this is then aggregated before transfer.
+#[derive(Debug, Clone, FromRow)]
+pub struct VoteSummary {
+    /// The ID of the snap being checked.
+    pub snap_id: String,
+    /// The total votes this snap has received.
+    pub total_votes: i64,
+    /// The number of the votes which are positive.
+    pub positive_votes: i64,
+}
+
+impl VoteSummary {
+    pub async fn get_by_snap_id(snap_id: &str, conn: &mut PgConnection) -> Result<VoteSummary> {
+        let result: Option<VoteSummary> = sqlx::query_as(
+            r#"
+            SELECT
+                votes.snap_id,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes
+            WHERE
+                votes.snap_id = $1
+            GROUP BY votes.snap_id
+        "#,
+        )
+        .bind(snap_id)
+        .fetch_optional(conn)
+        .await?;
+
+        let summary = result.unwrap_or_else(|| VoteSummary {
+            snap_id: snap_id.to_string(),
+            total_votes: 0,
+            positive_votes: 0,
+        });
+
+        Ok(summary)
+    }
+
+    /// Retrieves the vote summary over a given [Timeframe], optionally for a specific [Category]
+    pub async fn get_for_timeframe(
+        timeframe: Timeframe,
+        category: Option<Category>,
+        conn: &mut PgConnection,
+    ) -> Result<Vec<VoteSummary>> {
+        let mut builder = QueryBuilder::new(
+            r"
+            SELECT
+                votes.snap_id,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes",
+        );
+
+        builder.push(match timeframe {
+            Timeframe::Week => " WHERE votes.created >= NOW() - INTERVAL '1 week'",
+            Timeframe::Month => " WHERE votes.created >= NOW() - INTERVAL '1 month'",
+            Timeframe::Unspecified => "",
+        });
+
+        if let Some(category) = category {
+            builder
+                .push(
+                    r" 
+                    WHERE votes.snap_id IN (
+                    SELECT snap_categories.snap_id FROM snap_categories 
+                    WHERE snap_categories.category = $1)",
+                )
+                .push_bind(category);
+        }
+
+        builder.push(" GROUP BY votes.snap_id");
+        let summaries = builder.build_query_as().fetch_all(conn).await?;
+
+        Ok(summaries)
     }
 }
