@@ -36,6 +36,8 @@ pub enum Error {
     /// The user was unable to cast a vote
     #[error("failed to cast vote")]
     FailedToCastVote,
+    #[error(transparent)]
+    Migration(#[from] sqlx::migrate::MigrateError),
     /// An error that occurred in category updating
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
@@ -58,20 +60,17 @@ pub async fn init_pool_from_uri(postgres_uri: &str) -> Result<PgPool> {
     Ok(pool)
 }
 
-pub async fn init_pool_from_uri_and_migrate(postgres_uri: &str) -> Result<PgPool> {
-    let pool = init_pool_from_uri(postgres_uri).await?;
+pub async fn init_pool_from_uri_and_migrate() -> Result<PgPool> {
+    let config = Config::load()?;
+    let pool = init_pool_from_uri(&config.postgres_uri).await?;
     info!("Running DB migrations");
-    let migrator = Migrator::new(postgres_uri).await?;
-    migrator.run().await?;
+    sqlx::migrate!("sql/migrations").run(&pool).await?;
 
     Ok(pool)
 }
 
 pub async fn get_pool() -> Result<&'static PgPool> {
-    let config = Config::get().await?;
-    let pool = POOL
-        .get_or_try_init(|| init_pool_from_uri_and_migrate(&config.postgres_uri))
-        .await?;
+    let pool = POOL.get_or_try_init(init_pool_from_uri_and_migrate).await?;
 
     Ok(pool)
 }

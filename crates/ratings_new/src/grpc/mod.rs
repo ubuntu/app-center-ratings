@@ -7,6 +7,6 @@ pub mod user;
 
 impl From<db::Error> for Status {
     fn from(value: db::Error) -> Self {
-       Status::internal(value.to_string())
+        Status::internal(value.to_string())
     }
 }
