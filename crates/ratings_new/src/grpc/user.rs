@@ -1,5 +1,8 @@
-use crate::Context;
+// FIXME: Remove these dependencies
+use ratings::features::user::entities::{User as OldUser, Vote as OldVote};
+use sqlx::PgConnection;
 
+use crate::{context::Claims, ratings::{categories::update_categories, users::{create_or_seen_user, delete_user_by_client_hash, find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db}}, Context};
 use crate::proto::user::{
     user_server::{User, UserServer},
     AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
@@ -47,6 +50,8 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
+        // TODO: is there where we expect the pg_connection?
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
         let AuthenticateRequest { id } = request.into_inner();
 
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
@@ -56,10 +61,11 @@ impl User for UserService {
             );
             return Err(Status::invalid_argument(error));
         }
-
+        
+        // FIXME: replace with new struct
         let user = OldUser::new(&id);
 
-        match create_or_seen_user(&ctx, user).await {
+        match create_or_seen_user(&ctx, user, &mut conn).await {
             Ok(user) => ctx
                 .jwt_encoder
                 .encode(user.client_hash)
@@ -78,11 +84,12 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
 
-        match delete_user_by_client_hash(&ctx, &client_hash).await {
+        match delete_user_by_client_hash(&ctx, &client_hash, &mut conn).await {
             // FIXME (maybe?)
             // favor a into pattern if we do this in many places
             Ok(_) => Ok(Response::new(())),
@@ -99,6 +106,7 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -113,11 +121,11 @@ impl User for UserService {
         };
 
         // Ignore but log warning, it's not fatal
-        let _ = update_categories(&vote.snap_id, &app_ctx)
+        let _ = update_categories(&vote.snap_id, &ctx, &mut conn)
             .await
             .inspect_err(|e| warn!("{}", e));
 
-        match save_vote_to_db(&ctx, vote).await {
+        match save_vote_to_db(&ctx, vote, &mut conn).await {
             Ok(_) => Ok(Response::new(())),
 
             Err(e) => {
@@ -136,6 +144,7 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -146,7 +155,7 @@ impl User for UserService {
             Some(snap_id_filter)
         };
 
-        let result = find_user_votes(&ctx, client_hash, snap_id_filter).await;
+        let result = find_user_votes(&ctx, client_hash, snap_id_filter, &mut conn).await;
 
         match result {
             Ok(votes) => {
@@ -172,6 +181,7 @@ impl User for UserService {
             .extensions_mut()
             .remove::<Context>()
             .expect("Expected AppContext to be present");
+        let mut conn = request.extensions_mut().remove::<PgConnection>().expect("Expected PgConnection to be present");
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
@@ -179,11 +189,11 @@ impl User for UserService {
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
         // Ignore but log warning, it's not fatal
-        let _ = update_categories(&snap_id, &ctx)
+        let _ = update_categories(&snap_id, &ctx, &mut conn)
             .await
             .inspect_err(|e| warn!("{}", e));
 
-        let result = get_snap_votes_by_client_hash(&ctx, snap_id, client_hash).await;
+        let result = get_snap_votes_by_client_hash(&ctx, snap_id, client_hash, &mut conn).await;
 
         match result {
             Ok(votes) => {
