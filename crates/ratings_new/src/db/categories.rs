@@ -1,7 +1,17 @@
 use crate::db::Result;
 use sqlx::{PgConnection, Postgres, QueryBuilder};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, sqlx::Type, strum::EnumString, strum::Display)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    sqlx::Type,
+    strum::EnumString,
+    strum::Display,
+    strum::FromRepr,
+)]
 #[repr(i32)]
 pub enum Category {
     ArtAndDesign = 0,

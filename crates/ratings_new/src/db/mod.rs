@@ -4,12 +4,13 @@ use thiserror::Error;
 use tokio::sync::OnceCell;
 use tracing::info;
 
-pub mod categories;
-pub mod user;
-pub mod vote;
+mod categories;
+mod user;
+mod vote;
 
-mod migrator;
-use migrator::Migrator;
+pub use categories::{set_categories_for_snap, snap_has_categories, Category};
+pub use user::User;
+pub use vote::{Timeframe, Vote, VoteSummary};
 
 #[macro_export]
 macro_rules! conn {
@@ -21,27 +22,26 @@ macro_rules! conn {
 pub type ClientHash = String;
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Errors that can occur when a user votes.
 #[derive(Error, Debug)]
 pub enum Error {
-    /// A record could not be created for the user
     #[error("failed to create user record")]
     FailedToCreateUserRecord,
-    /// We were unable to delete a user with the given instance ID
+
     #[error("failed to delete user by instance id")]
     FailedToDeleteUserRecord,
-    /// We could not get a vote by a given user
+
     #[error("failed to get user vote")]
     FailedToGetUserVote,
-    /// The user was unable to cast a vote
+
     #[error("failed to cast vote")]
     FailedToCastVote,
+
     #[error(transparent)]
     Migration(#[from] sqlx::migrate::MigrateError),
-    /// An error that occurred in category updating
+
     #[error(transparent)]
     Sqlx(#[from] sqlx::Error),
-    /// An error that occurred in the configuration
+
     #[error(transparent)]
     Envy(#[from] envy::Error),
 }
@@ -94,10 +94,7 @@ mod tests {
             .with_env_filter(EnvFilter::from_default_env())
             .init();
 
-        let test_users = [
-            user::User::new(client_hash_1),
-            user::User::new(client_hash_2),
-        ];
+        let test_users = [client_hash_1, client_hash_2];
 
         let test_votes = [
             vote::Vote {
@@ -118,29 +115,23 @@ mod tests {
 
         let conn = conn!();
 
-        for user in test_users.into_iter() {
-            user.create_or_seen(conn).await?;
+        for client_hash in test_users.into_iter() {
+            User::create_or_seen(client_hash, conn).await?;
         }
 
         for vote in test_votes.into_iter() {
             vote.save_to_db(conn).await?;
         }
 
-        let votes_client_1 = vote::Vote::get_all_by_client_hash(
-            String::from(client_hash_1),
-            Some(String::from(snap_id_1)),
-            conn,
-        )
-        .await
-        .unwrap();
+        let votes_client_1 =
+            vote::Vote::get_all_by_client_hash(client_hash_1, Some(String::from(snap_id_1)), conn)
+                .await
+                .unwrap();
 
-        let votes_client_2 = vote::Vote::get_all_by_client_hash(
-            String::from(client_hash_2),
-            Some(String::from(snap_id_2)),
-            conn,
-        )
-        .await
-        .unwrap();
+        let votes_client_2 =
+            vote::Vote::get_all_by_client_hash(client_hash_2, Some(String::from(snap_id_2)), conn)
+                .await
+                .unwrap();
 
         assert_eq!(votes_client_1.len(), 1);
         let first_vote = votes_client_1.first().unwrap();

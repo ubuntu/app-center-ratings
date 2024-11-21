@@ -1,11 +1,13 @@
 //! Business logic building on top of the db layer
-pub mod categories;
-pub mod users;
-pub mod votes;
+mod categories;
+mod charts;
+mod rating;
 
-use thiserror::Error;
+pub use categories::update_categories;
+pub use charts::{Chart, ChartData};
+pub use rating::{calculate_band, Rating, RatingsBand};
 
-#[derive(Error, Debug)]
+#[derive(thiserror::Error, Debug)]
 pub enum Error {
     #[error(transparent)]
     Db(#[from] crate::db::Error),

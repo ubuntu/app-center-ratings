@@ -1,24 +1,16 @@
-use std::sync::Arc;
-
 use crate::{
     conn,
     context::Claims,
-    // FIXME: DbVote? DbUser?
-    db::user::User as DbUser,
-    db::vote::Vote as DbVote,
+    db::{User, Vote},
     proto::user::{
-        user_server::{User, UserServer},
+        user_server::{self, UserServer},
         AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
-        ListMyVotesRequest, ListMyVotesResponse, Vote, VoteRequest,
+        ListMyVotesRequest, ListMyVotesResponse, Vote as PbVote, VoteRequest,
     },
-    ratings::{
-        categories::update_categories,
-        users::{create_or_seen_user, delete_user_by_client_hash},
-        votes::{find_user_votes, get_snap_votes_by_client_hash, save_vote_to_db},
-    },
+    ratings::update_categories,
     Context,
 };
-
+use std::sync::Arc;
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
 use tracing::{error, warn};
@@ -31,7 +23,6 @@ pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
 pub struct UserService {
     ctx: Arc<Context>,
 }
-// Store jwt encoder here. If needed in multiple places, arc it.
 
 impl UserService {
     /// The paths which are accessible without authentication, if any
@@ -42,26 +33,17 @@ impl UserService {
 
     /// Converts this service into its corresponding server
     pub fn to_server(self) -> UserServer<UserService> {
-        self.into()
-    }
-}
-
-impl From<UserService> for UserServer<UserService> {
-    fn from(value: UserService) -> Self {
-        UserServer::new(value)
+        UserServer::new(self)
     }
 }
 
 #[tonic::async_trait]
-impl User for UserService {
+impl user_server::User for UserService {
     async fn authenticate(
         &self,
         request: Request<AuthenticateRequest>,
     ) -> Result<Response<AuthenticateResponse>, Status> {
-        // TODO: is there where we expect the pg_connection?
-        let conn = conn!();
         let AuthenticateRequest { id } = request.into_inner();
-
         if id.len() != EXPECTED_CLIENT_HASH_LENGTH {
             let error = format!(
                 "Client hash must be of length {:?}",
@@ -70,36 +52,28 @@ impl User for UserService {
             return Err(Status::invalid_argument(error));
         }
 
-        // FIXME: replace with new struct
-        let user = DbUser::new(&id);
+        match User::create_or_seen(&id, conn!()).await {
+            Ok(user) => {
+                let token = match self.ctx.jwt_encoder.encode(user.client_hash) {
+                    Ok(token) => token,
+                    Err(_) => return Err(Status::internal("internal error")),
+                };
 
-        match create_or_seen_user(user, &self.ctx, conn).await {
-            Ok(user) => self
-                .ctx
-                .jwt_encoder
-                .encode(user.client_hash)
-                // Match on the encode, build the ok / error varients in there, out of a chain.
-                .map(|token| AuthenticateResponse { token })
-                .map(Response::new)
-                .map_err(|_| Status::internal("internal")),
+                Ok(Response::new(AuthenticateResponse { token }))
+            }
+
             Err(_error) => Err(Status::invalid_argument("id")),
         }
     }
 
     async fn delete(&self, mut request: Request<()>) -> Result<Response<()>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected AppContext to be present");
-        let conn = conn!();
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
 
-        match delete_user_by_client_hash(&client_hash, &ctx, conn).await {
-            // FIXME (maybe?)
-            // favor a into pattern if we do this in many places
+        match User::delete_by_client_hash(&client_hash, conn!()).await {
             Ok(_) => Ok(Response::new(())),
+
             Err(e) => {
                 error!("Error in delete_user_by_client_hash: {:?}", e);
                 Err(Status::unknown("Internal server error"))
@@ -108,30 +82,28 @@ impl User for UserService {
     }
 
     async fn vote(&self, mut request: Request<VoteRequest>) -> Result<Response<()>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected AppContext to be present");
+        let Claims { sub, .. } = claims(&mut request);
+        let VoteRequest {
+            snap_id,
+            snap_revision,
+            vote_up,
+        } = request.into_inner();
         let conn = conn!();
-        let Claims {
-            sub: client_hash, ..
-        } = claims(&mut request);
-        let request = request.into_inner();
 
-        let vote = DbVote {
-            client_hash,
-            snap_id: request.snap_id,
-            snap_revision: request.snap_revision as u32,
-            vote_up: request.vote_up,
+        // Ignore but log warning, it's not fatal
+        if let Err(e) = update_categories(&snap_id, &self.ctx, conn).await {
+            warn!("unable to update categories for snap: {e}");
+        }
+
+        let vote = Vote {
+            client_hash: sub,
+            snap_id,
+            snap_revision: snap_revision as u32,
+            vote_up,
             timestamp: OffsetDateTime::now_utc(),
         };
 
-        // Ignore but log warning, it's not fatal
-        let _ = update_categories(&vote.snap_id, &ctx, conn)
-            .await
-            .inspect_err(|e| warn!("{}", e));
-
-        match save_vote_to_db(&ctx, vote, conn).await {
+        match vote.save_to_db(conn).await {
             Ok(_) => Ok(Response::new(())),
 
             Err(e) => {
@@ -145,14 +117,10 @@ impl User for UserService {
         &self,
         mut request: Request<ListMyVotesRequest>,
     ) -> Result<Response<ListMyVotesResponse>, Status> {
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected AppContext to be present");
-        let conn = conn!();
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
+
         let ListMyVotesRequest { snap_id_filter } = request.into_inner();
         let snap_id_filter = if snap_id_filter.is_empty() {
             None
@@ -160,15 +128,14 @@ impl User for UserService {
             Some(snap_id_filter)
         };
 
-        let result = find_user_votes(&ctx, client_hash, snap_id_filter, conn).await;
-
-        match result {
+        match Vote::get_all_by_client_hash(&client_hash, snap_id_filter, conn!()).await {
             Ok(votes) => {
                 let votes = votes.into_iter().map(Into::into).collect();
                 let payload = ListMyVotesResponse { votes };
 
                 Ok(Response::new(payload))
             }
+
             Err(e) => {
                 error!("Error in find_user_votes: {:?}", e);
                 Err(Status::unknown("Internal server error"))
@@ -180,32 +147,26 @@ impl User for UserService {
         &self,
         mut request: Request<GetSnapVotesRequest>,
     ) -> Result<Response<GetSnapVotesResponse>, Status> {
-        // FIXME: will turn into con macro
-        let ctx = request
-            .extensions_mut()
-            .remove::<Context>()
-            .expect("Expected AppContext to be present");
-        let conn = conn!();
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
-
         let GetSnapVotesRequest { snap_id } = request.into_inner();
 
+        let conn = conn!();
+
         // Ignore but log warning, it's not fatal
-        let _ = update_categories(&snap_id, &ctx, conn)
-            .await
-            .inspect_err(|e| warn!("{}", e));
+        if let Err(e) = update_categories(&snap_id, &self.ctx, conn).await {
+            warn!("unable to update categories for snap: {e}");
+        }
 
-        let result = get_snap_votes_by_client_hash(&ctx, snap_id, client_hash, conn).await;
-
-        match result {
+        match Vote::get_all_by_client_hash(&client_hash, Some(snap_id), conn).await {
             Ok(votes) => {
                 let votes = votes.into_iter().map(|vote| vote.into()).collect();
                 let payload = GetSnapVotesResponse { votes };
 
                 Ok(Response::new(payload))
             }
+
             Err(e) => {
                 error!("Error in get_snap_votes_by_client_hash: {:?}", e);
                 Err(Status::unknown("Internal server error"))
@@ -214,14 +175,14 @@ impl User for UserService {
     }
 }
 
-impl From<DbVote> for Vote {
-    fn from(value: DbVote) -> Vote {
+impl From<Vote> for PbVote {
+    fn from(value: Vote) -> Self {
         let timestamp = Some(prost_types::Timestamp {
             seconds: value.timestamp.unix_timestamp(),
             nanos: value.timestamp.nanosecond() as i32,
         });
 
-        Vote {
+        Self {
             snap_id: value.snap_id,
             snap_revision: value.snap_revision as i32,
             vote_up: value.vote_up,
@@ -230,7 +191,7 @@ impl From<DbVote> for Vote {
     }
 }
 
-/// Converts a request into a [`Claims`] value.
+#[inline]
 fn claims<T>(request: &mut Request<T>) -> Claims {
     request
         .extensions_mut()
