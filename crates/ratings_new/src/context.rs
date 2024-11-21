@@ -17,11 +17,15 @@ pub enum Error {
     #[error("jwt: error decoding secret: {0}")]
     DecodeSecretError(#[from] jsonwebtoken::errors::Error),
 
+    #[error(transparent)]
+    Envy(#[from] envy::Error),
+
     #[error("jwt: an error occurred, but the reason was erased for security reasons")]
     Erased,
 }
 
 pub struct Context {
+    pub config: Config,
     pub jwt_encoder: JwtEncoder,
     pub http_client: reqwest::Client,
     /// In progress category updates that we need to block on
@@ -31,6 +35,7 @@ pub struct Context {
 impl Context {
     pub fn new(config: &Config) -> Result<Self, Error> {
         Ok(Self {
+            config: Config::load()?,
             jwt_encoder: JwtEncoder::from_secret(&config.jwt_secret)?,
             http_client: reqwest::Client::new(),
             category_updates: Default::default(),
