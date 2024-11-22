@@ -1,5 +1,5 @@
 use crate::Config;
-use sqlx::{postgres::PgPoolOptions, PgPool};
+use sqlx::{postgres::PgPoolOptions, Connection, PgPool};
 use thiserror::Error;
 use tokio::sync::OnceCell;
 use tracing::info;
@@ -73,6 +73,10 @@ pub async fn get_pool() -> Result<&'static PgPool> {
     let pool = POOL.get_or_try_init(init_pool_from_uri_and_migrate).await?;
 
     Ok(pool)
+}
+
+pub async fn check_db_conn() -> Result<()> {
+    conn!().ping().await.map_err(Into::into)
 }
 
 #[cfg(test)]

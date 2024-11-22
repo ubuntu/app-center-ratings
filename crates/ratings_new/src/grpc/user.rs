@@ -1,7 +1,7 @@
 use crate::{
     conn,
-    context::Claims,
     db::{User, Vote},
+    jwt::Claims,
     proto::user::{
         user_server::{self, UserServer},
         AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
@@ -25,15 +25,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    /// The paths which are accessible without authentication, if any
-    pub const PUBLIC_PATHS: [&'static str; 2] = [
-        "ratings.features.user.User/Register",
-        "ratings.features.user.User/Authenticate",
-    ];
-
-    /// Converts this service into its corresponding server
-    pub fn to_server(self) -> UserServer<UserService> {
-        UserServer::new(self)
+    pub fn new_server(ctx: Context) -> UserServer<UserService> {
+        UserServer::new(Self { ctx: Arc::new(ctx) })
     }
 }
 

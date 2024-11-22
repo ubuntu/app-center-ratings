@@ -17,12 +17,8 @@ use tracing::error;
 pub struct ChartService;
 
 impl ChartService {
-    /// The paths which are accessible without authentication, if any
-    pub const PUBLIC_PATHS: [&'static str; 0] = [];
-
-    /// Converts this service into its corresponding server
-    pub fn to_server(self) -> ChartServer<ChartService> {
-        ChartServer::new(self)
+    pub fn new_server() -> ChartServer<ChartService> {
+        ChartServer::new(ChartService)
     }
 }
 
@@ -88,6 +84,16 @@ impl From<Rating> for PbRating {
             snap_id: r.snap_id,
             total_votes: r.total_votes,
             ratings_band: r.ratings_band as i32,
+        }
+    }
+}
+
+impl From<PbRating> for Rating {
+    fn from(r: PbRating) -> Self {
+        Self {
+            snap_id: r.snap_id,
+            total_votes: r.total_votes,
+            ratings_band: RatingsBand::from_repr(r.ratings_band).unwrap(),
         }
     }
 }

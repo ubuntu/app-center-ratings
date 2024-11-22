@@ -6,20 +6,14 @@ use serde::Deserialize;
 /// Configuration for the general app center ratings backend service.
 #[derive(Deserialize, Debug, Clone)]
 pub struct Config {
-    /// Environment variables to use
-    pub env: String,
     /// The host configuration
     pub host: String,
-    /// The JWT secret value
-    pub jwt_secret: SecretString,
-    /// Log level to use
-    pub log_level: String,
-    /// The service name
-    pub name: String,
     /// The port to run on
     pub port: u16,
     /// The URI of the postgres database
     pub postgres_uri: String,
+    /// The JWT secret value
+    pub jwt_secret: SecretString,
     /// The base URI for snapcraft.io
     pub snapcraft_io_uri: String,
 }
