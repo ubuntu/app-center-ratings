@@ -18,12 +18,8 @@ use tracing::error;
 pub struct RatingService;
 
 impl RatingService {
-    /// The paths which are accessible without authentication, if any
-    pub const PUBLIC_PATHS: [&'static str; 0] = [];
-
-    /// Converts this service into its corresponding server
-    pub fn to_server(self) -> AppServer<RatingService> {
-        AppServer::new(self)
+    pub fn new_server() -> AppServer<RatingService> {
+        AppServer::new(RatingService)
     }
 }
 

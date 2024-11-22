@@ -161,9 +161,10 @@ impl VoteSummary {
                     r" 
                     WHERE votes.snap_id IN (
                     SELECT snap_categories.snap_id FROM snap_categories 
-                    WHERE snap_categories.category = $1)",
+                    WHERE snap_categories.category = ",
                 )
-                .push_bind(category);
+                .push_bind(category)
+                .push(")");
         }
 
         builder.push(" GROUP BY votes.snap_id");

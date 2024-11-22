@@ -6,8 +6,8 @@ const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
 
 /// A descriptive mapping of a number of ratings to a general indicator of "how good"
 /// an app can be said to be.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-#[allow(missing_docs)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, strum::FromRepr)]
+#[repr(i32)]
 pub enum RatingsBand {
     VeryGood = 0,
     Good = 1,
