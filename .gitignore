@@ -9,6 +9,9 @@ mock_server/target
 *.rock
 *.nix
 
+/crates/ratings_new/Cargo.lock
+/crates/ratings/Cargo.lock
+
 /proto/*.rs
 venv/
 build/
