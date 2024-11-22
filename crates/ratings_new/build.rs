@@ -11,10 +11,10 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let files = &[
-        "../../proto/ratings_features_app.proto",
-        "../../proto/ratings_features_chart.proto",
-        "../../proto/ratings_features_user.proto",
-        "../../proto/ratings_features_common.proto",
+        "proto/ratings_features_app.proto",
+        "proto/ratings_features_chart.proto",
+        "proto/ratings_features_user.proto",
+        "proto/ratings_features_common.proto",
     ];
 
     tonic_build::configure()
@@ -27,7 +27,7 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
             "Category",
             r#"#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]"#,
         )
-        .compile(files, &["../../proto"])?;
+        .compile(files, &["proto"])?;
 
     Ok(())
 }
