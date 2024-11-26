@@ -1,9 +1,8 @@
-// use git2::Repository;
 use std::path::Path;
 
 fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     // Define the path to the output directory within the `src` folder
-    let out_dir = Path::new("proto");
+    let out_dir = Path::new("src/proto");
     std::fs::create_dir_all(out_dir)?;
 
     let descriptor_set_path = format!(
@@ -23,10 +22,7 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
         .build_server(true)
         .file_descriptor_set_path(descriptor_set_path)
         .out_dir(out_dir)
-        .type_attribute(
-            "Category",
-            "#[derive(sqlx::Type, strum::EnumString, strum::Display)]",
-        )
+        .type_attribute("Category", "#[derive(sqlx::Type, strum::EnumString)]")
         .type_attribute(
             "Category",
             r#"#[strum(serialize_all = "kebab_case", ascii_case_insensitive)]"#,
@@ -36,29 +32,8 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-// fn include_build_info() -> Result<(), Box<dyn std::error::Error>> {
-//     let repo = Repository::open(std::env::current_dir()?)?;
-//     let head = repo.head()?;
-//     let branch = head
-//         .name()
-//         .unwrap()
-//         .strip_prefix("refs/heads/")
-//         .unwrap_or("no-branch");
-//     println!("cargo:rustc-env=GIT_BRANCH={}", branch);
-//
-//     let commit_sha = repo.head()?.target().unwrap();
-//     println!("cargo:rustc-env=GIT_HASH={}", commit_sha);
-//
-//     Ok(())
-// }
-
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_proto()?;
-    // Running this in docker compose breaks the build and we only need it for
-    // the admin API we are planning on ripping out anyway
-    // include_build_info()?;
-    println!("cargo:rustc-env=GIT_BRANCH=branch");
-    println!("cargo:rustc-env=GIT_HASH=hash");
 
     Ok(())
 }

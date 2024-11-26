@@ -18,6 +18,15 @@ down:
 test:
 	@cargo test --lib
 
+.PHONY: db-test
+db-test:
+	@APP_HOST='0.0.0.0' \
+		APP_PORT='8080' \
+		APP_JWT_SECRET='deadbeef' \
+		APP_SNAPCRAFT_IO_URI='localhost:11111/' \
+		APP_POSTGRES_URI='postgresql://migration_user:strongpassword@localhost:5432/ratings' \
+		cargo test --lib --features db_tests
+
 .PHONY: integration-test
 integration-test: clear-db-data
 	@APP_JWT_SECRET='deadbeef' \
@@ -27,7 +36,7 @@ integration-test: clear-db-data
 		cargo test --test '*' $(ARGS)
 
 .PHONY: test-all
-test-all: test integration-test
+test-all: db-test integration-test
 
 .PHONY: wait-for-server
 wait-for-server:

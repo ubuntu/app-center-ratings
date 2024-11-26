@@ -1,11 +1,11 @@
-//! The [`ratings`] library represents the code necessary for the Ubuntu app center's
-//! ratings backend.
-//!
-//! [`ratings`]: crate
+pub mod config;
+pub mod context;
+pub mod db;
+pub mod grpc;
+pub mod jwt;
+pub mod middleware;
+pub mod proto;
+pub mod ratings;
 
-#![deny(rustdoc::broken_intra_doc_links)]
-#![warn(missing_docs)]
-
-pub mod app;
-pub mod features;
-pub mod utils;
+pub use config::Config;
+pub use context::Context;
