@@ -1,4 +1,4 @@
-use ratings_new::{db::check_db_conn, grpc::run_server, Config, Context};
+use ratings::{db::check_db_conn, grpc::run_server, Config, Context};
 use std::io::stdout;
 use tracing::{info, subscriber::set_global_default};
 use tracing_subscriber::{EnvFilter, FmtSubscriber};

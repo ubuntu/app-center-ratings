@@ -20,7 +20,12 @@ test:
 
 .PHONY: db-test
 db-test:
-	@cargo test --lib --features db_tests
+	@APP_HOST='0.0.0.0' \
+		APP_PORT='8080' \
+		APP_JWT_SECRET='deadbeef' \
+		APP_SNAPCRAFT_IO_URI='localhost:11111/' \
+		APP_POSTGRES_URI='postgresql://migration_user:strongpassword@localhost:5432/ratings' \
+		cargo test --lib --features db_tests
 
 .PHONY: integration-test
 integration-test: clear-db-data

@@ -2,20 +2,19 @@ use anyhow::anyhow;
 use futures::future::join_all;
 use rand::{distributions::Alphanumeric, Rng};
 use ratings::{
-    app::interfaces::authentication::jwt::JwtVerifier,
-    features::{
-        common::entities::Rating,
-        pb::{
-            app::{app_client::AppClient, GetRatingRequest},
-            chart::{chart_client::ChartClient, ChartData, GetChartRequest, Timeframe},
-            user::{
-                user_client::UserClient, AuthenticateRequest, GetSnapVotesRequest, Vote,
-                VoteRequest,
-            },
+    jwt::JwtVerifier,
+    proto::{
+        app::{app_client::AppClient, GetRatingRequest},
+        chart::{chart_client::ChartClient, ChartData, GetChartRequest, Timeframe},
+        user::{
+            user_client::UserClient, AuthenticateRequest, GetSnapVotesRequest, Vote, VoteRequest,
         },
     },
+    ratings::Rating,
 };
 use reqwest::Client;
+use secrecy::SecretString;
+use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use std::fmt::Write;
 use tonic::{
@@ -25,7 +24,7 @@ use tonic::{
 };
 
 // re-export to simplify setting up test data in the test files
-pub use ratings::features::pb::chart::Category;
+pub use ratings::db::Category;
 
 // NOTE: these are set by the 'tests' Makefile target
 const MOCK_ADMIN_URL: Option<&str> = option_env!("MOCK_ADMIN_URL");
@@ -72,8 +71,20 @@ impl TestHelper {
     }
 
     pub fn assert_valid_jwt(&self, value: &str) {
-        let jwt = JwtVerifier::from_env().expect("unable to init JwtVerifier");
-        assert!(jwt.decode(value).is_ok(), "value should be a valid jwt");
+        dotenvy::dotenv().ok();
+        let JwtConfig { jwt_secret } = envy::prefixed("APP_").from_env::<JwtConfig>().unwrap();
+        let verifier = JwtVerifier::from_secret(&jwt_secret).expect("unable to init JwtVerifier");
+
+        assert!(
+            verifier.decode(value).is_ok(),
+            "value should be a valid jwt"
+        );
+
+        // serde structs
+        #[derive(Deserialize)]
+        struct JwtConfig {
+            jwt_secret: SecretString,
+        }
     }
 
     /// NOTE: total needs to be above 25 in order to generate a rating
@@ -197,7 +208,7 @@ impl TestHelper {
         let resp = client!(ChartClient, self.channel().await, token)
             .get_chart(GetChartRequest {
                 timeframe: Timeframe::Unspecified.into(),
-                category: category.map(|v| v.into()),
+                category: category.map(|v| v as i32),
             })
             .await?
             .into_inner();

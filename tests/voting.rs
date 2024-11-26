@@ -1,7 +1,7 @@
 pub mod common;
 
 use common::{Category, TestHelper};
-use ratings::features::common::entities::RatingsBand::{self, *};
+use ratings::ratings::RatingsBand::{self, *};
 use simple_test_case::test_case;
 
 #[test_case(true; "up vote")]
