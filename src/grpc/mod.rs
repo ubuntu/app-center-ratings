@@ -4,6 +4,7 @@ use tonic::{
     transport::{Identity, Server, ServerTlsConfig},
     Status,
 };
+use tracing::warn;
 
 mod app;
 mod charts;
@@ -11,7 +12,6 @@ mod user;
 
 use app::RatingService;
 use charts::ChartService;
-use tracing::warn;
 use user::UserService;
 
 impl From<db::Error> for Status {
