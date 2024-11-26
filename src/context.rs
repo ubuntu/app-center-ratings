@@ -10,6 +10,7 @@ pub struct Context {
     pub config: Config,
     pub jwt_encoder: JwtEncoder,
     pub http_client: reqwest::Client,
+
     /// In progress category updates that we need to block on
     pub category_updates: Mutex<HashMap<String, Arc<Notify>>>,
 }

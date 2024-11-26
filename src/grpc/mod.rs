@@ -1,4 +1,4 @@
-use crate::{config, db, jwt::JwtVerifier, middleware::AuthLayer, Context};
+use crate::{db, jwt::JwtVerifier, middleware::AuthLayer, Context};
 use std::{fs::read_to_string, net::SocketAddr};
 use tonic::{
     transport::{Identity, Server, ServerTlsConfig},
@@ -24,18 +24,18 @@ pub async fn run_server(ctx: Context) -> Result<(), Box<dyn std::error::Error>> 
     let verifier = JwtVerifier::from_secret(&ctx.config.jwt_secret)?;
     let addr: SocketAddr = ctx.config.socket().parse()?;
 
-    let cert_path = ctx.config.tls_cert_path.clone();
+    let keychain_path = ctx.config.tls_keychain_path.clone();
     let key_path = ctx.config.tls_key_path.clone();
 
-    let builder = match (cert_path, key_path) {
-        (Some(cert_path), Some(key_path)) => {
-            let cert = read_to_string(cert_path)?;
+    let builder = match (keychain_path, key_path) {
+        (Some(keychain_path), Some(key_path)) => {
+            let keychain = read_to_string(keychain_path)?;
             let key = read_to_string(key_path)?;
-            let identity = Identity::from_pem(cert, key);
+            let identity = Identity::from_pem(keychain, key);
             Server::builder().tls_config(ServerTlsConfig::new().identity(identity))?
         }
         (Some(_), None) | (None, Some(_)) => {
-            panic!("Both TLS certificate and key must be provided, or neither.");
+            panic!("Both TLS keychain and private key must be provided, or neither.");
         }
         (None, None) => {
             warn!("TLS is not configured as the environment variables are not set.");
