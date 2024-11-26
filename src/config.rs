@@ -16,9 +16,9 @@ pub struct Config {
     pub jwt_secret: SecretString,
     /// The base URI for snapcraft.io
     pub snapcraft_io_uri: String,
-    /// The path to the tls certificate
-    pub tls_cert_path: Option<String>,
-    /// The path to the tls key
+    /// The path to the tls keychain
+    pub tls_keychain_path: Option<String>,
+    /// The path to the tls private key
     pub tls_key_path: Option<String>,
 }
 
