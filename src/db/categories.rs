@@ -7,6 +7,7 @@ use sqlx::{PgConnection, Postgres, QueryBuilder};
     Copy,
     PartialEq,
     Eq,
+    Hash,
     sqlx::Type,
     strum::EnumString,
     strum::Display,
