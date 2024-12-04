@@ -10,8 +10,9 @@ use crate::{
     },
     ratings::{Chart, ChartData, Rating, RatingsBand},
 };
+use cached::{proc_macro::cached, Return};
 use tonic::{Request, Response, Status};
-use tracing::error;
+use tracing::{error, info};
 
 #[derive(Copy, Clone, Debug)]
 pub struct ChartService;
@@ -41,16 +42,23 @@ impl chart_server::Chart for ChartService {
         };
 
         let timeframe = Timeframe::from_repr(timeframe).unwrap_or(Timeframe::Unspecified);
-        let result = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await;
 
-        match result {
-            Ok(summaries) if summaries.is_empty() => {
+        let chart = get_chart_cached(category, timeframe).await;
+
+        match chart {
+            Ok(chart) if chart.data.is_empty() => {
                 Err(Status::not_found("Cannot find data for given timeframe."))
             }
 
-            Ok(summaries) => {
-                let chart = Chart::new(timeframe, summaries);
-                let ordered_chart_data = chart.data.into_iter().map(|cd| cd.into()).collect();
+            Ok(chart) => {
+                if chart.was_cached {
+                    info!(
+                        "Using cached chart data for category '{:?}' in timeframe '{:?}'",
+                        category, timeframe
+                    );
+                }
+
+                let ordered_chart_data = chart.value.data.into_iter().map(|cd| cd.into()).collect();
 
                 let payload = GetChartResponse {
                     timeframe: timeframe as i32,
@@ -67,6 +75,21 @@ impl chart_server::Chart for ChartService {
             }
         }
     }
+}
+
+#[cached(
+    time = 86400, // 24 hours
+    sync_writes = true,
+    result = true,
+    with_cached_flag = true
+)]
+async fn get_chart_cached(
+    category: Option<Category>,
+    timeframe: Timeframe,
+) -> Result<Return<Chart>, Box<dyn std::error::Error>> {
+    let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
+
+    Ok(Return::new(Chart::new(timeframe, summaries)))
 }
 
 impl From<ChartData> for PbChartData {

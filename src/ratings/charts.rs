@@ -5,6 +5,7 @@ use crate::{
 };
 use std::cmp::Ordering;
 
+#[derive(Debug, Clone)]
 pub struct Chart {
     pub timeframe: Timeframe,
     pub data: Vec<ChartData>,
