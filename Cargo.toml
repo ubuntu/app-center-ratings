@@ -12,6 +12,7 @@ edition = "2021"
 db_tests = []
 
 [dependencies]
+cached = { version = "0.54.0", features = ["async"] }
 dotenvy = "0.15"
 envy = "0.4"
 http = "1.1.0"
