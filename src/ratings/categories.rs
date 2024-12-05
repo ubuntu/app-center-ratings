@@ -4,6 +4,7 @@ use crate::{
     ratings::Error,
     Context,
 };
+use cached::proc_macro::cached;
 use serde::{de::DeserializeOwned, Deserialize};
 use sqlx::PgConnection;
 use std::sync::Arc;
@@ -105,13 +106,7 @@ async fn get_snap_categories(
 ) -> Result<Vec<Category>, Error> {
     let base_url = reqwest::Url::parse(base).map_err(|e| Error::InvalidUrl(e.to_string()))?;
 
-    let assertions_url = base_url
-        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
-        .map_err(|e| Error::InvalidUrl(e.to_string()))?;
-
-    let AssertionsResp {
-        headers: Headers { snap_name },
-    } = get_json(assertions_url, &[], client).await?;
+    let snap_name = get_snap_name(snap_id, &base_url, client).await?;
 
     let info_url = base_url
         .join(&format!("snaps/info/{snap_name}"))
@@ -131,17 +126,6 @@ async fn get_snap_categories(
     // serde structs
 
     #[derive(Debug, Deserialize)]
-    struct AssertionsResp {
-        headers: Headers,
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename_all = "kebab-case")]
-    struct Headers {
-        snap_name: String,
-    }
-
-    #[derive(Debug, Deserialize)]
     struct FindResp {
         snap: SnapInfo,
     }
@@ -154,6 +138,40 @@ async fn get_snap_categories(
     #[derive(Debug, Deserialize)]
     struct RawCategory {
         name: String,
+    }
+}
+
+#[cached(
+    key = "String",
+    convert = r##"{String::from(snap_id)}"##,
+    result = true
+)]
+async fn get_snap_name(
+    snap_id: &str,
+    base_url: &reqwest::Url,
+    client: &reqwest::Client,
+) -> Result<String, Error> {
+    let assertions_url = base_url
+        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
+        .map_err(|e| Error::InvalidUrl(e.to_string()))?;
+
+    let AssertionsResp {
+        headers: Headers { snap_name },
+    } = get_json(assertions_url, &[], client).await?;
+
+    return Ok(snap_name);
+
+    // serde structs
+    //
+    #[derive(Debug, Deserialize)]
+    struct AssertionsResp {
+        headers: Headers,
+    }
+
+    #[derive(Debug, Deserialize)]
+    #[serde(rename_all = "kebab-case")]
+    struct Headers {
+        snap_name: String,
     }
 }
 

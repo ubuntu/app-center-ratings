@@ -86,7 +86,7 @@ impl Vote {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::FromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::FromRepr)]
 #[repr(i32)]
 pub enum Timeframe {
     Unspecified,
