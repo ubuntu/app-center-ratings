@@ -5,7 +5,7 @@ use crate::{
     proto::user::{
         user_server::{self, UserServer},
         AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
-        ListMyVotesRequest, ListMyVotesResponse, Vote as PbVote, VoteRequest,
+        Vote as PbVote, VoteRequest,
     },
     ratings::update_categories,
     Context,
@@ -97,36 +97,6 @@ impl user_server::User for UserService {
 
             Err(e) => {
                 error!("Error in save_vote_to_db: {:?}", e);
-                Err(Status::unknown("Internal server error"))
-            }
-        }
-    }
-
-    async fn list_my_votes(
-        &self,
-        mut request: Request<ListMyVotesRequest>,
-    ) -> Result<Response<ListMyVotesResponse>, Status> {
-        let Claims {
-            sub: client_hash, ..
-        } = claims(&mut request);
-
-        let ListMyVotesRequest { snap_id_filter } = request.into_inner();
-        let snap_id_filter = if snap_id_filter.is_empty() {
-            None
-        } else {
-            Some(snap_id_filter)
-        };
-
-        match Vote::get_all_by_client_hash(&client_hash, snap_id_filter, conn!()).await {
-            Ok(votes) => {
-                let votes = votes.into_iter().map(Into::into).collect();
-                let payload = ListMyVotesResponse { votes };
-
-                Ok(Response::new(payload))
-            }
-
-            Err(e) => {
-                error!("Error in find_user_votes: {:?}", e);
                 Err(Status::unknown("Internal server error"))
             }
         }
