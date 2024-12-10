@@ -10,9 +10,9 @@ use crate::{
     },
     ratings::{Chart, ChartData, Rating, RatingsBand},
 };
-use cached::{proc_macro::cached, Return};
+use cached::proc_macro::cached;
 use tonic::{Request, Response, Status};
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Copy, Clone, Debug)]
 pub struct ChartService;
@@ -51,14 +51,7 @@ impl chart_server::Chart for ChartService {
             }
 
             Ok(chart) => {
-                if chart.was_cached {
-                    info!(
-                        "Using cached chart data for category '{:?}' in timeframe '{:?}'",
-                        category, timeframe
-                    );
-                }
-
-                let ordered_chart_data = chart.value.data.into_iter().map(|cd| cd.into()).collect();
+                let ordered_chart_data = chart.data.into_iter().map(|cd| cd.into()).collect();
 
                 let payload = GetChartResponse {
                     timeframe: timeframe as i32,
@@ -81,15 +74,14 @@ impl chart_server::Chart for ChartService {
     time = 86400, // 24 hours
     sync_writes = true,
     result = true,
-    with_cached_flag = true
 ))]
 async fn get_chart_cached(
     category: Option<Category>,
     timeframe: Timeframe,
-) -> Result<Return<Chart>, Box<dyn std::error::Error>> {
+) -> Result<Chart, Box<dyn std::error::Error>> {
     let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
 
-    Ok(Return::new(Chart::new(timeframe, summaries)))
+    Ok(Chart::new(timeframe, summaries))
 }
 
 impl From<ChartData> for PbChartData {
