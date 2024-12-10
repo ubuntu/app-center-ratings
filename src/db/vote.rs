@@ -1,4 +1,5 @@
 use crate::db::{categories::Category, ClientHash, Error, Result};
+use cached::proc_macro::cached;
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection, QueryBuilder};
 use tracing::error;
 
@@ -86,7 +87,7 @@ impl Vote {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, strum::FromRepr)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, strum::FromRepr)]
 #[repr(i32)]
 pub enum Timeframe {
     Unspecified,
@@ -107,30 +108,7 @@ pub struct VoteSummary {
 
 impl VoteSummary {
     pub async fn get_by_snap_id(snap_id: &str, conn: &mut PgConnection) -> Result<VoteSummary> {
-        let result: Option<VoteSummary> = sqlx::query_as(
-            r#"
-            SELECT
-                votes.snap_id,
-                COUNT(*) AS total_votes,
-                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
-            FROM
-                votes
-            WHERE
-                votes.snap_id = $1
-            GROUP BY votes.snap_id
-        "#,
-        )
-        .bind(snap_id)
-        .fetch_optional(conn)
-        .await?;
-
-        let summary = result.unwrap_or_else(|| VoteSummary {
-            snap_id: snap_id.to_string(),
-            total_votes: 0,
-            positive_votes: 0,
-        });
-
-        Ok(summary)
+        get_by_snap_id_cached(snap_id, conn).await
     }
 
     /// Retrieves the vote summary over a given [Timeframe], optionally for a specific [Category]
@@ -172,4 +150,38 @@ impl VoteSummary {
 
         Ok(summaries)
     }
+}
+
+#[cfg_attr(not(feature = "skip_cache"), cached(
+    time = 86400, // 24 hours
+    sync_writes = true,
+    key = "String",
+    convert = r##"{String::from(snap_id)}"##,
+    result = true,
+))]
+async fn get_by_snap_id_cached(snap_id: &str, conn: &mut PgConnection) -> Result<VoteSummary> {
+    let result: Option<VoteSummary> = sqlx::query_as(
+        r#"
+            SELECT
+                votes.snap_id,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes
+            WHERE
+                votes.snap_id = $1
+            GROUP BY votes.snap_id
+        "#,
+    )
+    .bind(snap_id)
+    .fetch_optional(conn)
+    .await?;
+
+    let summary = result.unwrap_or_else(|| VoteSummary {
+        snap_id: snap_id.to_string(),
+        total_votes: 0,
+        positive_votes: 0,
+    });
+
+    Ok(summary)
 }

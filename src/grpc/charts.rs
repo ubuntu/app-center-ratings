@@ -10,6 +10,7 @@ use crate::{
     },
     ratings::{Chart, ChartData, Rating, RatingsBand},
 };
+use cached::proc_macro::cached;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
@@ -41,15 +42,15 @@ impl chart_server::Chart for ChartService {
         };
 
         let timeframe = Timeframe::from_repr(timeframe).unwrap_or(Timeframe::Unspecified);
-        let result = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await;
 
-        match result {
-            Ok(summaries) if summaries.is_empty() => {
+        let chart = get_chart_cached(category, timeframe).await;
+
+        match chart {
+            Ok(chart) if chart.data.is_empty() => {
                 Err(Status::not_found("Cannot find data for given timeframe."))
             }
 
-            Ok(summaries) => {
-                let chart = Chart::new(timeframe, summaries);
+            Ok(chart) => {
                 let ordered_chart_data = chart.data.into_iter().map(|cd| cd.into()).collect();
 
                 let payload = GetChartResponse {
@@ -67,6 +68,20 @@ impl chart_server::Chart for ChartService {
             }
         }
     }
+}
+
+#[cfg_attr(not(feature = "skip_cache"), cached(
+    time = 86400, // 24 hours
+    sync_writes = true,
+    result = true,
+))]
+async fn get_chart_cached(
+    category: Option<Category>,
+    timeframe: Timeframe,
+) -> Result<Chart, Box<dyn std::error::Error>> {
+    let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
+
+    Ok(Chart::new(timeframe, summaries))
 }
 
 impl From<ChartData> for PbChartData {
