@@ -11,6 +11,9 @@ edition = "2021"
 # Execute the tests using "cargo test --features db_tests"
 db_tests = []
 
+# Used to skip caching of rating data in integration tests
+skip_cache = []
+
 [dependencies]
 cached = { version = "0.54.0", features = ["async"] }
 dotenvy = "0.15"

@@ -29,6 +29,10 @@ fn init_proto() -> Result<(), Box<dyn std::error::Error>> {
         )
         .compile(files, &["proto"])?;
 
+    if std::env::var("SKIP_CACHE").is_ok() {
+        println!("cargo:rustc-cfg=feature=\"skip_cache\"");
+    }
+
     Ok(())
 }
 

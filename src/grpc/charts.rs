@@ -77,12 +77,12 @@ impl chart_server::Chart for ChartService {
     }
 }
 
-#[cached(
+#[cfg_attr(not(feature = "skip_cache"), cached(
     time = 86400, // 24 hours
     sync_writes = true,
     result = true,
     with_cached_flag = true
-)]
+))]
 async fn get_chart_cached(
     category: Option<Category>,
     timeframe: Timeframe,

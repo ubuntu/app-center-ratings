@@ -152,13 +152,13 @@ impl VoteSummary {
     }
 }
 
-#[cached(
+#[cfg_attr(not(feature = "skip_cache"), cached(
     time = 86400, // 24 hours
     sync_writes = true,
     key = "String",
     convert = r##"{String::from(snap_id)}"##,
     result = true,
-)]
+))]
 async fn get_by_snap_id_cached(snap_id: &str, conn: &mut PgConnection) -> Result<VoteSummary> {
     let result: Option<VoteSummary> = sqlx::query_as(
         r#"

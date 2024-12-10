@@ -141,10 +141,13 @@ async fn get_snap_categories(
     }
 }
 
-#[cached(
-    key = "String",
-    convert = r##"{String::from(snap_id)}"##,
-    result = true
+#[cfg_attr(
+    not(feature = "skip_cache"),
+    cached(
+        key = "String",
+        convert = r##"{String::from(snap_id)}"##,
+        result = true
+    )
 )]
 async fn get_snap_name(
     snap_id: &str,

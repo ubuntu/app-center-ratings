@@ -32,6 +32,7 @@ services:
       #APP_SNAPCRAFT_IO_URI: "https://api.snapcraft.io/v2/"
       APP_ADMIN_USER: "shadow"
       APP_ADMIN_PASSWORD: "maria"
+      SKIP_CACHE: "true"
     volumes:
       - .:/app
       - cargo-cache:/usr/local/cargo/registry
