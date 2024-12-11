@@ -68,6 +68,8 @@ pub struct Rating {
     /// The descriptive indicator of "how good" this snap is based
     /// on aggregated ratings.
     pub ratings_band: RatingsBand,
+    /// The unique name of the snap.
+    pub snap_name: String,
 }
 
 impl From<VoteSummary> for Rating {
@@ -78,6 +80,7 @@ impl From<VoteSummary> for Rating {
             snap_id: votes.snap_id,
             total_votes: votes.total_votes as u64,
             ratings_band,
+            snap_name: "".into(),
         }
     }
 }

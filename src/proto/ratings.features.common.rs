@@ -8,6 +8,8 @@ pub struct Rating {
     pub total_votes: u64,
     #[prost(enumeration = "RatingsBand", tag = "3")]
     pub ratings_band: i32,
+    #[prost(string, tag = "4")]
+    pub snap_name: ::prost::alloc::string::String,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

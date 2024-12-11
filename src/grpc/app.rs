@@ -40,6 +40,7 @@ impl App for RatingService {
                     snap_id,
                     total_votes,
                     ratings_band,
+                    snap_name,
                 } = Rating::from(votes);
 
                 Ok(Response::new(GetRatingResponse {
@@ -47,6 +48,7 @@ impl App for RatingService {
                         snap_id,
                         total_votes,
                         ratings_band: ratings_band as i32,
+                        snap_name,
                     }),
                 }))
             }

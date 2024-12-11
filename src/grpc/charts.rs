@@ -89,7 +89,7 @@ async fn get_chart_cached(
 ) -> Result<Chart, Box<dyn std::error::Error>> {
     let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
 
-    Ok(Chart::new(timeframe, summaries))
+    Ok(Chart::new(timeframe, summaries, ctx).await?)
 }
 
 impl From<ChartData> for PbChartData {
@@ -107,6 +107,7 @@ impl From<Rating> for PbRating {
             snap_id: r.snap_id,
             total_votes: r.total_votes,
             ratings_band: r.ratings_band as i32,
+            snap_name: r.snap_name,
         }
     }
 }
@@ -117,6 +118,7 @@ impl From<PbRating> for Rating {
             snap_id: r.snap_id,
             total_votes: r.total_votes,
             ratings_band: RatingsBand::from_repr(r.ratings_band).unwrap(),
+            snap_name: r.snap_name,
         }
     }
 }
