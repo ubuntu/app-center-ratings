@@ -1,5 +1,5 @@
 use crate::{db, jwt::JwtVerifier, middleware::AuthLayer, Context};
-use std::{fs::read_to_string, net::SocketAddr};
+use std::{fs::read_to_string, net::SocketAddr, sync::Arc};
 use tonic::{
     transport::{Identity, Server, ServerTlsConfig},
     Status,
@@ -43,11 +43,13 @@ pub async fn run_server(ctx: Context) -> Result<(), Box<dyn std::error::Error>> 
         }
     };
 
+    let ctx = Arc::new(ctx);
+
     builder
         .layer(AuthLayer::new(verifier))
-        .add_service(RatingService::new_server())
-        .add_service(ChartService::new_server())
-        .add_service(UserService::new_server(ctx))
+        .add_service(RatingService::new_server(ctx.clone()))
+        .add_service(ChartService::new_server(ctx.clone()))
+        .add_service(UserService::new_server(ctx.clone()))
         .serve(addr)
         .await?;
 

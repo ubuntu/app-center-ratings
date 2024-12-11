@@ -1,11 +1,10 @@
 //! Updating snap categories from data in snapcraft.io
 use crate::{
     db::{set_categories_for_snap, snap_has_categories, Category},
-    ratings::Error,
+    ratings::{get_json, get_snap_name, Error},
     Context,
 };
-use cached::proc_macro::cached;
-use serde::{de::DeserializeOwned, Deserialize};
+use serde::Deserialize;
 use sqlx::PgConnection;
 use std::sync::Arc;
 use tokio::sync::Notify;
@@ -78,36 +77,15 @@ async fn update_categories_inner(
     Ok(())
 }
 
-#[inline]
-async fn get_json<T: DeserializeOwned>(
-    url: reqwest::Url,
-    query: &[(&str, &str)],
-    client: &reqwest::Client,
-) -> Result<T, Error> {
-    let s = client
-        .get(url)
-        .header("User-Agent", "ratings-service")
-        .header("Snap-Device-Series", 16)
-        .query(query)
-        .send()
-        .await?
-        .error_for_status()?
-        .text()
-        .await?;
-
-    Ok(serde_json::from_str(&s)?)
-}
-
 /// Pull snap categories by for a given snapd_id from the snapcraft.io rest API
 async fn get_snap_categories(
     snap_id: &str,
     base: &str,
     client: &reqwest::Client,
 ) -> Result<Vec<Category>, Error> {
+    let snap_name = get_snap_name(snap_id, base, client).await?;
+
     let base_url = reqwest::Url::parse(base).map_err(|e| Error::InvalidUrl(e.to_string()))?;
-
-    let snap_name = get_snap_name(snap_id, &base_url, client).await?;
-
     let info_url = base_url
         .join(&format!("snaps/info/{snap_name}"))
         .map_err(|e| Error::InvalidUrl(e.to_string()))?;
@@ -138,43 +116,6 @@ async fn get_snap_categories(
     #[derive(Debug, Deserialize)]
     struct RawCategory {
         name: String,
-    }
-}
-
-#[cfg_attr(
-    not(feature = "skip_cache"),
-    cached(
-        key = "String",
-        convert = r##"{String::from(snap_id)}"##,
-        result = true
-    )
-)]
-async fn get_snap_name(
-    snap_id: &str,
-    base_url: &reqwest::Url,
-    client: &reqwest::Client,
-) -> Result<String, Error> {
-    let assertions_url = base_url
-        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
-        .map_err(|e| Error::InvalidUrl(e.to_string()))?;
-
-    let AssertionsResp {
-        headers: Headers { snap_name },
-    } = get_json(assertions_url, &[], client).await?;
-
-    return Ok(snap_name);
-
-    // serde structs
-    //
-    #[derive(Debug, Deserialize)]
-    struct AssertionsResp {
-        headers: Headers,
-    }
-
-    #[derive(Debug, Deserialize)]
-    #[serde(rename_all = "kebab-case")]
-    struct Headers {
-        snap_name: String,
     }
 }
 
