@@ -9,17 +9,21 @@ use crate::{
         common::{Rating as PbRating, RatingsBand as PbRatingsBand},
     },
     ratings::{Chart, ChartData, Rating, RatingsBand},
+    Context,
 };
 use cached::proc_macro::cached;
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
-#[derive(Copy, Clone, Debug)]
-pub struct ChartService;
+#[derive(Clone)]
+pub struct ChartService {
+    ctx: Arc<Context>,
+}
 
 impl ChartService {
-    pub fn new_server() -> ChartServer<ChartService> {
-        ChartServer::new(ChartService)
+    pub fn new_server(ctx: Arc<Context>) -> ChartServer<ChartService> {
+        ChartServer::new(Self { ctx })
     }
 }
 
@@ -73,6 +77,8 @@ impl chart_server::Chart for ChartService {
 #[cfg_attr(not(feature = "skip_cache"), cached(
     time = 86400, // 24 hours
     sync_writes = true,
+    key = "String",
+    convert = r##"{format!("{:?}{:?}", category, timeframe)}"##,
     result = true,
 ))]
 async fn get_chart_cached(

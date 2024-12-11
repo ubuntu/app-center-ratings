@@ -25,8 +25,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new_server(ctx: Context) -> UserServer<UserService> {
-        UserServer::new(Self { ctx: Arc::new(ctx) })
+    pub fn new_server(ctx: Arc<Context>) -> UserServer<UserService> {
+        UserServer::new(Self { ctx })
     }
 }
 

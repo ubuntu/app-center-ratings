@@ -9,17 +9,21 @@ use crate::{
         common::Rating as PbRating,
     },
     ratings::Rating,
+    Context,
 };
+use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 /// The general service governing retrieving ratings for the store app.
 #[derive(Clone)]
-pub struct RatingService;
+pub struct RatingService {
+    ctx: Arc<Context>,
+}
 
 impl RatingService {
-    pub fn new_server() -> AppServer<RatingService> {
-        AppServer::new(RatingService)
+    pub fn new_server(ctx: Arc<Context>) -> AppServer<RatingService> {
+        AppServer::new(RatingService { ctx })
     }
 }
 
