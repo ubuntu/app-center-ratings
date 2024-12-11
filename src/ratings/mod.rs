@@ -63,9 +63,10 @@ async fn get_json<T: DeserializeOwned>(
 )]
 async fn get_snap_name(
     snap_id: &str,
-    base_url: &reqwest::Url,
+    base: &str,
     client: &reqwest::Client,
 ) -> Result<String, Error> {
+    let base_url = reqwest::Url::parse(base).map_err(|e| Error::InvalidUrl(e.to_string()))?;
     let assertions_url = base_url
         .join(&format!("assertions/snap-declaration/16/{snap_id}"))
         .map_err(|e| Error::InvalidUrl(e.to_string()))?;

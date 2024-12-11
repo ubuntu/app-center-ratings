@@ -83,10 +83,9 @@ async fn get_snap_categories(
     base: &str,
     client: &reqwest::Client,
 ) -> Result<Vec<Category>, Error> {
+    let snap_name = get_snap_name(snap_id, base, client).await?;
+
     let base_url = reqwest::Url::parse(base).map_err(|e| Error::InvalidUrl(e.to_string()))?;
-
-    let snap_name = get_snap_name(snap_id, &base_url, client).await?;
-
     let info_url = base_url
         .join(&format!("snaps/info/{snap_name}"))
         .map_err(|e| Error::InvalidUrl(e.to_string()))?;
