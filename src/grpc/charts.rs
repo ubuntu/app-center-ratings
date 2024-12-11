@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     conn,
     db::{Category, Timeframe, VoteSummary},
@@ -9,17 +11,20 @@ use crate::{
         common::{Rating as PbRating, RatingsBand as PbRatingsBand},
     },
     ratings::{Chart, ChartData, Rating, RatingsBand},
+    Context,
 };
 use cached::proc_macro::cached;
 use tonic::{Request, Response, Status};
 use tracing::error;
 
-#[derive(Copy, Clone, Debug)]
-pub struct ChartService;
+#[derive(Clone)]
+pub struct ChartService {
+    ctx: Arc<Context>,
+}
 
 impl ChartService {
-    pub fn new_server() -> ChartServer<ChartService> {
-        ChartServer::new(ChartService)
+    pub fn new_server(ctx: Arc<Context>) -> ChartServer<ChartService> {
+        ChartServer::new(Self { ctx })
     }
 }
 
@@ -43,7 +48,7 @@ impl chart_server::Chart for ChartService {
 
         let timeframe = Timeframe::from_repr(timeframe).unwrap_or(Timeframe::Unspecified);
 
-        let chart = get_chart_cached(category, timeframe).await;
+        let chart = get_chart_cached(category, timeframe, &self.ctx).await;
 
         match chart {
             Ok(chart) if chart.data.is_empty() => {
@@ -73,11 +78,14 @@ impl chart_server::Chart for ChartService {
 #[cfg_attr(not(feature = "skip_cache"), cached(
     time = 86400, // 24 hours
     sync_writes = true,
+    key = "String",
+    convert = r##"{format!("{:?}{:?}", category, timeframe)}"##,
     result = true,
 ))]
 async fn get_chart_cached(
     category: Option<Category>,
     timeframe: Timeframe,
+    ctx: &Context,
 ) -> Result<Chart, Box<dyn std::error::Error>> {
     let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
 
