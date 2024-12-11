@@ -1,5 +1,7 @@
 //! Calculations around snap ratings based on received votes
 use crate::db::VoteSummary;
+use crate::ratings::{get_snap_name, Error};
+use crate::Context;
 
 /// An arbitrary fixed number of votes we've determined is below the threshold to be meaningful.
 const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
@@ -72,16 +74,23 @@ pub struct Rating {
     pub snap_name: String,
 }
 
-impl From<VoteSummary> for Rating {
-    fn from(votes: VoteSummary) -> Self {
+impl Rating {
+    pub async fn new(votes: VoteSummary, ctx: &Context) -> Result<Self, Error> {
         let (_, ratings_band) = calculate_band(&votes);
 
-        Self {
+        let snap_name = get_snap_name(
+            &votes.snap_id,
+            &ctx.config.snapcraft_io_uri,
+            &ctx.http_client,
+        )
+        .await?;
+
+        Ok(Self {
             snap_id: votes.snap_id,
             total_votes: votes.total_votes as u64,
             ratings_band,
-            snap_name: "".into(),
-        }
+            snap_name,
+        })
     }
 }
 

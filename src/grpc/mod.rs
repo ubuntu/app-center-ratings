@@ -47,7 +47,7 @@ pub async fn run_server(ctx: Context) -> Result<(), Box<dyn std::error::Error>> 
 
     builder
         .layer(AuthLayer::new(verifier))
-        .add_service(RatingService::new_server())
+        .add_service(RatingService::new_server(ctx.clone()))
         .add_service(ChartService::new_server(ctx.clone()))
         .add_service(UserService::new_server(ctx.clone()))
         .serve(addr)

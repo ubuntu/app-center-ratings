@@ -1,3 +1,5 @@
+use std::sync::Arc;
+
 use crate::{
     conn,
     db::VoteSummary,
@@ -9,17 +11,20 @@ use crate::{
         common::Rating as PbRating,
     },
     ratings::Rating,
+    Context,
 };
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 /// The general service governing retrieving ratings for the store app.
 #[derive(Clone)]
-pub struct RatingService;
+pub struct RatingService {
+    ctx: Arc<Context>,
+}
 
 impl RatingService {
-    pub fn new_server() -> AppServer<RatingService> {
-        AppServer::new(RatingService)
+    pub fn new_server(ctx: Arc<Context>) -> AppServer<RatingService> {
+        AppServer::new(Self { ctx })
     }
 }
 
@@ -41,7 +46,9 @@ impl App for RatingService {
                     total_votes,
                     ratings_band,
                     snap_name,
-                } = Rating::from(votes);
+                } = Rating::new(votes, &self.ctx)
+                    .await
+                    .map_err(|_| Status::unknown("Internal server error"))?;
 
                 Ok(Response::new(GetRatingResponse {
                     rating: Some(PbRating {
