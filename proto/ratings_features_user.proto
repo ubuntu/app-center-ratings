@@ -35,6 +35,7 @@ message Vote {
   int32 snap_revision = 2;
   bool vote_up = 3;
   google.protobuf.Timestamp timestamp = 4;
+  string snap_name = 5;
 }
 
 message VoteRequest {
