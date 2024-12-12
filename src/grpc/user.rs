@@ -7,9 +7,10 @@ use crate::{
         AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
         Vote as PbVote, VoteRequest,
     },
-    ratings::update_categories,
+    ratings::{get_snap_name, update_categories, Error},
     Context,
 };
+use futures::future::try_join_all;
 use std::sync::Arc;
 use time::OffsetDateTime;
 use tonic::{Request, Response, Status};
@@ -25,8 +26,8 @@ pub struct UserService {
 }
 
 impl UserService {
-    pub fn new_server(ctx: Context) -> UserServer<UserService> {
-        UserServer::new(Self { ctx: Arc::new(ctx) })
+    pub fn new_server(ctx: Arc<Context>) -> UserServer<UserService> {
+        UserServer::new(Self { ctx })
     }
 }
 
@@ -120,7 +121,18 @@ impl user_server::User for UserService {
 
         match Vote::get_all_by_client_hash(&client_hash, Some(snap_id), conn).await {
             Ok(votes) => {
-                let votes = votes.into_iter().map(|vote| vote.into()).collect();
+                let votes = try_join_all(votes.into_iter().map(|vote| async {
+                    let snap_name = get_snap_name(
+                        &vote.snap_id,
+                        &self.ctx.config.snapcraft_io_uri,
+                        &self.ctx.http_client,
+                    )
+                    .await?;
+
+                    Result::<PbVote, Error>::Ok(PbVote::from_vote_and_snap_name(vote, &snap_name))
+                }))
+                .await
+                .map_err(|_| Status::unknown("Internal server error"))?;
                 let payload = GetSnapVotesResponse { votes };
 
                 Ok(Response::new(payload))
@@ -134,8 +146,8 @@ impl user_server::User for UserService {
     }
 }
 
-impl From<Vote> for PbVote {
-    fn from(value: Vote) -> Self {
+impl PbVote {
+    fn from_vote_and_snap_name(value: Vote, snap_name: &str) -> Self {
         let timestamp = Some(prost_types::Timestamp {
             seconds: value.timestamp.unix_timestamp(),
             nanos: value.timestamp.nanosecond() as i32,
@@ -146,6 +158,7 @@ impl From<Vote> for PbVote {
             snap_revision: value.snap_revision as i32,
             vote_up: value.vote_up,
             timestamp,
+            snap_name: snap_name.into(),
         }
     }
 }
