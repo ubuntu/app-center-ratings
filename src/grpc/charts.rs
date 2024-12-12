@@ -8,10 +8,11 @@ use crate::{
         },
         common::{Rating as PbRating, RatingsBand as PbRatingsBand},
     },
-    ratings::{Chart, ChartData, Rating, RatingsBand},
+    ratings::{get_snap_name, Chart, ChartData, Error, Rating, RatingsBand},
     Context,
 };
 use cached::proc_macro::cached;
+use futures::future::try_join_all;
 use std::sync::Arc;
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -55,7 +56,21 @@ impl chart_server::Chart for ChartService {
             }
 
             Ok(chart) => {
-                let ordered_chart_data = chart.data.into_iter().map(|cd| cd.into()).collect();
+                let ordered_chart_data: Vec<PbChartData> =
+                    try_join_all(chart.data.into_iter().map(|chart_data| async {
+                        let snap_name = get_snap_name(
+                            &chart_data.rating.snap_id,
+                            &self.ctx.config.snapcraft_io_uri,
+                            &self.ctx.http_client,
+                        )
+                        .await?;
+
+                        Result::<PbChartData, Error>::Ok(
+                            PbChartData::from_chart_data_and_snap_name(chart_data, &snap_name),
+                        )
+                    }))
+                    .await
+                    .map_err(|_| Status::unknown("Internal server error"))?;
 
                 let payload = GetChartResponse {
                     timeframe: timeframe as i32,
@@ -84,27 +99,31 @@ impl chart_server::Chart for ChartService {
 async fn get_chart_cached(
     category: Option<Category>,
     timeframe: Timeframe,
-) -> Result<Chart, Box<dyn std::error::Error>> {
+) -> Result<Chart, crate::db::Error> {
     let summaries = VoteSummary::get_for_timeframe(timeframe, category, conn!()).await?;
 
     Ok(Chart::new(timeframe, summaries))
 }
 
-impl From<ChartData> for PbChartData {
-    fn from(value: ChartData) -> Self {
+impl PbChartData {
+    fn from_chart_data_and_snap_name(chart_data: ChartData, snap_name: &str) -> Self {
         Self {
-            raw_rating: value.raw_rating,
-            rating: Some(value.rating.into()),
+            raw_rating: chart_data.raw_rating,
+            rating: Some(PbRating::from_rating_and_snap_name(
+                chart_data.rating,
+                snap_name,
+            )),
         }
     }
 }
 
-impl From<Rating> for PbRating {
-    fn from(r: Rating) -> Self {
+impl PbRating {
+    fn from_rating_and_snap_name(rating: Rating, snap_name: &str) -> Self {
         Self {
-            snap_id: r.snap_id,
-            total_votes: r.total_votes,
-            ratings_band: r.ratings_band as i32,
+            snap_id: rating.snap_id,
+            total_votes: rating.total_votes,
+            ratings_band: rating.ratings_band as i32,
+            snap_name: snap_name.into(),
         }
     }
 }

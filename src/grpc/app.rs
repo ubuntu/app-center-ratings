@@ -8,7 +8,7 @@ use crate::{
         },
         common::Rating as PbRating,
     },
-    ratings::Rating,
+    ratings::{get_snap_name, Rating},
     Context,
 };
 use std::sync::Arc;
@@ -46,11 +46,20 @@ impl App for RatingService {
                     ratings_band,
                 } = Rating::from(votes);
 
+                let snap_name = get_snap_name(
+                    &snap_id,
+                    &self.ctx.config.snapcraft_io_uri,
+                    &self.ctx.http_client,
+                )
+                .await
+                .map_err(|_| Status::unknown("Internal server error"))?;
+
                 Ok(Response::new(GetRatingResponse {
                     rating: Some(PbRating {
                         snap_id,
                         total_votes,
                         ratings_band: ratings_band as i32,
+                        snap_name,
                     }),
                 }))
             }

@@ -61,7 +61,7 @@ async fn get_json<T: DeserializeOwned>(
         result = true
     )
 )]
-async fn get_snap_name(
+pub(crate) async fn get_snap_name(
     snap_id: &str,
     base: &str,
     client: &reqwest::Client,

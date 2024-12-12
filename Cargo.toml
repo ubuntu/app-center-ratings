@@ -18,6 +18,7 @@ skip_cache = []
 cached = { version = "0.54.0", features = ["async"] }
 dotenvy = "0.15"
 envy = "0.4"
+futures = "0.3"
 http = "1.1.0"
 jsonwebtoken = "9.2"
 prost = "0.13.3"
