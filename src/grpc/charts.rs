@@ -66,7 +66,7 @@ impl chart_server::Chart for ChartService {
                         .await?;
 
                         Result::<PbChartData, Error>::Ok(
-                            PbChartData::from_chart_data_and_snap_name(chart_data, &snap_name),
+                            PbChartData::from_chart_data_and_snap_name(chart_data, snap_name),
                         )
                     }))
                     .await
@@ -106,7 +106,7 @@ async fn get_chart_cached(
 }
 
 impl PbChartData {
-    fn from_chart_data_and_snap_name(chart_data: ChartData, snap_name: &str) -> Self {
+    fn from_chart_data_and_snap_name(chart_data: ChartData, snap_name: String) -> Self {
         Self {
             raw_rating: chart_data.raw_rating,
             rating: Some(PbRating::from_rating_and_snap_name(
@@ -118,12 +118,12 @@ impl PbChartData {
 }
 
 impl PbRating {
-    fn from_rating_and_snap_name(rating: Rating, snap_name: &str) -> Self {
+    fn from_rating_and_snap_name(rating: Rating, snap_name: String) -> Self {
         Self {
             snap_id: rating.snap_id,
             total_votes: rating.total_votes,
             ratings_band: rating.ratings_band as i32,
-            snap_name: snap_name.into(),
+            snap_name,
         }
     }
 }
