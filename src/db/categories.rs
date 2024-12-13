@@ -14,6 +14,7 @@ use sqlx::{PgConnection, Postgres, QueryBuilder};
     strum::FromRepr,
 )]
 #[repr(i32)]
+#[strum(serialize_all = "kebab-case")]
 pub enum Category {
     ArtAndDesign = 0,
     BookAndReference = 1,
