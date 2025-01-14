@@ -11,7 +11,7 @@ use crate::{
     ratings::{get_snap_name, Rating},
     Context,
 };
-use std::{sync::Arc, error::Error};
+use std::{error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
 
