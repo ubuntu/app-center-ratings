@@ -11,7 +11,7 @@ use crate::{
     ratings::{get_snap_name, Rating},
     Context,
 };
-use std::sync::Arc;
+use std::{error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
 
@@ -52,7 +52,16 @@ impl App for RatingService {
                     &self.ctx.http_client,
                 )
                 .await
-                .map_err(|_| Status::unknown("Internal server error"))?;
+                .map_err(|e| {
+                    let mut err = &e as &dyn Error;
+                    let mut error = format!("{err}");
+                    while let Some(src) = err.source() {
+                        error.push_str(&format!("\n\nCaused by: {src}"));
+                        err = src;
+                    }
+                    error!(%error, "unable to fetch snap name");
+                    Status::unknown("Internal server error")
+                })?;
 
                 Ok(Response::new(GetRatingResponse {
                     rating: Some(PbRating {
