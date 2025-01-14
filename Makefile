@@ -2,6 +2,10 @@
 build:
 	@cargo build --release
 
+.PHONY: docker-build
+docker-build:
+	@docker build -f docker/prod/Dockerfile .
+
 .PHONY: up
 up:
 	@docker-compose up
