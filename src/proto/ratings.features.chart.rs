@@ -63,7 +63,7 @@ impl Timeframe {
 #[repr(i32)]
 pub enum Category {
     ArtAndDesign = 0,
-    BookAndReference = 1,
+    BooksAndReference = 1,
     Development = 2,
     DevicesAndIot = 3,
     Education = 4,
@@ -91,7 +91,7 @@ impl Category {
     pub fn as_str_name(&self) -> &'static str {
         match self {
             Category::ArtAndDesign => "ART_AND_DESIGN",
-            Category::BookAndReference => "BOOK_AND_REFERENCE",
+            Category::BooksAndReference => "BOOKS_AND_REFERENCE",
             Category::Development => "DEVELOPMENT",
             Category::DevicesAndIot => "DEVICES_AND_IOT",
             Category::Education => "EDUCATION",
@@ -116,7 +116,7 @@ impl Category {
     pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
         match value {
             "ART_AND_DESIGN" => Some(Self::ArtAndDesign),
-            "BOOK_AND_REFERENCE" => Some(Self::BookAndReference),
+            "BOOKS_AND_REFERENCE" => Some(Self::BooksAndReference),
             "DEVELOPMENT" => Some(Self::Development),
             "DEVICES_AND_IOT" => Some(Self::DevicesAndIot),
             "EDUCATION" => Some(Self::Education),
