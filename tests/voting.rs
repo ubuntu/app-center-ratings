@@ -98,3 +98,25 @@ async fn voting_updates_ratings_band(
 
     Ok(())
 }
+
+#[tokio::test]
+async fn voting_on_a_snap_without_categories_works() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 3, 2, &[])
+        .await?;
+
+    let initial_rating = t.get_rating(&snap_id, &user_token).await?;
+    assert_eq!(initial_rating.total_votes, 5, "initial total votes");
+
+    // Vote with a user who has not previously voted for this snap
+    t.vote(&snap_id, snap_revision, true, &user_token).await?;
+
+    let rating = t.get_rating(&snap_id, &user_token).await?;
+    assert_eq!(rating.total_votes, 6, "total votes: vote_up=true");
+
+    Ok(())
+}

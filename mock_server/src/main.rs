@@ -56,7 +56,11 @@ async fn register_snap(
     categories: String,
 ) -> impl IntoResponse {
     info!("registering snap: {snap_id} -> {categories:?}");
-    let categories: Vec<String> = categories.split(',').map(|c| c.to_string()).collect();
+    let categories: Vec<String> = if !categories.is_empty() {
+        categories.split(',').map(|c| c.to_string()).collect()
+    } else {
+        vec![]
+    };
     let snap_name = Uuid::new_v4().to_string();
 
     let mut guard = state.write().unwrap();
