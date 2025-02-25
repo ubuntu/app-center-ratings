@@ -59,6 +59,7 @@ pub async fn set_categories_for_snap(
     query_builder.push_values(categories, |mut b, category| {
         b.push_bind(snap_id).push_bind(category);
     });
+    query_builder.push(";");
 
     query_builder.build().execute(conn).await?;
 
