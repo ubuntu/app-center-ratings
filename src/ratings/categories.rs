@@ -72,7 +72,9 @@ async fn update_categories_inner(
     conn: &mut PgConnection,
 ) -> Result<(), Error> {
     let categories = get_snap_categories(snap_id, base, client).await?;
-    set_categories_for_snap(snap_id, categories, conn).await?;
+    if !categories.is_empty() {
+        set_categories_for_snap(snap_id, categories, conn).await?;
+    }
 
     Ok(())
 }
