@@ -3,7 +3,7 @@ use crate::{
     config::Config,
     jwt::{Error, JwtEncoder},
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 use tokio::sync::{Mutex, Notify};
 
 pub struct Context {
@@ -22,7 +22,9 @@ impl Context {
         Ok(Self {
             config,
             jwt_encoder,
-            http_client: reqwest::Client::new(),
+            http_client: reqwest::Client::builder()
+                .pool_idle_timeout(Duration::from_secs(5))
+                .build()?,
             category_updates: Default::default(),
         })
     }

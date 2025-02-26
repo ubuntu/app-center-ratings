@@ -27,6 +27,9 @@ pub enum Error {
     InvalidHeader,
 
     #[error(transparent)]
+    Reqwest(#[from] reqwest::Error),
+
+    #[error(transparent)]
     TonicStatus(#[from] Status),
 }
 
