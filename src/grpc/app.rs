@@ -4,7 +4,7 @@ use crate::{
     proto::{
         app::{
             app_server::{App, AppServer},
-            GetRatingRequest, GetRatingResponse,
+            GetBulkRatingsRequest, GetBulkRatingsResponse, GetRatingRequest, GetRatingResponse,
         },
         common::Rating as PbRating,
     },
@@ -78,5 +78,11 @@ impl App for RatingService {
                 Err(Status::unknown("Internal server error"))
             }
         }
+    }
+    async fn get_bulk_ratings(
+        &self,
+        request: Request<GetBulkRatingsRequest>,
+    ) -> Result<tonic::Response<GetBulkRatingsResponse>, Status> {
+        Err(Status::unimplemented("get_bulk_ratings is not implemented"))
     }
 }

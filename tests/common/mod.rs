@@ -5,7 +5,8 @@ use ratings::{
     jwt::JwtVerifier,
     proto::{
         app::{app_client::AppClient, GetRatingRequest},
-        chart::{chart_client::ChartClient, ChartData, GetChartRequest, Timeframe},
+        chart::{chart_client::ChartClient, GetChartRequest, Timeframe},
+        common::ChartData,
         user::{
             user_client::UserClient, AuthenticateRequest, GetSnapVotesRequest, Vote, VoteRequest,
         },

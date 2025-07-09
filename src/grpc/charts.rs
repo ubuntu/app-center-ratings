@@ -4,9 +4,9 @@ use crate::{
     proto::{
         chart::{
             chart_server::{self, ChartServer},
-            ChartData as PbChartData, GetChartRequest, GetChartResponse,
+            GetChartRequest, GetChartResponse,
         },
-        common::{Rating as PbRating, RatingsBand as PbRatingsBand},
+        common::{ChartData as PbChartData, Rating as PbRating, RatingsBand as PbRatingsBand},
     },
     ratings::{get_snap_name, Chart, ChartData, Error, Rating, RatingsBand},
     Context,
