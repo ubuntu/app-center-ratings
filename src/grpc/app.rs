@@ -8,13 +8,15 @@ use crate::{
         },
         common::{ChartData as PbChartData, Rating as PbRating},
     },
-    ratings::{get_snap_name, Chart, ChartData, Error as RatingsError, Rating},
+    ratings::{get_snap_name, Chart, ChartData, Rating},
     Context,
 };
 use futures::future::try_join_all;
 use std::{error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
+
+const MAX_BULK_RATINGS_IDS: usize = 250;
 
 /// The general service governing retrieving ratings for the store app.
 #[derive(Clone)]
@@ -91,11 +93,10 @@ impl App for RatingService {
             return Err(Status::invalid_argument("snap_ids cannot be empty"));
         }
 
-        const MAX_IDS: usize = 250;
-        if snap_ids.len() > MAX_IDS {
+        if snap_ids.len() > MAX_BULK_RATINGS_IDS {
             return Err(Status::invalid_argument(format!(
                 "Too many snap_ids requested. The maximum is {}",
-                MAX_IDS
+                MAX_BULK_RATINGS_IDS
             )));
         }
 

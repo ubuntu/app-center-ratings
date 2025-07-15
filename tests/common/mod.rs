@@ -4,7 +4,7 @@ use rand::{distributions::Alphanumeric, Rng};
 use ratings::{
     jwt::JwtVerifier,
     proto::{
-        app::{app_client::AppClient, GetRatingRequest},
+        app::{app_client::AppClient, GetBulkRatingsRequest, GetRatingRequest},
         chart::{chart_client::ChartClient, GetChartRequest, Timeframe},
         common::ChartData,
         user::{
@@ -99,7 +99,7 @@ impl TestHelper {
         let snap_id = self.random_id();
         let str_categories: Vec<String> = categories.iter().map(|c| c.to_string()).collect();
         self.client
-            .post(format!("{}/{snap_id}", self.mock_admin_url))
+            .post(format!("{}/{}", self.mock_admin_url, snap_id))
             .body(str_categories.join(","))
             .send()
             .await?;
@@ -199,6 +199,19 @@ impl TestHelper {
         resp.rating
             .map(Into::into)
             .ok_or(anyhow!("no rating for {id}"))
+    }
+
+    pub async fn get_bulk_ratings(
+        &self,
+        snap_ids: Vec<String>,
+        token: &str,
+    ) -> anyhow::Result<Vec<ChartData>> {
+        let resp = client!(AppClient, self.channel().await, token)
+            .get_bulk_ratings(GetBulkRatingsRequest { snap_ids })
+            .await?
+            .into_inner();
+
+        Ok(resp.ratings)
     }
 
     pub async fn get_chart(
