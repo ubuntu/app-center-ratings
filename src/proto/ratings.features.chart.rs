@@ -13,17 +13,9 @@ pub struct GetChartResponse {
     #[prost(enumeration = "Timeframe", tag = "1")]
     pub timeframe: i32,
     #[prost(message, repeated, tag = "2")]
-    pub ordered_chart_data: ::prost::alloc::vec::Vec<ChartData>,
+    pub ordered_chart_data: ::prost::alloc::vec::Vec<super::common::ChartData>,
     #[prost(enumeration = "Category", optional, tag = "3")]
     pub category: ::core::option::Option<i32>,
-}
-#[allow(clippy::derive_partial_eq_without_eq)]
-#[derive(Clone, PartialEq, ::prost::Message)]
-pub struct ChartData {
-    #[prost(float, tag = "1")]
-    pub raw_rating: f32,
-    #[prost(message, optional, tag = "2")]
-    pub rating: ::core::option::Option<super::common::Rating>,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]

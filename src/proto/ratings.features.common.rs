@@ -11,6 +11,14 @@ pub struct Rating {
     #[prost(string, tag = "4")]
     pub snap_name: ::prost::alloc::string::String,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ChartData {
+    #[prost(float, tag = "1")]
+    pub raw_rating: f32,
+    #[prost(message, optional, tag = "2")]
+    pub rating: ::core::option::Option<Rating>,
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum RatingsBand {

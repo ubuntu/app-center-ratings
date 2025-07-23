@@ -1,19 +1,22 @@
 use crate::{
     conn,
-    db::VoteSummary,
+    db::{Timeframe, VoteSummary},
+    grpc::populate_chart_data_with_names,
     proto::{
         app::{
             app_server::{App, AppServer},
-            GetRatingRequest, GetRatingResponse,
+            GetBulkRatingsRequest, GetBulkRatingsResponse, GetRatingRequest, GetRatingResponse,
         },
         common::Rating as PbRating,
     },
-    ratings::{get_snap_name, Rating},
+    ratings::{get_snap_name, Chart, Rating},
     Context,
 };
 use std::{error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
+
+const MAX_BULK_RATINGS_IDS: usize = 250;
 
 /// The general service governing retrieving ratings for the store app.
 #[derive(Clone)]
@@ -78,5 +81,41 @@ impl App for RatingService {
                 Err(Status::unknown("Internal server error"))
             }
         }
+    }
+
+    async fn get_bulk_ratings(
+        &self,
+        request: Request<GetBulkRatingsRequest>,
+    ) -> Result<tonic::Response<GetBulkRatingsResponse>, Status> {
+        let GetBulkRatingsRequest { snap_ids } = request.into_inner();
+
+        if snap_ids.is_empty() {
+            return Err(Status::invalid_argument("snap_ids cannot be empty"));
+        }
+
+        if snap_ids.len() > MAX_BULK_RATINGS_IDS {
+            return Err(Status::invalid_argument(format!(
+                "Too many snap_ids requested. The maximum is {}",
+                MAX_BULK_RATINGS_IDS
+            )));
+        }
+
+        const TIMEFRAME: Timeframe = Timeframe::Month;
+
+        let vote_summaries = VoteSummary::get_by_snap_ids(&snap_ids, TIMEFRAME, conn!())
+            .await
+            .map_err(|e| {
+                error!("Error calling get_by_snap_ids: {:?}", e);
+                Status::unknown("Internal server error")
+            })?;
+
+        let chart = Chart::new(
+            TIMEFRAME,
+            vote_summaries.into_iter().map(Into::into).collect(),
+        );
+
+        let ratings = populate_chart_data_with_names(&self.ctx, chart.data).await?;
+
+        Ok(Response::new(GetBulkRatingsResponse { ratings }))
     }
 }

@@ -5,7 +5,7 @@ package ratings.features.chart;
 import "ratings_features_common.proto";
 
 service Chart {
-  rpc GetChart (GetChartRequest) returns (GetChartResponse) {}
+  rpc GetChart(GetChartRequest) returns (GetChartResponse) {}
 }
 
 message GetChartRequest {
@@ -15,13 +15,8 @@ message GetChartRequest {
 
 message GetChartResponse {
   Timeframe timeframe = 1;
-  repeated ChartData ordered_chart_data = 2;
+  repeated ratings.features.common.ChartData ordered_chart_data = 2;
   optional Category category = 3;
-}
-
-message ChartData {
-  float raw_rating = 1;
-  ratings.features.common.Rating rating = 2;
 }
 
 enum Timeframe {

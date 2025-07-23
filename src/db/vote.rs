@@ -111,6 +111,45 @@ impl VoteSummary {
         get_by_snap_id_cached(snap_id, conn).await
     }
 
+    pub async fn get_by_snap_ids(
+        snap_ids: &[String],
+        timeframe: Timeframe,
+        conn: &mut PgConnection,
+    ) -> Result<Vec<VoteSummary>> {
+        if snap_ids.is_empty() {
+            return Ok(vec![]);
+        }
+
+        let mut builder = QueryBuilder::new(
+            r#"
+            SELECT
+                votes.snap_id,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes
+            WHERE
+                votes.snap_id = ANY($1)
+        "#,
+        );
+
+        builder.push(match timeframe {
+            Timeframe::Week => " AND votes.created >= NOW() - INTERVAL '1 week'",
+            Timeframe::Month => " AND votes.created >= NOW() - INTERVAL '1 month'",
+            Timeframe::Unspecified => "",
+        });
+
+        builder.push(" GROUP BY votes.snap_id");
+
+        let summaries = builder
+            .build_query_as()
+            .bind(snap_ids)
+            .fetch_all(conn)
+            .await?;
+
+        Ok(summaries)
+    }
+
     /// Retrieves the vote summary over a given [Timeframe], optionally for a specific [Category]
     pub async fn get_for_timeframe(
         timeframe: Timeframe,

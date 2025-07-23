@@ -11,6 +11,18 @@ pub struct GetRatingResponse {
     #[prost(message, optional, tag = "1")]
     pub rating: ::core::option::Option<super::common::Rating>,
 }
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBulkRatingsRequest {
+    #[prost(string, repeated, tag = "1")]
+    pub snap_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
+}
+#[allow(clippy::derive_partial_eq_without_eq)]
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct GetBulkRatingsResponse {
+    #[prost(message, repeated, tag = "1")]
+    pub ratings: ::prost::alloc::vec::Vec<super::common::ChartData>,
+}
 /// Generated client implementations.
 pub mod app_client {
     #![allow(unused_variables, dead_code, missing_docs, clippy::let_unit_value)]
@@ -121,6 +133,31 @@ pub mod app_client {
                 .insert(GrpcMethod::new("ratings.features.app.App", "GetRating"));
             self.inner.unary(req, path, codec).await
         }
+        pub async fn get_bulk_ratings(
+            &mut self,
+            request: impl tonic::IntoRequest<super::GetBulkRatingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetBulkRatingsResponse>,
+            tonic::Status,
+        > {
+            self.inner
+                .ready()
+                .await
+                .map_err(|e| {
+                    tonic::Status::new(
+                        tonic::Code::Unknown,
+                        format!("Service was not ready: {}", e.into()),
+                    )
+                })?;
+            let codec = tonic::codec::ProstCodec::default();
+            let path = http::uri::PathAndQuery::from_static(
+                "/ratings.features.app.App/GetBulkRatings",
+            );
+            let mut req = request.into_request();
+            req.extensions_mut()
+                .insert(GrpcMethod::new("ratings.features.app.App", "GetBulkRatings"));
+            self.inner.unary(req, path, codec).await
+        }
     }
 }
 /// Generated server implementations.
@@ -135,6 +172,13 @@ pub mod app_server {
             request: tonic::Request<super::GetRatingRequest>,
         ) -> std::result::Result<
             tonic::Response<super::GetRatingResponse>,
+            tonic::Status,
+        >;
+        async fn get_bulk_ratings(
+            &self,
+            request: tonic::Request<super::GetBulkRatingsRequest>,
+        ) -> std::result::Result<
+            tonic::Response<super::GetBulkRatingsResponse>,
             tonic::Status,
         >;
     }
@@ -246,6 +290,52 @@ pub mod app_server {
                     let fut = async move {
                         let inner = inner.0;
                         let method = GetRatingSvc(inner);
+                        let codec = tonic::codec::ProstCodec::default();
+                        let mut grpc = tonic::server::Grpc::new(codec)
+                            .apply_compression_config(
+                                accept_compression_encodings,
+                                send_compression_encodings,
+                            )
+                            .apply_max_message_size_config(
+                                max_decoding_message_size,
+                                max_encoding_message_size,
+                            );
+                        let res = grpc.unary(method, req).await;
+                        Ok(res)
+                    };
+                    Box::pin(fut)
+                }
+                "/ratings.features.app.App/GetBulkRatings" => {
+                    #[allow(non_camel_case_types)]
+                    struct GetBulkRatingsSvc<T: App>(pub Arc<T>);
+                    impl<
+                        T: App,
+                    > tonic::server::UnaryService<super::GetBulkRatingsRequest>
+                    for GetBulkRatingsSvc<T> {
+                        type Response = super::GetBulkRatingsResponse;
+                        type Future = BoxFuture<
+                            tonic::Response<Self::Response>,
+                            tonic::Status,
+                        >;
+                        fn call(
+                            &mut self,
+                            request: tonic::Request<super::GetBulkRatingsRequest>,
+                        ) -> Self::Future {
+                            let inner = Arc::clone(&self.0);
+                            let fut = async move {
+                                <T as App>::get_bulk_ratings(&inner, request).await
+                            };
+                            Box::pin(fut)
+                        }
+                    }
+                    let accept_compression_encodings = self.accept_compression_encodings;
+                    let send_compression_encodings = self.send_compression_encodings;
+                    let max_decoding_message_size = self.max_decoding_message_size;
+                    let max_encoding_message_size = self.max_encoding_message_size;
+                    let inner = self.inner.clone();
+                    let fut = async move {
+                        let inner = inner.0;
+                        let method = GetBulkRatingsSvc(inner);
                         let codec = tonic::codec::ProstCodec::default();
                         let mut grpc = tonic::server::Grpc::new(codec)
                             .apply_compression_config(

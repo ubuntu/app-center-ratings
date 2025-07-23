@@ -5,7 +5,8 @@ package ratings.features.app;
 import "ratings_features_common.proto";
 
 service App {
-  rpc GetRating (GetRatingRequest) returns (GetRatingResponse) {}
+  rpc GetRating(GetRatingRequest) returns (GetRatingResponse) {}
+  rpc GetBulkRatings(GetBulkRatingsRequest) returns (GetBulkRatingsResponse) {}
 }
 
 message GetRatingRequest {
@@ -14,4 +15,12 @@ message GetRatingRequest {
 
 message GetRatingResponse {
   ratings.features.common.Rating rating = 1;
+}
+
+message GetBulkRatingsRequest {
+  repeated string snap_ids = 1;
+}
+
+message GetBulkRatingsResponse {
+  repeated ratings.features.common.ChartData ratings = 1;
 }
