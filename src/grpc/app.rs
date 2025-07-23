@@ -1,17 +1,17 @@
 use crate::{
     conn,
     db::{Timeframe, VoteSummary},
+    grpc::populate_chart_data_with_names,
     proto::{
         app::{
             app_server::{App, AppServer},
             GetBulkRatingsRequest, GetBulkRatingsResponse, GetRatingRequest, GetRatingResponse,
         },
-        common::{ChartData as PbChartData, Rating as PbRating},
+        common::Rating as PbRating,
     },
-    ratings::{get_snap_name, Chart, ChartData, Rating},
+    ratings::{get_snap_name, Chart, Rating},
     Context,
 };
-use futures::future::try_join_all;
 use std::{error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
@@ -118,33 +118,4 @@ impl App for RatingService {
 
         Ok(Response::new(GetBulkRatingsResponse { ratings }))
     }
-}
-
-pub async fn populate_chart_data_with_names(
-    ctx: &Arc<Context>,
-    chart_data_vec: Vec<ChartData>,
-) -> Result<Vec<PbChartData>, Status> {
-    try_join_all(chart_data_vec.into_iter().map(|chart_data| async {
-        let snap_name = get_snap_name(
-            &chart_data.rating.snap_id,
-            &ctx.config.snapcraft_io_uri,
-            &ctx.http_client,
-        )
-        .await
-        .map_err(|e| {
-            let mut err = &e as &dyn Error;
-            let mut error_chain = format!("{err}");
-            while let Some(src) = err.source() {
-                error_chain.push_str(&format!("\nCaused by: {src}"));
-                err = src;
-            }
-            error!(error=%error_chain, "unable to fetch snap name");
-            Status::unknown("Internal server error")
-        })?;
-
-        Ok(PbChartData::from_chart_data_and_snap_name(
-            chart_data, snap_name,
-        ))
-    }))
-    .await
 }
