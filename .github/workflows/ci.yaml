@@ -90,5 +90,7 @@ jobs:
 
       - name: Publish rock to GHCR
         run: |
-          skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://ghcr.io/${{ steps.meta.outputs.tags }}
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://${tag}
+          done
 
