@@ -82,9 +82,14 @@ pub async fn check_db_conn() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::conn;
     use sqlx::types::time::OffsetDateTime;
     use tracing_subscriber::EnvFilter;
+
+    // Each #[tokio::test] runs on its own runtime, so tests must not share the
+    // global POOL: its connections die with the runtime that opened them.
+    async fn test_pool() -> Result<PgPool> {
+        init_pool_from_uri_and_migrate().await
+    }
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
@@ -119,7 +124,8 @@ mod tests {
             },
         ];
 
-        let conn = conn!();
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
 
         for client_hash in test_users.into_iter() {
             User::create_or_seen(client_hash, conn).await?;
@@ -170,7 +176,8 @@ mod tests {
         let client_hash = "0000000000000000000000000000000000000000000000000000000000000003";
         let app_id = "00000000000000000000000000000003";
 
-        let conn = conn!();
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
         User::create_or_seen(client_hash, conn).await?;
 
         vote::Vote {
@@ -224,7 +231,8 @@ mod tests {
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
     async fn update_categories() -> Result<()> {
-        let conn = conn!();
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
         let snap_id = "00000000000000000000000000000001";
         let cats = vec![categories::Category::ArtAndDesign];
 
