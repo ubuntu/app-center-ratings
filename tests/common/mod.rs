@@ -249,6 +249,14 @@ impl TestHelper {
         Ok(())
     }
 
+    pub async fn send_vote(&self, request: VoteRequest, token: &str) -> anyhow::Result<()> {
+        client!(UserClient, self.channel().await, token)
+            .vote(request)
+            .await?;
+
+        Ok(())
+    }
+
     pub async fn get_snap_votes(
         &self,
         token: &str,

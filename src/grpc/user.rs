@@ -1,6 +1,6 @@
 use crate::{
     conn,
-    db::{User, Vote},
+    db::{PackageType, User, Vote},
     grpc::package_type_from_proto,
     jwt::Claims,
     proto::common::PackageType as PbPackageType,
@@ -82,7 +82,7 @@ impl user_server::User for UserService {
             package_type,
             package_version: _,
         } = request.into_inner();
-        let package_type = package_type_from_proto(package_type)
+        let package_type = supported_package_type(package_type)
             .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
         let conn = conn!();
 
@@ -121,7 +121,7 @@ impl user_server::User for UserService {
             app_id,
             package_type,
         } = request.into_inner();
-        let package_type = package_type_from_proto(package_type)
+        let package_type = supported_package_type(package_type)
             .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
 
         let conn = conn!();
@@ -175,6 +175,11 @@ impl PbVote {
             package_version: String::new(),
         }
     }
+}
+
+/// Deb votes must not be stored until the rest of the stack can handle them.
+fn supported_package_type(value: i32) -> Option<PackageType> {
+    package_type_from_proto(value).filter(|p| *p == PackageType::Snap)
 }
 
 #[inline]
