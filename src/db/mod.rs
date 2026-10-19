@@ -166,6 +166,63 @@ mod tests {
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
+    async fn snap_queries_ignore_deb_votes_for_same_app_id() -> Result<()> {
+        let client_hash = "0000000000000000000000000000000000000000000000000000000000000003";
+        let app_id = "00000000000000000000000000000003";
+
+        let conn = conn!();
+        User::create_or_seen(client_hash, conn).await?;
+
+        vote::Vote {
+            client_hash: String::from(client_hash),
+            app_id: String::from(app_id),
+            package_type: PackageType::Snap,
+            vote_up: true,
+            timestamp: OffsetDateTime::from_unix_timestamp(789).unwrap(),
+            snap_revision: 3,
+        }
+        .save_to_db(conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO votes (user_id_fk, app_id, package_type, package_version, vote_up)
+            VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, '1.0', false)
+            ON CONFLICT DO NOTHING;
+            "#,
+        )
+        .bind(client_hash)
+        .bind(app_id)
+        .bind(PackageType::Deb)
+        .execute(&mut *conn)
+        .await?;
+
+        let votes = vote::Vote::get_all_by_client_hash(
+            client_hash,
+            PackageType::Snap,
+            Some(String::from(app_id)),
+            conn,
+        )
+        .await?;
+
+        assert_eq!(votes.len(), 1);
+        assert_eq!(votes[0].package_type, PackageType::Snap);
+        assert_eq!(votes[0].snap_revision, 3);
+
+        let summaries =
+            VoteSummary::get_by_snap_ids(&[String::from(app_id)], Timeframe::Unspecified, conn)
+                .await?;
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].package_type, PackageType::Snap);
+        assert_eq!(summaries[0].total_votes, 1);
+        assert_eq!(summaries[0].positive_votes, 1);
+
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "db_tests"), ignore)]
+    #[tokio::test]
     async fn update_categories() -> Result<()> {
         let conn = conn!();
         let snap_id = "00000000000000000000000000000001";
