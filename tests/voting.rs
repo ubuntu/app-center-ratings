@@ -168,3 +168,55 @@ async fn deb_get_snap_votes_is_rejected_until_supported() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+#[test_case(2; "unknown positive")]
+#[test_case(-1; "negative")]
+#[tokio::test]
+async fn unknown_package_type_vote_is_rejected(package_type: i32) -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    let request = VoteRequest {
+        app_id: snap_id,
+        snap_revision,
+        vote_up: true,
+        package_type,
+        ..Default::default()
+    };
+    let err = t.send_vote(request, &user_token).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
+
+#[test_case(2; "unknown positive")]
+#[test_case(-1; "negative")]
+#[tokio::test]
+async fn unknown_package_type_get_snap_votes_is_rejected(package_type: i32) -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_id = t
+        .test_snap_with_initial_votes(1, 0, 0, &[Category::Social])
+        .await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: snap_id,
+        package_type,
+    };
+    let err = t.get_snap_votes(&user_token, request).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
