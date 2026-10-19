@@ -129,16 +129,71 @@ async fn voting_on_a_snap_without_categories_works() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn deb_vote_is_rejected_until_supported() -> anyhow::Result<()> {
+async fn deb_vote_can_be_read_back() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    // Unknown to the snapcraft.io mock, so any lookup for it would fail
+    let app_id = format!("org.example.{}", t.random_id());
+
+    t.vote_deb(&app_id, "46.1", true, &user_token).await?;
+
+    let votes = t.get_deb_votes(&app_id, &user_token).await?;
+    assert_eq!(votes.len(), 1, "{votes:?}");
+    let vote = &votes[0];
+    assert_eq!(vote.app_id, app_id);
+    assert_eq!(vote.package_type, PackageType::Deb as i32);
+    assert_eq!(vote.package_version, "46.1");
+    assert_eq!(vote.snap_revision, 0);
+    assert_eq!(vote.snap_name, "");
+    assert!(vote.vote_up);
+
+    Ok(())
+}
+
+#[test_case(true; "up to down vote")]
+#[test_case(false; "down to up vote")]
+#[tokio::test]
+async fn changing_your_deb_vote_replaces_it(initial_up: bool) -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let app_id = format!("org.example.{}", t.random_id());
+
+    t.vote_deb(&app_id, "46.1", initial_up, &user_token).await?;
+    t.vote_deb(&app_id, "46.1", !initial_up, &user_token)
+        .await?;
+
+    let votes = t.get_deb_votes(&app_id, &user_token).await?;
+    assert_eq!(votes.len(), 1, "{votes:?}");
+    assert_eq!(votes[0].vote_up, !initial_up);
+
+    Ok(())
+}
+
+#[test_case(PackageType::Deb, "org.example.App", 0, ""; "deb without version")]
+#[test_case(PackageType::Deb, "org.example.App", 1, ""; "deb with revision but no version")]
+#[test_case(PackageType::Deb, "org.example.App", 1, "1.0"; "deb with revision and version")]
+#[test_case(PackageType::Snap, "snapid", 0, "1.0"; "snap with version but no revision")]
+#[test_case(PackageType::Snap, "snapid", -1, ""; "snap with negative revision")]
+#[test_case(PackageType::Snap, "", 1, ""; "empty snap app id")]
+#[test_case(PackageType::Deb, "", 0, "1.0"; "empty deb app id")]
+#[test_case(PackageType::Deb, &"a".repeat(256), 0, "1.0"; "deb app id over 255 bytes")]
+#[test_case(PackageType::Snap, &"a".repeat(256), 1, ""; "snap app id over 255 bytes")]
+#[tokio::test]
+async fn malformed_vote_is_rejected(
+    package_type: PackageType,
+    app_id: &str,
+    snap_revision: i32,
+    package_version: &str,
+) -> anyhow::Result<()> {
     let t = TestHelper::new();
     let user_token = t.authenticate(t.random_sha_256()).await?;
 
     let request = VoteRequest {
-        app_id: "org.gnome.Calculator".to_string(),
+        app_id: app_id.to_string(),
+        snap_revision,
         vote_up: true,
-        package_type: PackageType::Deb.into(),
-        package_version: "46.1".to_string(),
-        ..Default::default()
+        package_type: package_type.into(),
+        package_version: package_version.to_string(),
     };
     let err = t.send_vote(request, &user_token).await.unwrap_err();
 
@@ -151,20 +206,16 @@ async fn deb_vote_is_rejected_until_supported() -> anyhow::Result<()> {
 }
 
 #[tokio::test]
-async fn deb_get_snap_votes_is_rejected_until_supported() -> anyhow::Result<()> {
+async fn deb_app_id_of_255_bytes_is_accepted() -> anyhow::Result<()> {
     let t = TestHelper::new();
     let user_token = t.authenticate(t.random_sha_256()).await?;
+    let app_id = format!("org.example.{}", t.random_id());
+    let app_id = format!("{app_id}{}", "a".repeat(255 - app_id.len()));
 
-    let request = GetSnapVotesRequest {
-        app_id: "org.gnome.Calculator".to_string(),
-        package_type: PackageType::Deb.into(),
-    };
-    let err = t.get_snap_votes(&user_token, request).await.unwrap_err();
+    t.vote_deb(&app_id, "1.0", true, &user_token).await?;
 
-    let status = err
-        .downcast_ref::<tonic::Status>()
-        .expect("Error should be a tonic::Status");
-    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+    let votes = t.get_deb_votes(&app_id, &user_token).await?;
+    assert_eq!(votes.len(), 1, "{votes:?}");
 
     Ok(())
 }
@@ -245,6 +296,36 @@ async fn legacy_get_snap_votes_returns_snap_vote() -> anyhow::Result<()> {
     assert!(vote.vote_up);
     assert_eq!(vote.package_type, PackageType::Snap as i32);
     assert_eq!(vote.package_version, "");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn package_version_sent_with_snap_vote_is_ignored() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    let request = VoteRequest {
+        app_id: snap_id.clone(),
+        snap_revision,
+        vote_up: true,
+        package_version: "1.0".to_string(),
+        ..Default::default()
+    };
+    t.send_vote(request, &user_token).await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: snap_id,
+        ..Default::default()
+    };
+    let votes = t.get_snap_votes(&user_token, request).await?;
+    assert_eq!(votes.len(), 1, "{votes:?}");
+    assert_eq!(votes[0].snap_revision, snap_revision);
+    assert_eq!(votes[0].package_version, "");
 
     Ok(())
 }

@@ -131,6 +131,7 @@ async fn package_types_migration_round_trips_snap_votes() -> Result<()> {
         app_id: snap_id.clone(),
         package_type: PackageType::Snap,
         snap_revision: revision as u32,
+        package_version: None,
         vote_up: !vote_up,
         timestamp: sqlx::types::time::OffsetDateTime::now_utc(),
     }

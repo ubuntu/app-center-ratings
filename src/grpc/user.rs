@@ -21,6 +21,9 @@ use tracing::{error, warn};
 /// The length we expect a client hash to be, in bytes
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
 
+/// The longest App ID we store, in bytes (`votes.app_id` is `VARCHAR(255)`)
+const MAX_APP_ID_LENGTH: usize = 255;
+
 /// An empty struct used to construct a [`UserServer`]
 #[derive(Clone)]
 pub struct UserService {
@@ -80,22 +83,27 @@ impl user_server::User for UserService {
             snap_revision,
             vote_up,
             package_type,
-            package_version: _,
+            package_version,
         } = request.into_inner();
-        let package_type = supported_package_type(package_type)
+        let package_type = package_type_from_proto(package_type)
             .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
+        let (snap_revision, package_version) =
+            validate_vote(&app_id, package_type, snap_revision, package_version)?;
         let conn = conn!();
 
-        // Ignore but log warning, it's not fatal
-        if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
-            warn!("unable to update categories for snap: {e}");
+        if package_type == PackageType::Snap {
+            // Ignore but log warning, it's not fatal
+            if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
+                warn!("unable to update categories for snap: {e}");
+            }
         }
 
         let vote = Vote {
             client_hash: sub,
             app_id,
             package_type,
-            snap_revision: snap_revision as u32,
+            snap_revision,
+            package_version,
             vote_up,
             timestamp: OffsetDateTime::now_utc(),
         };
@@ -121,25 +129,32 @@ impl user_server::User for UserService {
             app_id,
             package_type,
         } = request.into_inner();
-        let package_type = supported_package_type(package_type)
+        let package_type = package_type_from_proto(package_type)
             .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
 
         let conn = conn!();
 
         // Ignore but log warning, it's not fatal
-        if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
-            warn!("unable to update categories for snap: {e}");
+        if package_type == PackageType::Snap {
+            if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
+                warn!("unable to update categories for snap: {e}");
+            }
         }
 
         match Vote::get_all_by_client_hash(&client_hash, package_type, Some(app_id), conn).await {
             Ok(votes) => {
                 let votes = try_join_all(votes.into_iter().map(|vote| async {
-                    let snap_name = get_snap_name(
-                        &vote.app_id,
-                        &self.ctx.config.snapcraft_io_uri,
-                        &self.ctx.http_client,
-                    )
-                    .await?;
+                    let snap_name = match vote.package_type {
+                        PackageType::Snap => {
+                            get_snap_name(
+                                &vote.app_id,
+                                &self.ctx.config.snapcraft_io_uri,
+                                &self.ctx.http_client,
+                            )
+                            .await?
+                        }
+                        PackageType::Deb => String::new(),
+                    };
 
                     Result::<PbVote, Error>::Ok(PbVote::from_vote_and_snap_name(vote, &snap_name))
                 }))
@@ -172,14 +187,38 @@ impl PbVote {
             timestamp,
             snap_name: snap_name.into(),
             package_type: PbPackageType::from(value.package_type).into(),
-            package_version: String::new(),
+            package_version: value.package_version.unwrap_or_default(),
         }
     }
 }
 
-/// Deb votes must not be stored until the rest of the stack can handle them.
-fn supported_package_type(value: i32) -> Option<PackageType> {
-    package_type_from_proto(value).filter(|p| *p == PackageType::Snap)
+/// Checks a vote has the right shape for its Package Type, returning the Snap Revision
+/// and Package Version to store. A Package Version sent with a snap vote is ignored.
+fn validate_vote(
+    app_id: &str,
+    package_type: PackageType,
+    snap_revision: i32,
+    package_version: String,
+) -> Result<(u32, Option<String>), Status> {
+    if app_id.is_empty() || app_id.len() > MAX_APP_ID_LENGTH {
+        return Err(Status::invalid_argument(format!(
+            "app_id must be between 1 and {MAX_APP_ID_LENGTH} bytes"
+        )));
+    }
+
+    match package_type {
+        PackageType::Snap if snap_revision <= 0 => Err(Status::invalid_argument(
+            "snap votes require a positive snap_revision",
+        )),
+        PackageType::Snap => Ok((snap_revision as u32, None)),
+        PackageType::Deb if package_version.is_empty() => Err(Status::invalid_argument(
+            "deb votes require a package_version",
+        )),
+        PackageType::Deb if snap_revision != 0 => Err(Status::invalid_argument(
+            "deb votes must not set a snap_revision",
+        )),
+        PackageType::Deb => Ok((0, Some(package_version))),
+    }
 }
 
 #[inline]

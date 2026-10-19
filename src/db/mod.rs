@@ -115,6 +115,7 @@ mod tests {
                 vote_up: true,
                 timestamp: OffsetDateTime::from_unix_timestamp(123).unwrap(),
                 snap_revision: 1,
+                package_version: None,
             },
             vote::Vote {
                 client_hash: String::from(client_hash_2),
@@ -123,6 +124,7 @@ mod tests {
                 vote_up: false,
                 timestamp: OffsetDateTime::from_unix_timestamp(456).unwrap(),
                 snap_revision: 2,
+                package_version: None,
             },
         ];
 
@@ -189,6 +191,7 @@ mod tests {
             vote_up: true,
             timestamp: OffsetDateTime::from_unix_timestamp(789).unwrap(),
             snap_revision: 3,
+            package_version: None,
         }
         .save_to_db(conn)
         .await?;

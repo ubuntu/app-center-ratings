@@ -24,9 +24,11 @@ pub struct Vote {
     pub app_id: String,
     /// The Package Type of the App being voted on
     pub package_type: PackageType,
-    /// The revision of the snap being voted on
+    /// The revision of the snap being voted on, 0 for debs
     #[sqlx(try_from = "i32")]
     pub snap_revision: u32,
+    /// The Package Version of the deb being voted on, `None` for snaps
+    pub package_version: Option<String>,
     /// Whether this is a positive or negative vote
     pub vote_up: bool,
     /// The timestamp of the vote
@@ -52,7 +54,8 @@ impl Vote {
                     votes.created,
                     votes.app_id,
                     votes.package_type,
-                    votes.snap_revision,
+                    COALESCE(votes.snap_revision, 0) AS snap_revision,
+                    votes.package_version,
                     votes.vote_up,
                     users.client_hash
                 FROM
@@ -82,20 +85,36 @@ impl Vote {
         Ok(votes)
     }
 
-    /// Saves a snap [`Vote`] to the database, if possible.
+    /// Saves a [`Vote`] to the database, replacing the user's earlier vote on the same
+    /// Snap Revision or Package Version.
     pub async fn save_to_db(self, conn: &mut PgConnection) -> Result<u64> {
-        let result = sqlx::query(
+        // The conflict target must match the partial unique index for the Package Type
+        let (snap_revision, package_version, conflict_target) = match self.package_type {
+            PackageType::Snap => (
+                Some(self.snap_revision as i32),
+                None,
+                "(user_id_fk, app_id, snap_revision) WHERE package_type = 0",
+            ),
+            PackageType::Deb => (
+                None,
+                self.package_version,
+                "(user_id_fk, app_id, package_version) WHERE package_type = 1",
+            ),
+        };
+
+        let result = sqlx::query(&format!(
             r#"
-        INSERT INTO votes (user_id_fk, app_id, package_type, snap_revision, vote_up)
-        VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, $4, $5)
-        ON CONFLICT (user_id_fk, app_id, snap_revision) WHERE package_type = 0
+        INSERT INTO votes (user_id_fk, app_id, package_type, snap_revision, package_version, vote_up)
+        VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, $4, $5, $6)
+        ON CONFLICT {conflict_target}
         DO UPDATE SET vote_up = EXCLUDED.vote_up;
-        "#,
-        )
+        "#
+        ))
         .bind(self.client_hash)
         .bind(self.app_id)
         .bind(self.package_type)
-        .bind(self.snap_revision as i32)
+        .bind(snap_revision)
+        .bind(package_version)
         .bind(self.vote_up)
         .execute(conn)
         .await
