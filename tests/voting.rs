@@ -329,3 +329,36 @@ async fn package_version_sent_with_snap_vote_is_ignored() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+#[tokio::test]
+async fn snap_and_deb_votes_on_one_app_id_are_kept_apart() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let app_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    t.vote(&app_id, snap_revision, true, &user_token).await?;
+    t.vote_deb(&app_id, "1.0", false, &user_token).await?;
+    // Changing the deb vote must not touch the snap vote
+    t.vote_deb(&app_id, "1.0", true, &user_token).await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: app_id.clone(),
+        ..Default::default()
+    };
+    let snap_votes = t.get_snap_votes(&user_token, request).await?;
+    assert_eq!(snap_votes.len(), 1, "{snap_votes:?}");
+    assert_eq!(snap_votes[0].package_type, PackageType::Snap as i32);
+    assert_eq!(snap_votes[0].snap_revision, snap_revision);
+    assert!(snap_votes[0].vote_up);
+
+    let deb_votes = t.get_deb_votes(&app_id, &user_token).await?;
+    assert_eq!(deb_votes.len(), 1, "{deb_votes:?}");
+    assert_eq!(deb_votes[0].package_type, PackageType::Deb as i32);
+    assert_eq!(deb_votes[0].package_version, "1.0");
+    assert!(deb_votes[0].vote_up);
+
+    Ok(())
+}
