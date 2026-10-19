@@ -5,6 +5,8 @@ use tokio::sync::OnceCell;
 use tracing::info;
 
 mod categories;
+#[cfg(test)]
+mod migration_tests;
 mod user;
 mod vote;
 
