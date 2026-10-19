@@ -10,7 +10,7 @@ mod vote;
 
 pub use categories::{set_categories_for_snap, snap_has_categories, Category};
 pub use user::User;
-pub use vote::{Timeframe, Vote, VoteSummary};
+pub use vote::{PackageType, Timeframe, Vote, VoteSummary};
 
 #[macro_export]
 macro_rules! conn {
@@ -103,14 +103,16 @@ mod tests {
         let test_votes = [
             vote::Vote {
                 client_hash: String::from(client_hash_1),
-                snap_id: String::from(snap_id_1),
+                app_id: String::from(snap_id_1),
+                package_type: PackageType::Snap,
                 vote_up: true,
                 timestamp: OffsetDateTime::from_unix_timestamp(123).unwrap(),
                 snap_revision: 1,
             },
             vote::Vote {
                 client_hash: String::from(client_hash_2),
-                snap_id: String::from(snap_id_2),
+                app_id: String::from(snap_id_2),
+                package_type: PackageType::Snap,
                 vote_up: false,
                 timestamp: OffsetDateTime::from_unix_timestamp(456).unwrap(),
                 snap_revision: 2,
@@ -127,26 +129,34 @@ mod tests {
             vote.save_to_db(conn).await?;
         }
 
-        let votes_client_1 =
-            vote::Vote::get_all_by_client_hash(client_hash_1, Some(String::from(snap_id_1)), conn)
-                .await
-                .unwrap();
+        let votes_client_1 = vote::Vote::get_all_by_client_hash(
+            client_hash_1,
+            PackageType::Snap,
+            Some(String::from(snap_id_1)),
+            conn,
+        )
+        .await
+        .unwrap();
 
-        let votes_client_2 =
-            vote::Vote::get_all_by_client_hash(client_hash_2, Some(String::from(snap_id_2)), conn)
-                .await
-                .unwrap();
+        let votes_client_2 = vote::Vote::get_all_by_client_hash(
+            client_hash_2,
+            PackageType::Snap,
+            Some(String::from(snap_id_2)),
+            conn,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(votes_client_1.len(), 1);
         let first_vote = votes_client_1.first().unwrap();
-        assert_eq!(first_vote.snap_id, snap_id_1);
+        assert_eq!(first_vote.app_id, snap_id_1);
         assert_eq!(first_vote.client_hash, client_hash_1);
         assert_eq!(first_vote.snap_revision, 1);
         assert!(first_vote.vote_up);
 
         let second_vote = votes_client_2.first().unwrap();
         assert_eq!(votes_client_2.len(), 1);
-        assert_eq!(second_vote.snap_id, snap_id_2);
+        assert_eq!(second_vote.app_id, snap_id_2);
         assert_eq!(second_vote.client_hash, client_hash_2);
         assert_eq!(second_vote.snap_revision, 2);
         assert!(!second_vote.vote_up);

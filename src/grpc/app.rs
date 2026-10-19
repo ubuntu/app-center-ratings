@@ -44,9 +44,10 @@ impl App for RatingService {
         match VoteSummary::get_by_snap_id(&snap_id, conn!()).await {
             Ok(votes) => {
                 let Rating {
-                    snap_id,
+                    app_id: snap_id,
                     total_votes,
                     ratings_band,
+                    ..
                 } = Rating::from(votes);
 
                 let snap_name = get_snap_name(

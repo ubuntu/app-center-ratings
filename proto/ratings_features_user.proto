@@ -4,6 +4,7 @@ package ratings.features.user;
 
 import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
+import "ratings_features_common.proto";
 
 service User {
   rpc Authenticate (AuthenticateRequest) returns (AuthenticateResponse) {}
@@ -23,7 +24,9 @@ message AuthenticateResponse {
 }
 
 message GetSnapVotesRequest {
-  string snap_id = 1;
+  // The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
+  string app_id = 1;
+  ratings.features.common.PackageType package_type = 2;
 }
 
 message GetSnapVotesResponse {
@@ -31,15 +34,26 @@ message GetSnapVotesResponse {
 }
 
 message Vote {
-  string snap_id = 1;
+  // The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
+  string app_id = 1;
+  // Set for snap votes only.
   int32 snap_revision = 2;
   bool vote_up = 3;
   google.protobuf.Timestamp timestamp = 4;
+  // Set for snap votes only.
   string snap_name = 5;
+  ratings.features.common.PackageType package_type = 6;
+  // Set for deb votes only.
+  string package_version = 7;
 }
 
 message VoteRequest {
-  string snap_id = 1;
+  // The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
+  string app_id = 1;
+  // Required for snap votes, must be unset for deb votes.
   int32 snap_revision = 2;
   bool vote_up = 3;
+  ratings.features.common.PackageType package_type = 5;
+  // Required for deb votes, ignored for snap votes.
+  string package_version = 6;
 }

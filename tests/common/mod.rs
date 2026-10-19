@@ -239,9 +239,10 @@ impl TestHelper {
     ) -> anyhow::Result<()> {
         client!(UserClient, self.channel().await, token)
             .vote(VoteRequest {
-                snap_id: snap_id.to_string(),
+                app_id: snap_id.to_string(),
                 snap_revision,
                 vote_up,
+                ..Default::default()
             })
             .await?;
 

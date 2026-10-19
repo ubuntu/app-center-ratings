@@ -1,5 +1,5 @@
 //! Calculations around snap ratings based on received votes
-use crate::db::VoteSummary;
+use crate::db::{PackageType, VoteSummary};
 
 /// An arbitrary fixed number of votes we've determined is below the threshold to be meaningful.
 const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
@@ -61,11 +61,13 @@ impl PartialOrd for RatingsBand {
 
 #[derive(Debug, Clone, Default)]
 pub struct Rating {
-    /// The ID of the snap this rating is for
-    pub snap_id: String,
-    /// The total votes for this snap
+    /// The ID of the App this rating is for
+    pub app_id: String,
+    /// The Package Type of the App this rating is for
+    pub package_type: PackageType,
+    /// The total votes for this App
     pub total_votes: u64,
-    /// The descriptive indicator of "how good" this snap is based
+    /// The descriptive indicator of "how good" this App is based
     /// on aggregated ratings.
     pub ratings_band: RatingsBand,
 }
@@ -75,7 +77,8 @@ impl From<VoteSummary> for Rating {
         let (_, ratings_band) = calculate_band(&votes);
 
         Self {
-            snap_id: votes.snap_id,
+            app_id: votes.app_id,
+            package_type: votes.package_type,
             total_votes: votes.total_votes as u64,
             ratings_band,
         }
@@ -166,7 +169,8 @@ mod tests {
     #[test]
     fn test_insufficient_votes() {
         let votes = VoteSummary {
-            snap_id: 1.to_string(),
+            app_id: 1.to_string(),
+            package_type: PackageType::Snap,
             total_votes: 1,
             positive_votes: 1,
         };
@@ -185,7 +189,8 @@ mod tests {
     #[test]
     fn test_sufficient_votes() {
         let votes = VoteSummary {
-            snap_id: 1.to_string(),
+            app_id: 1.to_string(),
+            package_type: PackageType::Snap,
             total_votes: 100,
             positive_votes: 100,
         };

@@ -39,7 +39,8 @@ impl From<VoteSummary> for ChartData {
     fn from(vote_summary: VoteSummary) -> Self {
         let (raw_rating, ratings_band) = calculate_band(&vote_summary);
         let rating = Rating {
-            snap_id: vote_summary.snap_id,
+            app_id: vote_summary.app_id,
+            package_type: vote_summary.package_type,
             total_votes: vote_summary.total_votes as u64,
             ratings_band,
         };
