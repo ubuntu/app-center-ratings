@@ -220,3 +220,31 @@ async fn unknown_package_type_get_snap_votes_is_rejected(package_type: i32) -> a
 
     Ok(())
 }
+
+#[tokio::test]
+async fn legacy_get_snap_votes_returns_snap_vote() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    t.vote(&snap_id, snap_revision, true, &user_token).await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: snap_id.clone(),
+        ..Default::default()
+    };
+    let votes = t.get_snap_votes(&user_token, request).await?;
+
+    assert_eq!(votes.len(), 1, "{votes:?}");
+    let vote = &votes[0];
+    assert_eq!(vote.app_id, snap_id);
+    assert_eq!(vote.snap_revision, snap_revision);
+    assert!(vote.vote_up);
+    assert_eq!(vote.package_type, PackageType::Snap as i32);
+    assert_eq!(vote.package_version, "");
+
+    Ok(())
+}
