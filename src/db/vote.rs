@@ -7,7 +7,7 @@ use tracing::error;
 ///
 /// Mirrors the `package_types` lookup table. Snap is the zero value on purpose,
 /// see `docs/adr/0001-package-type-defaults-to-snap.md`.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type, strum::FromRepr)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, sqlx::Type)]
 #[repr(i16)]
 pub enum PackageType {
     #[default]
@@ -153,9 +153,9 @@ impl VoteSummary {
             FROM
                 votes
             WHERE
-                votes.package_type = 0
+                votes.package_type = $1
             AND
-                votes.app_id = ANY($1)
+                votes.app_id = ANY($2)
         "#,
         );
 
@@ -169,6 +169,7 @@ impl VoteSummary {
 
         let summaries = builder
             .build_query_as()
+            .bind(PackageType::Snap)
             .bind(snap_ids)
             .fetch_all(conn)
             .await?;
@@ -192,8 +193,9 @@ impl VoteSummary {
             FROM
                 votes
             WHERE
-                votes.package_type = 0",
+                votes.package_type = ",
         );
+        builder.push_bind(PackageType::Snap);
 
         builder.push(match timeframe {
             Timeframe::Week => " AND votes.created >= NOW() - INTERVAL '1 week'",
@@ -238,12 +240,13 @@ async fn get_by_snap_id_cached(snap_id: &str, conn: &mut PgConnection) -> Result
             FROM
                 votes
             WHERE
-                votes.package_type = 0
+                votes.package_type = $1
             AND
-                votes.app_id = $1
+                votes.app_id = $2
             GROUP BY votes.package_type, votes.app_id
         "#,
     )
+    .bind(PackageType::Snap)
     .bind(snap_id)
     .fetch_optional(conn)
     .await?;
