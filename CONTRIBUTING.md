@@ -66,7 +66,7 @@ Once merged to the main branch, `po` files and any documentation change will be 
 * rust and cargo >= 1.69
 * protobuf-compiler >= 3.21
 * docker >= 24.04
-* docker-compose >= 2.18
+* Docker Compose v2 (`docker compose`; set `COMPOSE=docker-compose` to use the standalone binary)
 
 ### Setup on Ubuntu
 
@@ -80,7 +80,7 @@ sudo apt-get update
 sudo apt-get install -y git gcc libssl-dev pkg-config protobuf-compiler
 
 # Install Docker for running the OCI image and integration tests
-sudo apt-get docker-compose
+sudo apt-get install -y docker.io docker-compose-v2
 sudo usermod -aG docker $USER
 newgrp docker
 
@@ -110,7 +110,9 @@ make down
 # To run only the unit tests
 make test
 
-# To run only the integration tests (requires the local stack to be up)
+# To run only the integration tests (requires the local stack to be up).
+# This restarts the ratings container so the tests run against a build of the
+# current source; pass ARGS to filter, e.g. ARGS=get_bulk_ratings
 make integration-test
 
 # To run all tests (requires the local stack to be up)
