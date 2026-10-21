@@ -1,7 +1,9 @@
 use crate::{
     conn,
-    db::{User, Vote},
+    db::{PackageType, User, Vote},
+    grpc::package_type_from_proto,
     jwt::Claims,
+    proto::common::PackageType as PbPackageType,
     proto::user::{
         user_server::{self, UserServer},
         AuthenticateRequest, AuthenticateResponse, GetSnapVotesRequest, GetSnapVotesResponse,
@@ -74,20 +76,25 @@ impl user_server::User for UserService {
     async fn vote(&self, mut request: Request<VoteRequest>) -> Result<Response<()>, Status> {
         let Claims { sub, .. } = claims(&mut request);
         let VoteRequest {
-            snap_id,
+            app_id,
             snap_revision,
             vote_up,
+            package_type,
+            package_version: _,
         } = request.into_inner();
+        let package_type = supported_package_type(package_type)
+            .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
         let conn = conn!();
 
         // Ignore but log warning, it's not fatal
-        if let Err(e) = update_categories(&snap_id, &self.ctx, conn).await {
+        if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
             warn!("unable to update categories for snap: {e}");
         }
 
         let vote = Vote {
             client_hash: sub,
-            snap_id,
+            app_id,
+            package_type,
             snap_revision: snap_revision as u32,
             vote_up,
             timestamp: OffsetDateTime::now_utc(),
@@ -110,20 +117,25 @@ impl user_server::User for UserService {
         let Claims {
             sub: client_hash, ..
         } = claims(&mut request);
-        let GetSnapVotesRequest { snap_id } = request.into_inner();
+        let GetSnapVotesRequest {
+            app_id,
+            package_type,
+        } = request.into_inner();
+        let package_type = supported_package_type(package_type)
+            .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
 
         let conn = conn!();
 
         // Ignore but log warning, it's not fatal
-        if let Err(e) = update_categories(&snap_id, &self.ctx, conn).await {
+        if let Err(e) = update_categories(&app_id, &self.ctx, conn).await {
             warn!("unable to update categories for snap: {e}");
         }
 
-        match Vote::get_all_by_client_hash(&client_hash, Some(snap_id), conn).await {
+        match Vote::get_all_by_client_hash(&client_hash, package_type, Some(app_id), conn).await {
             Ok(votes) => {
                 let votes = try_join_all(votes.into_iter().map(|vote| async {
                     let snap_name = get_snap_name(
-                        &vote.snap_id,
+                        &vote.app_id,
                         &self.ctx.config.snapcraft_io_uri,
                         &self.ctx.http_client,
                     )
@@ -154,13 +166,20 @@ impl PbVote {
         });
 
         Self {
-            snap_id: value.snap_id,
+            app_id: value.app_id,
             snap_revision: value.snap_revision as i32,
             vote_up: value.vote_up,
             timestamp,
             snap_name: snap_name.into(),
+            package_type: PbPackageType::from(value.package_type).into(),
+            package_version: String::new(),
         }
     }
+}
+
+/// Deb votes must not be stored until the rest of the stack can handle them.
+fn supported_package_type(value: i32) -> Option<PackageType> {
+    package_type_from_proto(value).filter(|p| *p == PackageType::Snap)
 }
 
 #[inline]

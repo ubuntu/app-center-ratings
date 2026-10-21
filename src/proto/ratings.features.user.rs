@@ -15,8 +15,11 @@ pub struct AuthenticateResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSnapVotesRequest {
+    /// The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
     #[prost(string, tag = "1")]
-    pub snap_id: ::prost::alloc::string::String,
+    pub app_id: ::prost::alloc::string::String,
+    #[prost(enumeration = "super::common::PackageType", tag = "2")]
+    pub package_type: i32,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -27,26 +30,41 @@ pub struct GetSnapVotesResponse {
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct Vote {
+    /// The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
     #[prost(string, tag = "1")]
-    pub snap_id: ::prost::alloc::string::String,
+    pub app_id: ::prost::alloc::string::String,
+    /// Set for snap votes only.
     #[prost(int32, tag = "2")]
     pub snap_revision: i32,
     #[prost(bool, tag = "3")]
     pub vote_up: bool,
     #[prost(message, optional, tag = "4")]
     pub timestamp: ::core::option::Option<::prost_types::Timestamp>,
+    /// Set for snap votes only.
     #[prost(string, tag = "5")]
     pub snap_name: ::prost::alloc::string::String,
+    #[prost(enumeration = "super::common::PackageType", tag = "6")]
+    pub package_type: i32,
+    /// Set for deb votes only.
+    #[prost(string, tag = "7")]
+    pub package_version: ::prost::alloc::string::String,
 }
 #[allow(clippy::derive_partial_eq_without_eq)]
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct VoteRequest {
+    /// The App ID: the Snap ID for snaps, the AppStream Component ID for debs.
     #[prost(string, tag = "1")]
-    pub snap_id: ::prost::alloc::string::String,
+    pub app_id: ::prost::alloc::string::String,
+    /// Required for snap votes, must be unset for deb votes.
     #[prost(int32, tag = "2")]
     pub snap_revision: i32,
     #[prost(bool, tag = "3")]
     pub vote_up: bool,
+    #[prost(enumeration = "super::common::PackageType", tag = "5")]
+    pub package_type: i32,
+    /// Required for deb votes, ignored for snap votes.
+    #[prost(string, tag = "6")]
+    pub package_version: ::prost::alloc::string::String,
 }
 /// Generated client implementations.
 pub mod user_client {

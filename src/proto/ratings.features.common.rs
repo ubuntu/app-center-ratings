@@ -19,6 +19,36 @@ pub struct ChartData {
     #[prost(message, optional, tag = "2")]
     pub rating: ::core::option::Option<Rating>,
 }
+/// The packaging format an App is distributed in.
+///
+/// PACKAGE_TYPE_SNAP is deliberately the zero value so that clients which
+/// predate this field keep their snap semantics (see docs/adr/0001-package-type-defaults-to-snap.md).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+#[repr(i32)]
+pub enum PackageType {
+    Snap = 0,
+    Deb = 1,
+}
+impl PackageType {
+    /// String value of the enum field names used in the ProtoBuf definition.
+    ///
+    /// The values are not transformed in any way and thus are considered stable
+    /// (if the ProtoBuf definition does not change) and safe for programmatic use.
+    pub fn as_str_name(&self) -> &'static str {
+        match self {
+            PackageType::Snap => "PACKAGE_TYPE_SNAP",
+            PackageType::Deb => "PACKAGE_TYPE_DEB",
+        }
+    }
+    /// Creates an enum from field names used in the ProtoBuf definition.
+    pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
+        match value {
+            "PACKAGE_TYPE_SNAP" => Some(Self::Snap),
+            "PACKAGE_TYPE_DEB" => Some(Self::Deb),
+            _ => None,
+        }
+    }
+}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
 pub enum RatingsBand {

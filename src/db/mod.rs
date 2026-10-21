@@ -5,12 +5,14 @@ use tokio::sync::OnceCell;
 use tracing::info;
 
 mod categories;
+#[cfg(test)]
+mod migration_tests;
 mod user;
 mod vote;
 
 pub use categories::{set_categories_for_snap, snap_has_categories, Category};
 pub use user::User;
-pub use vote::{Timeframe, Vote, VoteSummary};
+pub use vote::{PackageType, Timeframe, Vote, VoteSummary};
 
 #[macro_export]
 macro_rules! conn {
@@ -82,9 +84,14 @@ pub async fn check_db_conn() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::conn;
     use sqlx::types::time::OffsetDateTime;
     use tracing_subscriber::EnvFilter;
+
+    // Each #[tokio::test] runs on its own runtime, so tests must not share the
+    // global POOL: its connections die with the runtime that opened them.
+    async fn test_pool() -> Result<PgPool> {
+        init_pool_from_uri_and_migrate().await
+    }
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
@@ -103,21 +110,24 @@ mod tests {
         let test_votes = [
             vote::Vote {
                 client_hash: String::from(client_hash_1),
-                snap_id: String::from(snap_id_1),
+                app_id: String::from(snap_id_1),
+                package_type: PackageType::Snap,
                 vote_up: true,
                 timestamp: OffsetDateTime::from_unix_timestamp(123).unwrap(),
                 snap_revision: 1,
             },
             vote::Vote {
                 client_hash: String::from(client_hash_2),
-                snap_id: String::from(snap_id_2),
+                app_id: String::from(snap_id_2),
+                package_type: PackageType::Snap,
                 vote_up: false,
                 timestamp: OffsetDateTime::from_unix_timestamp(456).unwrap(),
                 snap_revision: 2,
             },
         ];
 
-        let conn = conn!();
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
 
         for client_hash in test_users.into_iter() {
             User::create_or_seen(client_hash, conn).await?;
@@ -127,26 +137,34 @@ mod tests {
             vote.save_to_db(conn).await?;
         }
 
-        let votes_client_1 =
-            vote::Vote::get_all_by_client_hash(client_hash_1, Some(String::from(snap_id_1)), conn)
-                .await
-                .unwrap();
+        let votes_client_1 = vote::Vote::get_all_by_client_hash(
+            client_hash_1,
+            PackageType::Snap,
+            Some(String::from(snap_id_1)),
+            conn,
+        )
+        .await
+        .unwrap();
 
-        let votes_client_2 =
-            vote::Vote::get_all_by_client_hash(client_hash_2, Some(String::from(snap_id_2)), conn)
-                .await
-                .unwrap();
+        let votes_client_2 = vote::Vote::get_all_by_client_hash(
+            client_hash_2,
+            PackageType::Snap,
+            Some(String::from(snap_id_2)),
+            conn,
+        )
+        .await
+        .unwrap();
 
         assert_eq!(votes_client_1.len(), 1);
         let first_vote = votes_client_1.first().unwrap();
-        assert_eq!(first_vote.snap_id, snap_id_1);
+        assert_eq!(first_vote.app_id, snap_id_1);
         assert_eq!(first_vote.client_hash, client_hash_1);
         assert_eq!(first_vote.snap_revision, 1);
         assert!(first_vote.vote_up);
 
         let second_vote = votes_client_2.first().unwrap();
         assert_eq!(votes_client_2.len(), 1);
-        assert_eq!(second_vote.snap_id, snap_id_2);
+        assert_eq!(second_vote.app_id, snap_id_2);
         assert_eq!(second_vote.client_hash, client_hash_2);
         assert_eq!(second_vote.snap_revision, 2);
         assert!(!second_vote.vote_up);
@@ -156,8 +174,121 @@ mod tests {
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]
+    async fn snap_queries_ignore_deb_votes_for_same_app_id() -> Result<()> {
+        let client_hash = "0000000000000000000000000000000000000000000000000000000000000003";
+        let app_id = "00000000000000000000000000000003";
+
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
+        User::create_or_seen(client_hash, conn).await?;
+
+        vote::Vote {
+            client_hash: String::from(client_hash),
+            app_id: String::from(app_id),
+            package_type: PackageType::Snap,
+            vote_up: true,
+            timestamp: OffsetDateTime::from_unix_timestamp(789).unwrap(),
+            snap_revision: 3,
+        }
+        .save_to_db(conn)
+        .await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO votes (user_id_fk, app_id, package_type, package_version, vote_up)
+            VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, '1.0', false)
+            ON CONFLICT DO NOTHING;
+            "#,
+        )
+        .bind(client_hash)
+        .bind(app_id)
+        .bind(PackageType::Deb)
+        .execute(&mut *conn)
+        .await?;
+
+        let votes = vote::Vote::get_all_by_client_hash(
+            client_hash,
+            PackageType::Snap,
+            Some(String::from(app_id)),
+            conn,
+        )
+        .await?;
+
+        assert_eq!(votes.len(), 1);
+        assert_eq!(votes[0].package_type, PackageType::Snap);
+        assert_eq!(votes[0].snap_revision, 3);
+
+        let summaries =
+            VoteSummary::get_by_snap_ids(&[String::from(app_id)], Timeframe::Unspecified, conn)
+                .await?;
+
+        assert_eq!(summaries.len(), 1);
+        assert_eq!(summaries[0].package_type, PackageType::Snap);
+        assert_eq!(summaries[0].total_votes, 1);
+        assert_eq!(summaries[0].positive_votes, 1);
+
+        let rating = VoteSummary::get_by_snap_id(app_id, conn).await?;
+        assert_eq!(rating.package_type, PackageType::Snap);
+        assert_eq!(rating.total_votes, 1);
+        assert_eq!(rating.positive_votes, 1);
+
+        let category = categories::Category::Education;
+        categories::set_categories_for_snap(app_id, vec![category], conn).await?;
+
+        for timeframe in [Timeframe::Unspecified, Timeframe::Week, Timeframe::Month] {
+            for category in [None, Some(category)] {
+                let chart: Vec<_> = VoteSummary::get_for_timeframe(timeframe, category, conn)
+                    .await?
+                    .into_iter()
+                    .filter(|s| s.app_id == app_id)
+                    .collect();
+
+                assert_eq!(chart.len(), 1, "{timeframe:?} {category:?}");
+                assert_eq!(chart[0].package_type, PackageType::Snap);
+                assert_eq!(chart[0].total_votes, 1);
+                assert_eq!(chart[0].positive_votes, 1);
+            }
+        }
+
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "db_tests"), ignore)]
+    #[tokio::test]
+    async fn get_by_snap_id_ignores_deb_only_app_id() -> Result<()> {
+        let client_hash = "0000000000000000000000000000000000000000000000000000000000000004";
+        let app_id = "00000000000000000000000000000004";
+
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
+        User::create_or_seen(client_hash, conn).await?;
+
+        sqlx::query(
+            r#"
+            INSERT INTO votes (user_id_fk, app_id, package_type, package_version, vote_up)
+            VALUES ((SELECT id FROM users WHERE client_hash = $1), $2, $3, '1.0', true)
+            ON CONFLICT DO NOTHING;
+            "#,
+        )
+        .bind(client_hash)
+        .bind(app_id)
+        .bind(PackageType::Deb)
+        .execute(&mut *conn)
+        .await?;
+
+        let rating = VoteSummary::get_by_snap_id(app_id, conn).await?;
+        assert_eq!(rating.package_type, PackageType::Snap);
+        assert_eq!(rating.total_votes, 0);
+        assert_eq!(rating.positive_votes, 0);
+
+        Ok(())
+    }
+
+    #[cfg_attr(not(feature = "db_tests"), ignore)]
+    #[tokio::test]
     async fn update_categories() -> Result<()> {
-        let conn = conn!();
+        let pool = test_pool().await?;
+        let conn = &mut *pool.acquire().await?;
         let snap_id = "00000000000000000000000000000001";
         let cats = vec![categories::Category::ArtAndDesign];
 

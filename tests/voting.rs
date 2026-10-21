@@ -1,8 +1,15 @@
 pub mod common;
 
 use common::{Category, TestHelper};
-use ratings::ratings::RatingsBand::{self, *};
+use ratings::{
+    proto::{
+        common::PackageType,
+        user::{GetSnapVotesRequest, VoteRequest},
+    },
+    ratings::RatingsBand::{self, *},
+};
 use simple_test_case::test_case;
+use tonic::Code;
 
 #[test_case(true; "up vote")]
 #[test_case(false; "down vote")]
@@ -117,6 +124,127 @@ async fn voting_on_a_snap_without_categories_works() -> anyhow::Result<()> {
 
     let rating = t.get_rating(&snap_id, &user_token).await?;
     assert_eq!(rating.total_votes, 6, "total votes: vote_up=true");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn deb_vote_is_rejected_until_supported() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+
+    let request = VoteRequest {
+        app_id: "org.gnome.Calculator".to_string(),
+        vote_up: true,
+        package_type: PackageType::Deb.into(),
+        package_version: "46.1".to_string(),
+        ..Default::default()
+    };
+    let err = t.send_vote(request, &user_token).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn deb_get_snap_votes_is_rejected_until_supported() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: "org.gnome.Calculator".to_string(),
+        package_type: PackageType::Deb.into(),
+    };
+    let err = t.get_snap_votes(&user_token, request).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
+
+#[test_case(2; "unknown positive")]
+#[test_case(-1; "negative")]
+#[tokio::test]
+async fn unknown_package_type_vote_is_rejected(package_type: i32) -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    let request = VoteRequest {
+        app_id: snap_id,
+        snap_revision,
+        vote_up: true,
+        package_type,
+        ..Default::default()
+    };
+    let err = t.send_vote(request, &user_token).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
+
+#[test_case(2; "unknown positive")]
+#[test_case(-1; "negative")]
+#[tokio::test]
+async fn unknown_package_type_get_snap_votes_is_rejected(package_type: i32) -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_id = t
+        .test_snap_with_initial_votes(1, 0, 0, &[Category::Social])
+        .await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: snap_id,
+        package_type,
+    };
+    let err = t.get_snap_votes(&user_token, request).await.unwrap_err();
+
+    let status = err
+        .downcast_ref::<tonic::Status>()
+        .expect("Error should be a tonic::Status");
+    assert_eq!(status.code(), Code::InvalidArgument, "{status:?}");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn legacy_get_snap_votes_returns_snap_vote() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let snap_revision = 1;
+    let snap_id = t
+        .test_snap_with_initial_votes(snap_revision, 0, 0, &[Category::Social])
+        .await?;
+
+    t.vote(&snap_id, snap_revision, true, &user_token).await?;
+
+    let request = GetSnapVotesRequest {
+        app_id: snap_id.clone(),
+        ..Default::default()
+    };
+    let votes = t.get_snap_votes(&user_token, request).await?;
+
+    assert_eq!(votes.len(), 1, "{votes:?}");
+    let vote = &votes[0];
+    assert_eq!(vote.app_id, snap_id);
+    assert_eq!(vote.snap_revision, snap_revision);
+    assert!(vote.vote_up);
+    assert_eq!(vote.package_type, PackageType::Snap as i32);
+    assert_eq!(vote.package_version, "");
 
     Ok(())
 }

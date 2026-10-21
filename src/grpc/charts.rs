@@ -1,6 +1,6 @@
 use crate::{
     conn,
-    db::{Category, Timeframe, VoteSummary},
+    db::{Category, PackageType, Timeframe, VoteSummary},
     grpc::populate_chart_data_with_names,
     proto::{
         chart::{
@@ -95,7 +95,8 @@ async fn get_chart_cached(
 impl From<PbRating> for Rating {
     fn from(r: PbRating) -> Self {
         Self {
-            snap_id: r.snap_id,
+            app_id: r.snap_id,
+            package_type: PackageType::Snap,
             total_votes: r.total_votes,
             ratings_band: RatingsBand::from_repr(r.ratings_band).unwrap(),
         }

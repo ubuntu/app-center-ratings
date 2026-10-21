@@ -2,7 +2,7 @@ use crate::{
     db,
     jwt::JwtVerifier,
     middleware::AuthLayer,
-    proto::common::{ChartData as PbChartData, Rating as PbRating},
+    proto::common::{ChartData as PbChartData, PackageType as PbPackageType, Rating as PbRating},
     ratings::{get_snap_name, ChartData, Rating},
     Context,
 };
@@ -24,6 +24,23 @@ use user::UserService;
 impl From<db::Error> for Status {
     fn from(value: db::Error) -> Self {
         Status::internal(value.to_string())
+    }
+}
+
+/// Parses a wire `PackageType`, returning `None` for values this server doesn't know.
+fn package_type_from_proto(value: i32) -> Option<db::PackageType> {
+    match PbPackageType::try_from(value).ok()? {
+        PbPackageType::Snap => Some(db::PackageType::Snap),
+        PbPackageType::Deb => Some(db::PackageType::Deb),
+    }
+}
+
+impl From<db::PackageType> for PbPackageType {
+    fn from(value: db::PackageType) -> Self {
+        match value {
+            db::PackageType::Snap => Self::Snap,
+            db::PackageType::Deb => Self::Deb,
+        }
     }
 }
 
@@ -69,7 +86,7 @@ pub(crate) async fn populate_chart_data_with_names(
 ) -> Result<Vec<PbChartData>, Status> {
     try_join_all(chart_data_vec.into_iter().map(|chart_data| async {
         let snap_name = get_snap_name(
-            &chart_data.rating.snap_id,
+            &chart_data.rating.app_id,
             &ctx.config.snapcraft_io_uri,
             &ctx.http_client,
         )
@@ -107,7 +124,7 @@ impl PbChartData {
 impl PbRating {
     fn from_rating_and_snap_name(rating: Rating, snap_name: String) -> Self {
         Self {
-            snap_id: rating.snap_id,
+            snap_id: rating.app_id,
             total_votes: rating.total_votes,
             ratings_band: rating.ratings_band as i32,
             snap_name,

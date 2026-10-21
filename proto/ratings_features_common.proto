@@ -14,6 +14,15 @@ message ChartData {
   Rating rating = 2;
 }
 
+// The packaging format an App is distributed in.
+//
+// PACKAGE_TYPE_SNAP is deliberately the zero value so that clients which
+// predate this field keep their snap semantics (see docs/adr/0001-package-type-defaults-to-snap.md).
+enum PackageType {
+  PACKAGE_TYPE_SNAP = 0;
+  PACKAGE_TYPE_DEB = 1;
+}
+
 enum RatingsBand {
   VERY_GOOD = 0;
   GOOD = 1;
