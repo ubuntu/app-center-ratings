@@ -110,7 +110,9 @@ make down
 # To run only the unit tests
 make test
 
-# To run only the integration tests (requires the local stack to be up)
+# To run only the integration tests (requires the local stack to be up).
+# This restarts the ratings container so the tests run against a build of the
+# current source; pass ARGS to filter, e.g. ARGS=get_bulk_ratings
 make integration-test
 
 # To run all tests (requires the local stack to be up)
