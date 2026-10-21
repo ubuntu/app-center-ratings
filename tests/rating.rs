@@ -150,6 +150,13 @@ async fn deb_votes_are_excluded_from_snap_ratings() -> anyhow::Result<()> {
     assert_eq!(rating.snap_id, snap_id);
     assert_eq!(rating.total_votes, 25, "GetBulkRatings");
 
+    // GetRating must report zero votes for a mock-known ID that only has deb votes
+    let deb_only_id = t.test_snap_with_initial_votes(1, 0, 0, &[]).await?;
+    t.generate_deb_votes(&deb_only_id, "1.0", true, 5).await?;
+
+    let rating = t.get_rating(&deb_only_id, &user_token).await?;
+    assert_eq!(rating.total_votes, 0, "GetRating, deb-only");
+
     Ok(())
 }
 

@@ -101,6 +101,9 @@ async fn category_chart_excludes_deb_votes() -> anyhow::Result<()> {
 async fn chart_excludes_deb_votes() -> anyhow::Result<()> {
     let t = TestHelper::new();
 
+    // Seeds a rated snap so the chart is non-empty when this test runs alone
+    t.test_snap_with_initial_votes(1, 25, 0, &[]).await?;
+
     // Rated higher than any snap in the suite, so it would top the chart if counted.
     // Unknown to the snapcraft.io mock, so a snap name lookup for it would fail.
     let app_id = format!("org.example.{}", t.random_id());
