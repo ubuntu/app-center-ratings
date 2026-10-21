@@ -1,7 +1,7 @@
 FROM rust:1
 
 RUN apt-get update && apt-get install -y protobuf-compiler netcat-openbsd
-RUN cargo install cargo-watch --locked
+RUN cargo install --locked cargo-watch
 
 WORKDIR /app
 
