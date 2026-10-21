@@ -1,13 +1,14 @@
 use crate::db::{categories::Category, ClientHash, Error, Result};
 use cached::proc_macro::cached;
 use sqlx::{types::time::OffsetDateTime, FromRow, PgConnection, QueryBuilder};
+use std::collections::HashMap;
 use tracing::error;
 
 /// The packaging format an App is distributed in.
 ///
 /// Mirrors the `package_types` lookup table. Snap is the zero value on purpose,
 /// see `docs/adr/0001-package-type-defaults-to-snap.md`.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, sqlx::Type)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash, sqlx::Type)]
 #[repr(i16)]
 pub enum PackageType {
     #[default]
@@ -194,6 +195,59 @@ impl VoteSummary {
             .await?;
 
         Ok(summaries)
+    }
+
+    /// Retrieves the all-time vote summaries of the given Apps in a single query, one per
+    /// App in input order. Apps without votes get an empty summary.
+    pub async fn get_by_apps(
+        apps: &[(PackageType, String)],
+        conn: &mut PgConnection,
+    ) -> Result<Vec<VoteSummary>> {
+        let (package_types, app_ids): (Vec<i16>, Vec<&str>) = apps
+            .iter()
+            .map(|(package_type, app_id)| (*package_type as i16, app_id.as_str()))
+            .unzip();
+
+        let found: Vec<VoteSummary> = sqlx::query_as(
+            r#"
+            SELECT
+                votes.app_id,
+                votes.package_type,
+                COUNT(*) AS total_votes,
+                COUNT(*) FILTER (WHERE votes.vote_up) AS positive_votes
+            FROM
+                votes
+            WHERE
+                (votes.package_type, votes.app_id) IN (
+                    SELECT * FROM UNNEST($1::SMALLINT[], $2::TEXT[])
+                )
+            GROUP BY votes.package_type, votes.app_id
+        "#,
+        )
+        .bind(package_types)
+        .bind(app_ids)
+        .fetch_all(conn)
+        .await?;
+
+        let found: HashMap<(PackageType, String), VoteSummary> = found
+            .into_iter()
+            .map(|summary| ((summary.package_type, summary.app_id.clone()), summary))
+            .collect();
+
+        Ok(apps
+            .iter()
+            .map(|(package_type, app_id)| {
+                found
+                    .get(&(*package_type, app_id.clone()))
+                    .cloned()
+                    .unwrap_or_else(|| VoteSummary {
+                        app_id: app_id.clone(),
+                        package_type: *package_type,
+                        total_votes: 0,
+                        positive_votes: 0,
+                    })
+            })
+            .collect())
     }
 
     /// Retrieves the vote summary over a given [Timeframe], optionally for a specific [Category]

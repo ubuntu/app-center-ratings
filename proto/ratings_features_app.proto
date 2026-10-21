@@ -9,6 +9,7 @@ service App {
     option deprecated = true;
   }
   rpc GetBulkRatings(GetBulkRatingsRequest) returns (GetBulkRatingsResponse) {}
+  rpc GetRatings(GetRatingsRequest) returns (GetRatingsResponse) {}
 }
 
 message GetRatingRequest {
@@ -25,4 +26,27 @@ message GetBulkRatingsRequest {
 
 message GetBulkRatingsResponse {
   repeated ratings.features.common.ChartData ratings = 1;
+}
+
+// An App to fetch a Rating for.
+message RatingTarget {
+  string id = 1;
+  ratings.features.common.PackageType package_type = 2;
+}
+
+message GetRatingsRequest {
+  repeated RatingTarget targets = 1;
+}
+
+// The all-time Rating of an App.
+message AppRating {
+  RatingTarget target = 1;
+  uint64 total_votes = 2;
+  ratings.features.common.RatingsBand ratings_band = 3;
+  float raw_rating = 4;
+}
+
+// One AppRating per distinct target, in first-occurrence request order.
+message GetRatingsResponse {
+  repeated AppRating ratings = 1;
 }
