@@ -27,6 +27,19 @@ impl From<db::Error> for Status {
     }
 }
 
+/// The longest App ID we store, in bytes (`votes.app_id` is `VARCHAR(255)`)
+const MAX_APP_ID_LENGTH: usize = 255;
+
+fn validate_app_id(app_id: &str) -> Result<(), Status> {
+    if app_id.is_empty() || app_id.len() > MAX_APP_ID_LENGTH {
+        return Err(Status::invalid_argument(format!(
+            "app_id must be between 1 and {MAX_APP_ID_LENGTH} bytes"
+        )));
+    }
+
+    Ok(())
+}
+
 /// Parses a wire `PackageType`, returning `None` for values this server doesn't know.
 fn package_type_from_proto(value: i32) -> Option<db::PackageType> {
     match PbPackageType::try_from(value).ok()? {

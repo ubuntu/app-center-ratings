@@ -1,22 +1,24 @@
 use crate::{
     conn,
     db::{Timeframe, VoteSummary},
-    grpc::populate_chart_data_with_names,
+    grpc::{package_type_from_proto, populate_chart_data_with_names, validate_app_id},
     proto::{
         app::{
             app_server::{App, AppServer},
-            GetBulkRatingsRequest, GetBulkRatingsResponse, GetRatingRequest, GetRatingResponse,
+            AppRating, GetBulkRatingsRequest, GetBulkRatingsResponse, GetRatingRequest,
+            GetRatingResponse, GetRatingsRequest, GetRatingsResponse, RatingTarget,
         },
-        common::Rating as PbRating,
+        common::{PackageType as PbPackageType, Rating as PbRating},
     },
-    ratings::{get_snap_name, Chart, Rating},
+    ratings::{get_snap_name, Chart, ChartData, Rating},
     Context,
 };
-use std::{error::Error, sync::Arc};
+use std::{collections::HashSet, error::Error, sync::Arc};
 use tonic::{Request, Response, Status};
 use tracing::error;
 
 const MAX_BULK_RATINGS_IDS: usize = 250;
+const MAX_RATING_TARGETS: usize = 250;
 
 /// The general service governing retrieving ratings for the store app.
 #[derive(Clone)]
@@ -118,5 +120,53 @@ impl App for RatingService {
         let ratings = populate_chart_data_with_names(&self.ctx, chart.data).await?;
 
         Ok(Response::new(GetBulkRatingsResponse { ratings }))
+    }
+
+    async fn get_ratings(
+        &self,
+        request: Request<GetRatingsRequest>,
+    ) -> Result<tonic::Response<GetRatingsResponse>, Status> {
+        let GetRatingsRequest { targets } = request.into_inner();
+        if targets.is_empty() || targets.len() > MAX_RATING_TARGETS {
+            return Err(Status::invalid_argument(format!(
+                "targets must contain between 1 and {MAX_RATING_TARGETS} entries"
+            )));
+        }
+
+        let mut apps = Vec::with_capacity(targets.len());
+        let mut seen = HashSet::with_capacity(targets.len());
+        for RatingTarget { id, package_type } in targets {
+            validate_app_id(&id)?;
+            let package_type = package_type_from_proto(package_type)
+                .ok_or_else(|| Status::invalid_argument("unsupported package type"))?;
+            if seen.insert((package_type, id.clone())) {
+                apps.push((package_type, id));
+            }
+        }
+
+        let vote_summaries = VoteSummary::get_by_apps(&apps, conn!())
+            .await
+            .map_err(|e| {
+                error!("Error calling get_by_apps: {:?}", e);
+                Status::unknown("Internal server error")
+            })?;
+
+        let ratings = vote_summaries
+            .into_iter()
+            .map(|summary| {
+                let ChartData { raw_rating, rating } = summary.into();
+                AppRating {
+                    target: Some(RatingTarget {
+                        id: rating.app_id,
+                        package_type: PbPackageType::from(rating.package_type).into(),
+                    }),
+                    total_votes: rating.total_votes,
+                    ratings_band: rating.ratings_band as i32,
+                    raw_rating,
+                }
+            })
+            .collect();
+
+        Ok(Response::new(GetRatingsResponse { ratings }))
     }
 }

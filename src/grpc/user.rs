@@ -1,7 +1,7 @@
 use crate::{
     conn,
     db::{PackageType, User, Vote},
-    grpc::package_type_from_proto,
+    grpc::{package_type_from_proto, validate_app_id},
     jwt::Claims,
     proto::common::PackageType as PbPackageType,
     proto::user::{
@@ -20,9 +20,6 @@ use tracing::{error, warn};
 
 /// The length we expect a client hash to be, in bytes
 pub const EXPECTED_CLIENT_HASH_LENGTH: usize = 64;
-
-/// The longest App ID we store, in bytes (`votes.app_id` is `VARCHAR(255)`)
-const MAX_APP_ID_LENGTH: usize = 255;
 
 /// An empty struct used to construct a [`UserServer`]
 #[derive(Clone)]
@@ -200,11 +197,7 @@ fn validate_vote(
     snap_revision: i32,
     package_version: String,
 ) -> Result<(u32, Option<String>), Status> {
-    if app_id.is_empty() || app_id.len() > MAX_APP_ID_LENGTH {
-        return Err(Status::invalid_argument(format!(
-            "app_id must be between 1 and {MAX_APP_ID_LENGTH} bytes"
-        )));
-    }
+    validate_app_id(app_id)?;
 
     match package_type {
         PackageType::Snap if snap_revision <= 0 => Err(Status::invalid_argument(
