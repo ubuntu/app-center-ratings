@@ -6,7 +6,7 @@ use ratings::{
     proto::{
         app::{app_client::AppClient, GetBulkRatingsRequest, GetRatingRequest},
         chart::{chart_client::ChartClient, GetChartRequest, Timeframe},
-        common::ChartData,
+        common::{ChartData, PackageType},
         user::{
             user_client::UserClient, AuthenticateRequest, GetSnapVotesRequest, Vote, VoteRequest,
         },
@@ -180,6 +180,35 @@ impl TestHelper {
         Ok(())
     }
 
+    /// Casts `count` deb votes on `app_id`, each from a newly registered user
+    pub async fn generate_deb_votes(
+        &self,
+        app_id: &str,
+        package_version: &str,
+        vote_up: bool,
+        count: u64,
+    ) -> anyhow::Result<()> {
+        let mut tasks = Vec::with_capacity(count as usize);
+
+        for _ in 0..count {
+            let (app_id, package_version) = (app_id.to_string(), package_version.to_string());
+            let client = self.clone();
+
+            tasks.push(tokio::spawn(async move {
+                let token = client.authenticate(client.random_sha_256()).await?;
+                client
+                    .vote_deb(&app_id, &package_version, vote_up, &token)
+                    .await
+            }));
+        }
+
+        for res in join_all(tasks).await {
+            res.unwrap().unwrap();
+        }
+
+        Ok(())
+    }
+
     async fn channel(&self) -> Channel {
         Endpoint::from_shared(self.server_url.clone())
             .expect("failed to create Endpoint")
@@ -247,6 +276,37 @@ impl TestHelper {
             .await?;
 
         Ok(())
+    }
+
+    pub async fn vote_deb(
+        &self,
+        app_id: &str,
+        package_version: &str,
+        vote_up: bool,
+        token: &str,
+    ) -> anyhow::Result<()> {
+        self.send_vote(
+            VoteRequest {
+                app_id: app_id.to_string(),
+                vote_up,
+                package_type: PackageType::Deb.into(),
+                package_version: package_version.to_string(),
+                ..Default::default()
+            },
+            token,
+        )
+        .await
+    }
+
+    pub async fn get_deb_votes(&self, app_id: &str, token: &str) -> anyhow::Result<Vec<Vote>> {
+        self.get_snap_votes(
+            token,
+            GetSnapVotesRequest {
+                app_id: app_id.to_string(),
+                package_type: PackageType::Deb.into(),
+            },
+        )
+        .await
     }
 
     pub async fn send_vote(&self, request: VoteRequest, token: &str) -> anyhow::Result<()> {

@@ -72,6 +72,55 @@ async fn category_chart_returns_expected_order(
     Ok(())
 }
 
+// !! This test expects to be the only one making use of the "Science" category
+#[tokio::test]
+async fn category_chart_excludes_deb_votes() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+
+    let snap_id = t
+        .test_snap_with_initial_votes(1, 25, 0, &[Category::Science])
+        .await?;
+    // A deb sharing the snap's App ID must not be counted towards it
+    t.generate_deb_votes(&snap_id, "1.0", false, 5).await?;
+
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let data = t.get_chart(Some(Category::Science), &user_token).await?;
+
+    let ratings: Vec<_> = data
+        .iter()
+        .filter_map(|c| c.rating.as_ref())
+        .filter(|r| r.snap_id == snap_id)
+        .collect();
+    assert_eq!(ratings.len(), 1, "{data:?}");
+    assert_eq!(ratings[0].total_votes, 25);
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn chart_excludes_deb_votes() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+
+    // Seeds a rated snap so the chart is non-empty when this test runs alone
+    t.test_snap_with_initial_votes(1, 25, 0, &[]).await?;
+
+    // Rated higher than any snap in the suite, so it would top the chart if counted.
+    // Unknown to the snapcraft.io mock, so a snap name lookup for it would fail.
+    let app_id = format!("org.example.{}", t.random_id());
+    t.generate_deb_votes(&app_id, "1.0", true, 100).await?;
+
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+    let data = t.get_chart(None, &user_token).await?;
+
+    assert!(
+        data.iter()
+            .all(|c| c.rating.as_ref().unwrap().snap_id != app_id),
+        "{data:?}"
+    );
+
+    Ok(())
+}
+
 fn random_votes(min_vote: usize, max_vote: usize, min_up: usize, max_up: usize) -> (u64, u64) {
     let mut rng = thread_rng();
     let upvotes = rng.gen_range(min_up..max_up);

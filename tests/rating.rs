@@ -105,3 +105,33 @@ async fn get_bulk_ratings_invalid_argument_too_many_ids() -> anyhow::Result<()> 
 
     Ok(())
 }
+
+#[tokio::test]
+async fn deb_votes_are_excluded_from_snap_ratings() -> anyhow::Result<()> {
+    let t = TestHelper::new();
+    let user_token = t.authenticate(t.random_sha_256()).await?;
+
+    let snap_id = t.test_snap_with_initial_votes(1, 25, 0, &[]).await?;
+    // A deb sharing the snap's App ID must not be counted towards it
+    t.generate_deb_votes(&snap_id, "1.0", false, 5).await?;
+
+    let rating = t.get_rating(&snap_id, &user_token).await?;
+    assert_eq!(rating.total_votes, 25, "GetRating");
+
+    let ratings = t
+        .get_bulk_ratings(vec![snap_id.clone()], &user_token)
+        .await?;
+    assert_eq!(ratings.len(), 1, "GetBulkRatings: {ratings:?}");
+    let rating = ratings[0].rating.as_ref().unwrap();
+    assert_eq!(rating.snap_id, snap_id);
+    assert_eq!(rating.total_votes, 25, "GetBulkRatings");
+
+    // GetRating must report zero votes for a mock-known ID that only has deb votes
+    let deb_only_id = t.test_snap_with_initial_votes(1, 0, 0, &[]).await?;
+    t.generate_deb_votes(&deb_only_id, "1.0", true, 5).await?;
+
+    let rating = t.get_rating(&deb_only_id, &user_token).await?;
+    assert_eq!(rating.total_votes, 0, "GetRating, deb-only");
+
+    Ok(())
+}
