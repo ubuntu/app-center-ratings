@@ -9,11 +9,11 @@ const INSUFFICIENT_VOTES_QUANTITY: i64 = 25;
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, strum::FromRepr)]
 #[repr(i32)]
 pub enum RatingsBand {
-    VeryGood = 0,
-    Good = 1,
-    Neutral = 2,
-    Poor = 3,
-    VeryPoor = 4,
+    VeryGood = 0, // 1.00..0.81
+    Good = 1,     // 0.80..0.56
+    Neutral = 2,  // 0.55..0.46
+    Poor = 3,     // 0.45..0.21
+    VeryPoor = 4, // 0.20..0.00
     #[default]
     InsufficientVotes = 5,
 }
@@ -31,16 +31,12 @@ impl RatingsBand {
     /// Converts a raw value into a [`RatingsBand`] value by comparing it with the associated
     /// constants of the struct.
     pub fn from_value(value: f64) -> RatingsBand {
-        if value > Self::GOOD_UPPER {
-            RatingsBand::VeryGood
-        } else if value <= Self::GOOD_UPPER && value > Self::NEUTRAL_UPPER {
-            RatingsBand::Good
-        } else if value <= Self::NEUTRAL_UPPER && value > Self::POOR_UPPER {
-            RatingsBand::Neutral
-        } else if value <= Self::POOR_UPPER && value > Self::VERY_POOR_UPPER {
-            RatingsBand::Poor
-        } else {
-            RatingsBand::VeryPoor
+        match value {
+            v if v > Self::GOOD_UPPER => Self::VeryGood,
+            v if v > Self::NEUTRAL_UPPER => Self::Good,
+            v if v > Self::POOR_UPPER => Self::Neutral,
+            v if v > Self::VERY_POOR_UPPER => Self::Poor,
+            _ => Self::VeryPoor,
         }
     }
 }

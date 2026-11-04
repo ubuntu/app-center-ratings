@@ -111,7 +111,7 @@ impl App for RatingService {
 
         let chart = Chart::new(
             TIMEFRAME,
-            vote_summaries.into_iter().map(Into::into).collect(),
+            vote_summaries.into_iter().collect(),
         );
 
         let ratings = populate_chart_data_with_names(&self.ctx, chart.data).await?;

@@ -72,8 +72,8 @@ Once merged to the main branch, `po` files and any documentation change will be 
 
 ```bash
 # Install the Rust toolchain
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-source "$HOME/.cargo/env"
+snap install rustup
+rustup install stable
 
 # Install build-time dependencies
 sudo apt-get update
