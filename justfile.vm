@@ -80,9 +80,13 @@ versions:
 models:
     #!/usr/bin/env bash
     set -euo pipefail
+    # Fail on controller/query errors instead of treating them as missing models.
+    existing_models=$(juju models --controller "{{ controller }}" --format=json | jq -c '[.models[]."short-name"]')
     for model in ratings-dev cos-lite; do
-        if ! juju show-model --model "{{ controller }}:$model" >/dev/null 2>&1; then
-            juju add-model --controller "{{ controller }}" "$model" k8s
+        if jq -e --arg name "$model" 'index($name) != null' <<< "$existing_models" >/dev/null; then
+            printf 'Model %s:%s already exists; reusing it.\n' "{{ controller }}" "$model"
+        else
+            juju add-model --controller "{{ controller }}" --no-switch "$model" k8s
         fi
     done
 

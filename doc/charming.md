@@ -218,8 +218,11 @@ just vm juju status -m ratings-k8s:cos-lite --relations
 ```
 
 `models` idempotently creates `ratings-dev` and `cos-lite` on cloud `k8s` using
-controller `ratings-k8s`. `postgres` checks for an existing application named
-`postgresql`, otherwise deploys **one unit** of `postgresql-k8s`, channel `16/stable`, with `--trust`
+controller `ratings-k8s`. It checks `juju models --controller ratings-k8s --format=json`,
+reuses existing models, stops if that lookup fails, and creates missing models
+with `--no-switch` to preserve your active model.
+
+`postgres` checks for an existing application named `postgresql`, otherwise deploys **one unit** of `postgresql-k8s`, channel `16/stable`, with `--trust`
 to `ratings-dev`. This does not create Ratings database relations or configure
 the Ratings server. Initial downloads/storage provisioning can take time.
 
