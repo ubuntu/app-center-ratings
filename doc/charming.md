@@ -54,19 +54,14 @@ a requirement for this VM lab, and these helpers do not start the Compose stack.
 
 ## 1. Install host tools and clone
 
-**HOST, before cloning:** install the prerequisites that let you run `just`:
+Assumes snapd already installed.
+
+**HOST, after cloning:** install the prerequisites:
 
 ```sh
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl git python3 snapd cpu-checker
-sudo systemctl enable --now snapd.socket
 sudo snap install just --classic --channel=latest/stable
-sudo snap install multipass --channel=latest/stable
-sudo snap install kubectl --classic --channel=1.32/stable
-kvm-ok
-git clone https://github.com/ubuntu/app-center-ratings.git
-cd app-center-ratings
-just --list
+just host-install
+just
 ```
 
 If a snap is already installed, skip its install command; use `sudo snap refresh
