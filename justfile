@@ -9,6 +9,7 @@ disk := env_var_or_default("RATINGS_VM_DISK", "60G")
 repo := justfile_directory()
 vm_repo := "/home/ubuntu/app-center-ratings"
 kubeconfig_path := home_directory() / ".kube/ratings-local.yaml"
+kubeconfig_timeout := env_var_or_default("RATINGS_KUBECONFIG_TIMEOUT", "30s")
 vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
 # List workstation recipes; see doc/charming.md for first-time installation.
@@ -70,13 +71,36 @@ vm recipe *args:
 kubeconfig:
     #!/usr/bin/env bash
     set -euo pipefail
-    vm_ip=$(multipass info "{{ vm }}" --format=json | python3 -c 'import ipaddress, json, sys; ips=json.load(sys.stdin)["info"][sys.argv[1]]["ipv4"]; print(next(ip for ip in ips if not ipaddress.ip_address(ip).is_loopback))' "{{ vm }}")
+    run_bounded() {
+        local step="$1" status
+        shift
+        if timeout --kill-after=5s "{{ kubeconfig_timeout }}" "$@" </dev/null; then
+            return 0
+        else
+            status=$?
+        fi
+        if [ "$status" -eq 124 ] || [ "$status" -eq 137 ]; then
+            printf '%s timed out after %s. Check Multipass/VM connectivity; increase RATINGS_KUBECONFIG_TIMEOUT only if needed.\n' "$step" "{{ kubeconfig_timeout }}" >&2
+        else
+            printf '%s failed (exit %s). Existing kubeconfig was not replaced.\n' "$step" "$status" >&2
+        fi
+        return "$status"
+    }
+    printf 'Inspecting VM %s (timeout %s)...\n' "{{ vm }}" "{{ kubeconfig_timeout }}" >&2
+    vm_info=$(run_bounded 'VM inspection' multipass info "{{ vm }}" --format=json)
+    vm_ip=$(printf '%s' "$vm_info" | python3 -c 'import ipaddress, json, sys; vm=json.load(sys.stdin)["info"][sys.argv[1]]; vm["state"] == "Running" or sys.exit("VM is not running; run just up first."); ip=next((ip for ip in vm["ipv4"] if not ipaddress.ip_address(ip).is_loopback), None); ip or sys.exit("VM has no usable IPv4 address; check just info."); print(ip)' "{{ vm }}")
+    printf 'Exporting kubeconfig from %s (API https://%s:6443, timeout %s)...\n' "{{ vm }}" "$vm_ip" "{{ kubeconfig_timeout }}" >&2
     mkdir -p "$(dirname "{{ kubeconfig_path }}")"
     umask 077
     temporary=$(mktemp "{{ kubeconfig_path }}.XXXXXX")
     trap 'rm -f "$temporary"' EXIT
-    multipass exec "{{ vm }}" -- sudo k8s config --server "https://$vm_ip:6443" > "$temporary"
-    test -s "$temporary"
+    # A pipe avoids snap-confine's AppArmor file_inherit denial when just is a snap.
+    # pipefail still prevents installing partial output if Multipass fails.
+    run_bounded 'Kubeconfig export' multipass exec --no-map-working-directory "{{ vm }}" -- sudo -n k8s config --server "https://$vm_ip:6443" | cat > "$temporary"
+    if [ ! -s "$temporary" ]; then
+        printf 'VM returned an empty kubeconfig; existing kubeconfig was not replaced.\n' >&2
+        exit 1
+    fi
     mv "$temporary" "{{ kubeconfig_path }}"
     printf 'Kubeconfig written to %s (API https://%s:6443)\n' "{{ kubeconfig_path }}" "$vm_ip"
 

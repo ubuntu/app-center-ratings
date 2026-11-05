@@ -131,35 +131,6 @@ features are network, DNS, local storage, and an L2 load balancer with pool
 A Multipass NAT network does not make arbitrary load-balancer addresses reachable
 from your host. The API/kubeconfig and port-forward paths below avoid that issue.
 
-### Manual VM preparation equivalent
-
-Use this instead of the VM preparation recipe when inspecting the installation
-step by step. Open `just shell`, then run the following **VM** commands:
-
-```sh
-cd /home/ubuntu/app-center-ratings
-sudo apt-get update
-sudo apt-get install -y build-essential ca-certificates curl git libssl-dev \
-  pkg-config protobuf-compiler python3 python3-pip python3-venv skopeo jq rsync snapd
-sudo systemctl enable --now snapd.socket
-# On a fresh VM; skip either install if the snap is already present.
-sudo snap install just --classic --channel=latest/stable
-sudo snap install concierge --classic --channel=latest/stable
-cat dev/concierge.yaml
-sudo concierge prepare --config dev/concierge.yaml
-sudo snap refresh kubectl --channel=1.32/stable
-export PATH="/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:$PATH"
-uv tool install tox --with tox-uv
-rustup toolchain install stable --profile minimal --component rustfmt --component clippy
-rustup default stable
-exit
-```
-
-Reconnect with `just shell` after preparation so new group memberships take
-effect, especially for LXD. The host's VM-execution helper adds `.cargo/bin`,
-`.local/bin`, and `/snap/bin` to PATH for non-login execution; an old interactive
-shell may still have stale PATH/groups. Preparation is not a cluster reset tool.
-
 ## 3. Check access and record versions
 
 ```sh
@@ -180,6 +151,20 @@ its context. Prefer `just kubectl ...`, which selects that file explicitly.
 Treat the exported file as a secret; do not commit it. Regenerate it after VM
 recreation, restore, or an IP change. A custom VM name still uses this dedicated
 file, so export again when switching labs; it is not a multi-VM kubeconfig store.
+
+Export prints a progress message before VM inspection and before credential export.
+Each step has a 30-second deadline (plus up to 5 seconds for forced termination).
+It runs outside the mounted checkout with stdin closed and `sudo -n`, so it cannot
+wait for a password prompt. Failed, timed-out, or empty exports leave an existing
+kubeconfig untouched. If a healthy but slow VM needs more time, use
+`RATINGS_KUBECONFIG_TIMEOUT=60s just kubeconfig`.
+
+The export uses a pipe (`multipass ... | cat > temporary-file`) rather than
+redirecting Multipass directly to a host file. With snapped `just` and Multipass,
+that direct redirection can trigger an AppArmor `file_inherit` denial in
+`snap-confine` and leave the export hanging. The pipe avoids passing the writable
+file descriptor into Multipass; `pipefail` still rejects failed or partial exports.
+No AppArmor changes or snap confinement overrides are required.
 
 `status` checks the cluster/controller; inspect actual output rather than assuming
 that preparation implies readiness. Save `just vm versions` and host `snap list
@@ -392,6 +377,7 @@ Deletion permanently removes the selected VM's state/snapshots; verify `RATINGS_
 
 - Mount failures: check `multipass info ratings-lab` (substitute your configured name), rerun `just create`, and inspect host Multipass mount support rather than silently switching providers. If mounts were disabled by local policy, review the security implications before enabling `multipass set local.privileged-mounts=true`.
 - Build-provider failures: reconnect groups and inspect VM `lxc info` and `lxc profile show default`. Normal Linux-container craft builds do not need nested hardware virtualization; a deliberately selected VM build provider may.
+- Export stalls: use the pipe-based `just kubeconfig` recipe, not direct file redirection from snapped `just` (see the AppArmor explanation above). The last progress message identifies VM inspection versus kubeconfig export. Try `timeout 30s multipass info ratings-lab` and `timeout 30s multipass exec --no-map-working-directory ratings-lab -- sudo -n k8s status --timeout=10s` (substitute your configured VM name). If sudo requires a password, inspect the VM's sudo configuration in `just shell` rather than removing `-n` from this unattended export.
 - API failures: use `just info`, regenerate kubeconfig, and check VM IP/firewall/VPN access to TCP 6443. Do not disable API TLS verification.
 - Pending pods: inspect events/storage/resources with `just kubectl get pods -A` and `just kubectl -n <namespace> describe pod <pod-name>` using actual names.
 
