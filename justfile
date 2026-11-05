@@ -1,0 +1,109 @@
+# Workstation recipes. Provisioning and application tools live in justfile.vm.
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
+
+vm := env_var_or_default("RATINGS_VM", "ratings-lab")
+cpus := env_var_or_default("RATINGS_VM_CPUS", "4")
+memory := env_var_or_default("RATINGS_VM_MEMORY", "12G")
+disk := env_var_or_default("RATINGS_VM_DISK", "60G")
+repo := justfile_directory()
+vm_repo := "/home/ubuntu/app-center-ratings"
+kubeconfig_path := home_directory() / ".kube/ratings-local.yaml"
+vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# List workstation recipes; see doc/charming.md for first-time installation.
+default:
+    @just --list
+
+# Install Ubuntu workstation prerequisites (requires just to already be installed).
+host-install:
+    sudo apt-get update
+    sudo apt-get install -y ca-certificates cpu-checker curl git python3 snapd
+    sudo systemctl enable --now snapd.socket
+    if ! snap list just >/dev/null 2>&1; then sudo snap install just --classic --channel=latest/stable; fi
+    if ! snap list multipass >/dev/null 2>&1; then sudo snap install multipass --channel=latest/stable; fi
+    if ! snap list kubectl >/dev/null 2>&1; then sudo snap install kubectl --classic --channel=1.32/stable; fi
+    kvm-ok
+
+# Create or start the VM and mount this checkout without duplicating the mount.
+create:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if multipass info "{{ vm }}" >/dev/null 2>&1; then
+        multipass start "{{ vm }}"
+    else
+        multipass launch 24.04 --name "{{ vm }}" --cpus "{{ cpus }}" --memory "{{ memory }}" --disk "{{ disk }}"
+    fi
+    source_path=$(multipass info "{{ vm }}" --format=json | python3 -c 'import json, sys; d=json.load(sys.stdin)["info"][sys.argv[1]]; print(d.get("mounts", {}).get(sys.argv[2], {}).get("source_path", ""))' "{{ vm }}" "{{ vm_repo }}")
+    if [ -z "$source_path" ]; then
+        multipass mount --type classic "{{ repo }}" "{{ vm }}:{{ vm_repo }}"
+    elif [ "$source_path" != "{{ repo }}" ]; then
+        printf 'Refusing to replace existing mount from %s at %s\n' "$source_path" "{{ vm_repo }}" >&2
+        exit 1
+    fi
+
+# First-time VM setup; deliberately does not depend on just already existing there.
+bootstrap:
+    multipass exec "{{ vm }}" -- sudo apt-get update
+    multipass exec "{{ vm }}" -- sudo apt-get install -y ca-certificates curl git python3 snapd
+    multipass exec "{{ vm }}" -- sh -c 'if ! snap list just >/dev/null 2>&1; then sudo snap install just --classic --channel=latest/stable; fi'
+    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" /snap/bin/just --justfile justfile.vm prepare
+
+# Resume an existing lab; no package installation or redeployment.
+up:
+    multipass start "{{ vm }}"
+
+stop:
+    multipass stop "{{ vm }}"
+
+shell:
+    multipass shell "{{ vm }}"
+
+info:
+    multipass info "{{ vm }}"
+
+# Run any VM recipe, forwarding arguments without shell re-interpretation.
+vm recipe *args:
+    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" /snap/bin/just --justfile justfile.vm "$@"
+
+# Export admin credentials atomically to a separate host kubeconfig, not ~/.kube/config.
+kubeconfig:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    vm_ip=$(multipass info "{{ vm }}" --format=json | python3 -c 'import ipaddress, json, sys; ips=json.load(sys.stdin)["info"][sys.argv[1]]["ipv4"]; print(next(ip for ip in ips if not ipaddress.ip_address(ip).is_loopback))' "{{ vm }}")
+    mkdir -p "$(dirname "{{ kubeconfig_path }}")"
+    umask 077
+    temporary=$(mktemp "{{ kubeconfig_path }}.XXXXXX")
+    trap 'rm -f "$temporary"' EXIT
+    multipass exec "{{ vm }}" -- sudo k8s config --server "https://$vm_ip:6443" > "$temporary"
+    test -s "$temporary"
+    mv "$temporary" "{{ kubeconfig_path }}"
+    printf 'Kubeconfig written to %s (API https://%s:6443)\n' "{{ kubeconfig_path }}" "$vm_ip"
+
+# Use only this lab's kubeconfig, regardless of the workstation's current context.
+kubectl *args:
+    kubectl --kubeconfig "{{ kubeconfig_path }}" "$@"
+
+# Keep the Grafana forward bound to host loopback; leave this terminal open.
+grafana:
+    kubectl --kubeconfig "{{ kubeconfig_path }}" --namespace cos-lite port-forward --address=127.0.0.1 service/grafana 3000:3000
+
+# Stop and snapshot the VM. It remains stopped; mounted source is not snapshotted.
+snapshot name="prepared":
+    multipass stop "{{ vm }}"
+    multipass snapshot "{{ vm }}" --name "$1"
+
+# Restore VM-local state; Multipass prompts before discarding the current state.
+restore name:
+    multipass stop "{{ vm }}"
+    multipass restore "{{ vm }}.$1"
+    multipass start "{{ vm }}"
+
+# Permanently delete only this VM and its snapshots, with explicit confirmation.
+delete:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    read -r -p 'Permanently delete {{ vm }} and its snapshots? Type the VM name: ' confirmation
+    [ "$confirmation" = "{{ vm }}" ] || { printf 'Cancelled.\n'; exit 1; }
+    multipass delete --purge "{{ vm }}"
+    printf 'The checkout and exported host kubeconfig were not removed. The kubeconfig is now stale.\n'

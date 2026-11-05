@@ -1,0 +1,162 @@
+# Run inside the disposable Ubuntu VM, from this checkout.
+set shell := ["bash", "-euo", "pipefail", "-c"]
+set positional-arguments
+
+repo := justfile_directory()
+controller := "ratings-k8s"
+app_model := controller + ":ratings-dev"
+cos_model := controller + ":cos-lite"
+target_dir := home_directory() / ".cache/ratings/target"
+rock_source := home_directory() / ".cache/ratings/rock-src"
+
+# List VM recipes. On the workstation use: just vm <recipe>.
+default:
+    @just --justfile justfile.vm --list
+
+# Install build dependencies and provision Kubernetes/Juju using the tracked config.
+prepare:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    . /etc/os-release
+    if [ "$ID" != ubuntu ] || [ "$VERSION_ID" != 24.04 ] || [ "$(dpkg --print-architecture)" != amd64 ] || [ "$(id -un)" != ubuntu ]; then
+        printf 'Run prepare as ubuntu inside the disposable Ubuntu 24.04 amd64 Multipass VM.\n' >&2
+        exit 1
+    fi
+    sudo apt-get update
+    sudo apt-get install -y build-essential ca-certificates curl git jq libssl-dev pkg-config protobuf-compiler python3 python3-pip python3-venv rsync skopeo
+    if ! snap list concierge >/dev/null 2>&1; then
+        sudo snap install concierge --classic --channel=latest/stable
+    fi
+    sudo concierge prepare --config "{{ repo }}/dev/concierge.yaml"
+    # Concierge installs a latest-channel standalone client; align it with this cluster.
+    sudo snap refresh kubectl --channel=1.32/stable
+    /snap/bin/uv tool install tox --with tox-uv
+    printf '\nOpen a new VM shell before using LXD/craft tools so group membership and PATH refresh.\n'
+
+# Preview Concierge's changes after installing concierge, without applying them.
+prepare-plan:
+    sudo concierge prepare --config "{{ repo }}/dev/concierge.yaml" --dry-run
+
+# Install the repository's Rust toolchain as the ordinary VM user, not root.
+rust:
+    rustup toolchain install stable --profile minimal --component rustfmt --component clippy
+    rustup default stable
+
+# Release binary is VM-local, not in the host's mounted target directory.
+build:
+    CARGO_TARGET_DIR="{{ target_dir }}" cargo build --locked --release
+
+# Unit tests only; this does not start a DB or run the Compose integration suite.
+test:
+    CARGO_TARGET_DIR="{{ target_dir }}" cargo test --locked --lib
+
+# Build the existing rock from a VM-local copy to avoid building over SSHFS.
+rock:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "{{ rock_source }}"
+    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' "{{ repo }}/" "{{ rock_source }}/"
+    cd "{{ rock_source }}"
+    rockcraft pack
+    printf '\nRock archives are in %s; they have not been pushed to a registry or deployed.\n' "{{ rock_source }}"
+
+status:
+    sudo k8s status --wait-ready --timeout=270s
+    sudo k8s kubectl get nodes -o wide
+    sudo k8s kubectl get storageclasses
+    juju models --controller "{{ controller }}"
+
+# Record resolved versions: stable channels are not immutable version pins.
+versions:
+    snap list
+    concierge version
+    juju version
+    sudo k8s kubectl version
+    python3 --version
+    uv --version
+    rustup toolchain list
+
+# Create workload/observability models if absent; don't change the active model.
+models:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    for model in ratings-dev cos-lite; do
+        if ! juju show-model --model "{{ controller }}:$model" >/dev/null 2>&1; then
+            juju add-model --controller "{{ controller }}" "$model" k8s
+        fi
+    done
+
+# One PostgreSQL unit for local testing, not an HA database deployment.
+postgres: models
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if juju status --model "{{ app_model }}" --format=json | jq -e '.applications.postgresql != null' >/dev/null; then
+        printf 'postgresql already exists; use juju refresh explicitly to upgrade it.\n'
+    else
+        juju deploy postgresql-k8s postgresql --model "{{ app_model }}" --channel=16/stable --num-units=1 --trust
+    fi
+
+# Use the existing COS Lite bundle for this lab; re-running reconciles its bundle.
+cos: models
+    juju deploy cos-lite --model "{{ cos_model }}" --channel=latest/stable --trust
+
+# Output includes a secret. Do not copy it into issue reports or committed logs.
+grafana-password:
+    juju run --model "{{ cos_model }}" grafana/leader get-admin-password
+
+cos-endpoints:
+    juju run --model "{{ cos_model }}" traefik/leader show-proxied-endpoints
+
+# VM-local loopback forwarding; from the workstation use just grafana instead.
+cos-forward:
+    sudo k8s kubectl --namespace cos-lite port-forward --address=127.0.0.1 service/grafana 3000:3000
+
+# Native HPA prerequisite, separate from Prometheus/COS. Does not create an HPA.
+metrics-server:
+    sudo k8s kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/download/v0.8.0/components.yaml
+    sudo k8s kubectl --namespace kube-system rollout status deployment/metrics-server --timeout=180s
+
+# Opt-in local-only workaround if metrics-server rejects kubelet certificates.
+metrics-server-local-tls:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! sudo k8s kubectl --namespace kube-system get deployment metrics-server -o json | jq -e '.spec.template.spec.containers[0].args | index("--kubelet-insecure-tls") != null' >/dev/null; then
+        sudo k8s kubectl --namespace kube-system patch deployment metrics-server --type=json -p '[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+    fi
+    sudo k8s kubectl --namespace kube-system rollout status deployment/metrics-server --timeout=180s
+    sudo k8s kubectl top nodes
+
+# Separate namespace for unmanaged Deployment/sidecar/HPA experiments; no enforcement yet.
+sandbox:
+    sudo k8s kubectl create namespace ratings-sandbox --dry-run=client -o yaml | sudo k8s kubectl apply -f -
+    sudo k8s kubectl label namespace ratings-sandbox pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/warn-version=latest pod-security.kubernetes.io/audit=restricted pod-security.kubernetes.io/audit-version=latest --overwrite
+
+# Scaffold a future charm. Refuse to overwrite any existing directory contents.
+charm-init directory="charm":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    mkdir -p "$1"
+    if [ -n "$(ls -A "$1")" ]; then
+        printf 'Refusing to initialise a charm in non-empty directory %s\n' "$1" >&2
+        exit 1
+    fi
+    charmcraft init --name ratings-k8s --project-dir "$1"
+
+# Pack a charm after implementing it; does not deploy the generated starter unchanged.
+charm-pack directory="charm":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    cd "$1"
+    charmcraft pack
+
+# Only after deploying your custom ratings charm: manual unit scaling, NOT HPA.
+scale units="3":
+    juju scale-application --model "{{ app_model }}" ratings "$1"
+
+# Integrated kubectl avoids standalone-client version skew.
+kubectl *args:
+    sudo k8s kubectl "$@"
+
+# Pass explicit --model/--controller arguments rather than relying on current context.
+juju *args:
+    juju "$@"
