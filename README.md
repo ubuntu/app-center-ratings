@@ -18,6 +18,9 @@ for managing the new vote and rating system used in [App Center](https://github.
 For general details, including installation, getting started and setting up a
 development environment, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+For a local Kubernetes and Juju charm-development environment using Multipass,
+see [doc/charming.md](doc/charming.md).
+
 ## Dependencies
 
 In order to run, this needs you to install at minimum `libssl-dev` (for
