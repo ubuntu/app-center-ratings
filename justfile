@@ -112,6 +112,14 @@ kubectl *args:
 grafana:
     kubectl --kubeconfig "{{ kubeconfig_path }}" --namespace cos-lite port-forward --address=127.0.0.1 service/grafana 3000:3000
 
+# Foreground gRPC forwarding for the Juju-managed Ratings application.
+ratings port="8080":
+    kubectl --kubeconfig "{{ kubeconfig_path }}" --namespace ratings-dev port-forward --address=127.0.0.1 service/ratings "$1:8080"
+
+# Optional API check: requires host uv; keep just ratings running separately.
+grpc-smoke target="127.0.0.1:8080":
+    uv run "{{ repo }}/dev/grpc_smoke.py" --target "$1"
+
 # Stop and snapshot the VM. It remains stopped; mounted source is not snapshotted.
 snapshot name="prepared":
     multipass stop "{{ vm }}"
