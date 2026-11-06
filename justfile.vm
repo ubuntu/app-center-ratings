@@ -8,6 +8,10 @@ app_model := controller + ":ratings-dev"
 cos_model := controller + ":cos-lite"
 target_dir := home_directory() / ".cache/ratings/target"
 rock_source := home_directory() / ".cache/ratings/rock-src"
+charm_source := home_directory() / ".cache/ratings/charm-src"
+# Juju is strictly confined and cannot read artifacts under hidden ~/.cache.
+rollout_dir := home_directory() / "ratings-lab-artifacts"
+rollout := "python3 " + quote(repo / "dev/juju_rollout.py") + " --controller " + controller + " --model " + app_model + " --cos-model " + cos_model + " --state-dir " + quote(rollout_dir)
 
 # List VM recipes. On the workstation use: just vm <recipe>.
 default:
@@ -55,7 +59,7 @@ rock:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "{{ rock_source }}"
-    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' "{{ repo }}/" "{{ rock_source }}/"
+    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' --exclude '/charm/' "{{ repo }}/" "{{ rock_source }}/"
     cd "{{ rock_source }}"
     rockcraft pack
     printf '\nRock archives are in %s; they have not been pushed to a registry or deployed.\n' "{{ rock_source }}"
@@ -94,7 +98,8 @@ models:
 postgres: models
     #!/usr/bin/env bash
     set -euo pipefail
-    if juju status --model "{{ app_model }}" --format=json | jq -e '.applications.postgresql != null' >/dev/null; then
+    exists=$(juju status --model "{{ app_model }}" --format=json | jq -r '.applications | has("postgresql")')
+    if [ "$exists" = true ]; then
         printf 'postgresql already exists; use juju refresh explicitly to upgrade it.\n'
     else
         juju deploy postgresql-k8s postgresql --model "{{ app_model }}" --channel=16/stable --num-units=1 --trust
@@ -146,14 +151,68 @@ charm-init directory="charm":
     fi
     charmcraft init --name ratings-k8s --project-dir "$1"
 
-# Pack a charm after implementing it; does not deploy the generated starter unchanged.
+# Pack on the disposable VM itself; no nested build VM or host-side APT changes.
 charm-pack directory="charm":
     #!/usr/bin/env bash
     set -euo pipefail
-    cd "$1"
-    charmcraft pack
+    mkdir -p "{{ charm_source }}" "{{ rollout_dir }}"
+    sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"
+    trap 'sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"' EXIT
+    rsync -a --delete --exclude '/parts/' --exclude '/prime/' --exclude '/stage/' --exclude '/overlay/' --exclude '.venv/' --exclude '.pytest_cache/' --exclude '.ruff_cache/' --exclude '__pycache__/' --exclude '.coverage' --exclude '*.charm' "$1/" "{{ charm_source }}/"
+    cd "{{ charm_source }}"
+    sudo -n charmcraft pack --destructive-mode --platform amd64
+    install -m 0644 "{{ charm_source }}/ratings_amd64.charm" "{{ rollout_dir }}/ratings_amd64.charm"
 
-# Only after deploying your custom ratings charm: manual unit scaling, NOT HPA.
+# Install a VM-loopback OCI registry and scoped containerd hosts configuration.
+ratings-registry:
+    sudo -n python3 "{{ repo }}/dev/juju_rollout.py" registry
+
+# Publish an existing rock; defaults to the artifact from just vm rock.
+ratings-image rock="": ratings-registry
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if [ -n "$1" ]; then
+        artifact="$1"
+    else
+        shopt -s nullglob
+        artifacts=("{{ rock_source }}"/ratings_*_amd64.rock)
+        [ "${#artifacts[@]}" -eq 1 ] || { printf 'Expected one Ratings rock; run just vm rock or supply its path.\n' >&2; exit 1; }
+        artifact="${artifacts[0]}"
+    fi
+    {{ rollout }} publish "$artifact"
+
+# Deploy/refresh packaged Ratings and integrate its dedicated PostgreSQL database.
+ratings-deploy:
+    {{ rollout }} deploy "{{ rollout_dir }}/ratings_amd64.charm"
+
+# Cross-model Juju integration for native Pebble workload log forwarding to Loki.
+ratings-observability:
+    {{ rollout }} observability
+
+# Bound readiness checks; hook errors stop promptly rather than reporting stale app status.
+ratings-wait seconds="600":
+    {{ rollout }} wait --timeout "$1"
+
+ratings-status:
+    juju status --model "{{ app_model }}" --relations
+
+ratings-logs lines="100":
+    sudo -n k8s kubectl --namespace ratings-dev logs statefulset/ratings --container ratings --tail="$1"
+
+# Full Juju rollout, using existing database/COS models; builds may take several minutes.
+rollout: postgres rock charm-pack ratings-image ratings-deploy ratings-observability ratings-wait
+
+# Offline charm tests after Python dependencies have been installed into a VM-local venv.
+charm-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    python3 -m venv "{{ rollout_dir }}/test-venv"
+    "{{ rollout_dir }}/test-venv/bin/pip" install -r "{{ repo }}/charm/requirements-dev.txt"
+    cd "{{ repo }}/charm"
+    "{{ rollout_dir }}/test-venv/bin/python" -m pytest -q
+    "{{ rollout_dir }}/test-venv/bin/ruff" check src tests
+
+# Manual Juju unit scaling; do not attach a native HPA to this application.
 scale units="3":
     juju scale-application --model "{{ app_model }}" ratings "$1"
 

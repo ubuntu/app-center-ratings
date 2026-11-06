@@ -1,8 +1,9 @@
 """Offline lifecycle tests using real Canonical libraries and Juju/Pebble Harness fakes."""
 
+import base64
 import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 from urllib.parse import parse_qs, unquote, urlsplit
 
 import ops
@@ -40,6 +41,9 @@ DB_DATA = {
 @pytest.fixture
 def harness(monkeypatch):
     monkeypatch.setenv("JUJU_VERSION", "3.6.29")
+    monkeypatch.setattr(
+        "charm.socket.create_connection", MagicMock(side_effect=ConnectionRefusedError)
+    )
     h = Harness(
         RatingsCharm,
         meta=yaml.safe_dump(METADATA),
@@ -174,13 +178,17 @@ def test_active_requires_running_service_and_successful_check(harness):
 
 @pytest.mark.parametrize(
     "status,successes",
-    [(pebble.CheckStatus.UP, 0), (pebble.CheckStatus.DOWN, 0), (pebble.CheckStatus.INACTIVE, 1)],
+    [(pebble.CheckStatus.DOWN, 0), (pebble.CheckStatus.DOWN, 21), (pebble.CheckStatus.INACTIVE, 1)],
 )
 def test_unready_checks_never_active(harness, status, successes):
     database(harness)
     info = pebble.CheckInfo(READY_CHECK, pebble.CheckLevel.READY, status, successes=successes)
-    with patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}):
+    with (
+        patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}),
+        patch("charm.socket.create_connection", return_value=MagicMock()) as connect,
+    ):
         harness.charm.on.update_status.emit()
+    connect.assert_not_called()
     assert isinstance(harness.model.unit.status, ops.WaitingStatus)
 
 
@@ -200,15 +208,40 @@ def test_stopped_service_never_active_even_with_healthy_check(harness):
     assert "service to run" in harness.model.unit.status.message
 
 
-def test_older_pebble_requires_direct_tcp_confirmation(harness):
-    database(harness)
-    info = pebble.CheckInfo(READY_CHECK, pebble.CheckLevel.READY, pebble.CheckStatus.UP)
+@pytest.mark.parametrize("successes", [0, None])
+def test_initial_up_check_with_confirmed_tcp_is_active(harness, successes):
+    info = pebble.CheckInfo(
+        READY_CHECK, pebble.CheckLevel.READY, pebble.CheckStatus.UP, successes=successes
+    )
     with (
         patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}),
         patch("charm.socket.create_connection", return_value=MagicMock()) as connect,
     ):
-        harness.charm.on.update_status.emit()
+        database(harness)
     connect.assert_called_once_with(("127.0.0.1", PORT), timeout=2)
+    assert isinstance(harness.model.unit.status, ops.ActiveStatus)
+
+
+@pytest.mark.parametrize("successes", [0, None])
+@pytest.mark.parametrize("error", [ConnectionRefusedError, TimeoutError])
+def test_initial_up_check_without_tcp_is_waiting(harness, successes, error):
+    info = pebble.CheckInfo(
+        READY_CHECK, pebble.CheckLevel.READY, pebble.CheckStatus.UP, successes=successes
+    )
+    with (
+        patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}),
+        patch("charm.socket.create_connection", side_effect=error) as connect,
+    ):
+        database(harness)
+    connect.assert_called_once_with(("127.0.0.1", PORT), timeout=2)
+    assert isinstance(harness.model.unit.status, ops.WaitingStatus)
+
+
+def test_successful_check_needs_no_additional_tcp_probe(harness):
+    database(harness)
+    with patch("charm.socket.create_connection") as connect:
+        mark_ready(harness)
+    connect.assert_not_called()
     assert isinstance(harness.model.unit.status, ops.ActiveStatus)
 
 
@@ -219,8 +252,16 @@ def test_check_failure_and_recovery_events(harness):
         ("ratings_pebble_check_recovered", pebble.CheckStatus.UP),
     ]:
         info = pebble.CheckInfo(READY_CHECK, pebble.CheckLevel.READY, status, successes=1)
-        with patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}):
+        with (
+            patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}),
+            patch.object(ops.Container, "stop") as stop,
+            patch.object(ops.Container, "restart") as restart,
+            patch.object(ops.Container, "stop_checks") as stop_checks,
+        ):
             getattr(harness.charm.on, event_name).emit(harness.charm.container, READY_CHECK)
+        stop.assert_not_called()
+        restart.assert_not_called()
+        stop_checks.assert_not_called()
         assert isinstance(
             harness.model.unit.status,
             ops.ActiveStatus if status == pebble.CheckStatus.UP else ops.WaitingStatus,
@@ -230,10 +271,24 @@ def test_check_failure_and_recovery_events(harness):
 def test_recovering_stopped_service_resets_its_old_readiness(harness):
     database(harness)
     harness.charm.container.stop(SERVICE)
-    with patch.object(ops.Container, "stop_checks", autospec=True) as stop_checks:
+    info = pebble.CheckInfo(
+        READY_CHECK, pebble.CheckLevel.READY, pebble.CheckStatus.UP, successes=21
+    )
+
+    def reset_check(_container, *names):
+        assert names == (READY_CHECK,)
+        info.successes = 0
+
+    with (
+        patch.object(ops.Container, "get_checks", return_value={READY_CHECK: info}),
+        patch.object(ops.Container, "stop_checks", autospec=True, side_effect=reset_check) as reset,
+        patch("charm.socket.create_connection", side_effect=ConnectionRefusedError) as connect,
+    ):
         harness.charm.on.update_status.emit()
-    stop_checks.assert_called_once()
+    reset.assert_called_once()
+    connect.assert_called_once_with(("127.0.0.1", PORT), timeout=2)
     assert harness.charm.container.get_service(SERVICE).is_running()
+    assert isinstance(harness.model.unit.status, ops.WaitingStatus)
 
 
 def test_unusable_jwt_content_blocks_and_stops(harness):
@@ -248,9 +303,33 @@ def test_unusable_jwt_content_blocks_and_stops(harness):
 def test_jwt_length_and_no_plaintext_peer_copy(harness):
     secret = harness.model.get_secret(label=JWT_LABEL)
     jwt = secret.peek_content()["jwt-secret"]
-    assert len(jwt) == 64  # 48 random bytes, URL-safe base64 without padding.
+    assert len(jwt) == 64  # 48 random bytes, standard Base64 without padding.
+    assert len(base64.b64decode(jwt, validate=True)) == 48
     peer = harness.model.get_relation(PEERS)
     assert jwt not in json.dumps(dict(peer.data[harness.model.app]))
+
+
+def test_jwt_creation_and_rotation_use_standard_not_urlsafe_base64(request):
+    creation_bytes = b"\xfb\xff\xff" * 16
+    rotation_bytes = b"\xff\xfb\xff" * 16
+    with (
+        patch("charm.secrets.token_bytes", side_effect=[creation_bytes, rotation_bytes]) as entropy,
+        patch("charm.secrets.token_hex", return_value="generation"),
+        patch("charm.secrets.token_urlsafe", side_effect=AssertionError("URL-safe JWT key")),
+    ):
+        # Initialise the Harness under the patch so creation is deterministic too.
+        h = request.getfixturevalue("harness")
+        created = h.model.get_secret(label=JWT_LABEL).peek_content()["jwt-secret"]
+        h.run_action("rotate-jwt-secret")
+        rotated = h.model.get_secret(label=JWT_LABEL).peek_content()["jwt-secret"]
+    assert entropy.call_args_list == [call(48), call(48)]
+    for value, raw in ((created, creation_bytes), (rotated, rotation_bytes)):
+        assert len(base64.b64decode(value, validate=True)) == 48
+        assert base64.b64decode(value, validate=True) == raw
+        assert value == base64.b64encode(raw).decode("ascii")
+        assert "+" in value or "/" in value
+        assert "-" not in value and "_" not in value
+        assert value != base64.urlsafe_b64encode(raw).decode("ascii")
 
 
 def test_file_permission_errors_are_not_hidden(harness):
@@ -449,6 +528,7 @@ def test_rotation_action_restarts_leader_and_peer_change_restarts_follower(harne
     assert result.results == {"rotated": True}
     new = environment(harness)["APP_JWT_SECRET"]
     assert new != old
+    assert len(base64.b64decode(new, validate=True)) == 48
     assert peer.data[harness.model.app][JWT_ID] == secret_id
     assert harness.get_secret_revisions(secret_id) == [1, 2]
     assert peer.data[harness.model.app][JWT_GENERATION] != "0"

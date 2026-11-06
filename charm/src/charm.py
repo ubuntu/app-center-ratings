@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local sidecar operator for Ratings; no database credentials are stored by the charm."""
 
+import base64
 import json
 import re
 import secrets
@@ -97,7 +98,7 @@ class RatingsCharm(ops.CharmBase):
             secret = self.model.get_secret(label=JWT_LABEL)
         except ops.SecretNotFoundError:
             secret = self.app.add_secret(
-                {"jwt-secret": secrets.token_urlsafe(48)},
+                {"jwt-secret": base64.b64encode(secrets.token_bytes(48)).decode("ascii")},
                 label=JWT_LABEL,
                 description="Shared Ratings JWT signing key; all units of this app are owners",
             )
@@ -326,13 +327,13 @@ class RatingsCharm(ops.CharmBase):
             return
         checks = self.container.get_checks(READY_CHECK)
         check = checks.get(READY_CHECK)
-        if not check or check.status != pebble.CheckStatus.UP or check.successes == 0:
+        if not check or check.status != pebble.CheckStatus.UP:
             self.unit.status = ops.WaitingStatus("Waiting for Ratings TCP readiness on port 8080")
             return
-        if check.successes is None:
-            # Older Pebble versions start a check in UP before it has run. The
-            # charm and workload share a pod network, so confirm the TCP listener
-            # directly rather than declaring a never-tested service ready.
+        if check.successes in (0, None):
+            # A new check starts UP before its first success, without a recovery
+            # event when it first succeeds. Confirm the shared-pod listener now
+            # rather than waiting for update-status or trusting an untested check.
             try:
                 with socket.create_connection(("127.0.0.1", PORT), timeout=2):
                     pass
@@ -392,7 +393,9 @@ class RatingsCharm(ops.CharmBase):
             if secret is None:
                 event.fail("The Ratings peer relation is not available")
                 return
-            secret.set_content({"jwt-secret": secrets.token_urlsafe(48)})
+            secret.set_content(
+                {"jwt-secret": base64.b64encode(secrets.token_bytes(48)).decode("ascii")}
+            )
         except ops.SecretNotFoundError:
             event.fail("Shared JWT secret is unavailable; restore it before rotating")
             return

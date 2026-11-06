@@ -14,34 +14,35 @@ change the rock, create an ingress, or install observability agents.
   additional platform declaration would be needed for arm64.
 - PostgreSQL-k8s **16/stable**, via its modern `database` endpoint.
 
-From this directory on a suitable Charmcraft build host:
+For the existing Multipass lab, run the repository's pack workflow from the
+repository root:
 
 ```sh
-charmcraft pack --platform amd64
+just vm charm-pack
 ```
 
-Expected artifact with Charmcraft 4.5: **`ratings_amd64.charm`** in this directory.
-The image is **not** included in that archive. Deployment must supply the
+The recipe uses a **VM-local source directory**, rather than building directly
+on the Multipass-mounted checkout. Charmcraft 4.5 produces **`ratings_amd64.charm`**,
+copied to **`/home/ubuntu/ratings-lab-artifacts/ratings_amd64.charm`** for deployment.
+Repack after changing this charm.
+
+When invoking Charmcraft manually, the working directory must be the charm's
+VM-local project directory: **`--project-dir` alone does not change the process
+working directory**. The `--output` directory must also be **inside that project
+tree**. Do not use the former root-level destructive-mode command from an
+unrelated working directory. Destructive mode builds on the VM itself and can
+install build packages, but does not deploy the charm or modify Kubernetes
+resources.
+
+The image is **not** included in the charm archive. Deployment must supply the
 `ratings-image` OCI resource: the registry reference of the already-built rock
 that is accessible to the lab's Kubernetes nodes. Registry/import/rollout tooling
 is deliberately outside this charm's scope.
 
-For a native build **inside** the existing Ubuntu 24.04 Multipass lab, rather than
-another managed build container, the exact command is:
-
-```sh
-sudo charmcraft pack --destructive-mode --platform amd64 \
-  --project-dir /home/ubuntu/app-center-ratings/charm \
-  --output /home/ubuntu/app-center-ratings/charm
-```
-
-Destructive mode builds on the VM itself and can install build packages; it does
-not deploy the charm or modify Kubernetes resources. The non-root pack attempted
-while implementing this charm stopped at package preparation: `libffi-dev` and
-`libyaml-dev` were absent. No system packages were installed. Charmcraft's charm
-plugin also requires `python3-dev`, `python3-pip`, `python3-setuptools`,
-`python3-venv`, and `python3-wheel` (these were already present in the lab).
-Consequently, no packed artifact or live deployment is claimed here.
+The complete build/publish/deploy/refresh path is `just vm rollout`; see
+[`../doc/charming.md`](../doc/charming.md) for registry setup, dependency models,
+host forwarding, and smoke checks. Deployment artifacts use a non-hidden directory
+because strictly confined Juju cannot read archives under `.cache`.
 
 ## Endpoints and configuration
 
@@ -55,12 +56,12 @@ After deployment by the rollout owner, the database relation is:
 
 ```sh
 juju integrate -m ratings-k8s:ratings-dev \
-  ratings:database postgresql-k8s:database
+  ratings:database postgresql:database
 ```
 
-Use the actual deployed PostgreSQL application name if it is not
-`postgresql-k8s`. No admin password, extra roles, or superuser privileges are
-requested. The provider creates the database/user; the app owns its schema.
+The lab's PostgreSQL application is named `postgresql`. No admin password,
+extra roles, or superuser privileges are requested. The provider creates the
+database/user; the app owns its schema.
 
 For COS in the separate `cos-lite` model, offer the Loki provider's `logging`
 endpoint from that model and integrate/consume that offer at **`ratings:logging`**
@@ -115,9 +116,12 @@ where negotiated; passwords/usernames are percent-encoded independently.
 
 ### JWT ownership and rotation
 
-The leader generates a cryptographically random JWT signing key once in an
-**application-owned Juju secret**, labelled `ratings-jwt`. Only its ID and a
-non-secret generation marker are published in the peer application databag.
+The leader generates 48 cryptographically random bytes and encodes them with
+**standard Base64** (`base64.b64encode`, not URL-safe Base64), matching the
+`from_base64_secret` decoders in `src/jwt.rs`. The signing key is stored once in an
+**application-owned Juju secret**, labelled `ratings-jwt`. Rotation uses the same
+standard Base64 encoding. Only its ID and a non-secret generation marker are
+published in the peer application databag.
 All units of the application can access the same secret; no per-unit keys and no
 plaintext peer credentials are used. Leader changes, charm upgrades, and ordinary
 configuration hooks reuse it. The leader also recovers the existing labelled
@@ -158,11 +162,19 @@ once it is reachable. Database restoration reconfigures and starts the service.
 
 A `ready`-level **TCP Pebble check** probes `127.0.0.1:8080` every five seconds,
 with a two-second timeout and failure threshold one. A unit becomes Active only
-when Pebble reports the service running and its check up. A check with zero
-successes is not accepted as ready. Older Pebble versions lacking success counts
-also receive a bounded direct TCP confirmation from the charm in the same pod.
-Check-failed/recovered events and `update-status` update health; Pebble restarts
-crashed services with backoff. Unchanged configuration does not restart Ratings.
+when Pebble reports the service running and its check up. If an UP check has
+zero successes or no success count, the charm also confirms the listener with a
+bounded two-second TCP connection from the same pod before setting Active. A
+failed or timed-out connection keeps the unit Waiting; missing, DOWN, or inactive
+checks are never accepted as ready. This permits Active during the initial
+post-replan health assessment without waiting for `update-status`: the first
+success of an initially UP check does not emit a check-recovered event. There are
+no sleeps or probe retry loops. Checks are reset when a service is restarted so
+successes from the previous process cannot establish readiness for the new one.
+Check-failed/recovered events and `update-status` update health; a check-failed
+event reconciles without restarting an unchanged, still-running service. Pebble
+restarts crashed services with backoff. Unchanged configuration does not restart
+Ratings.
 This is listener readiness, **not** a continuous DB transaction or end-to-end
 Snap Store health test. DB/Snap Store outages after startup can affect requests
 without bringing the TCP check down.
@@ -213,9 +225,17 @@ python3 -m venv .venv
 .venv/bin/ruff format --check src tests
 ```
 
-Implementation validation: **81 tests passed with 99% charm-code coverage** on
-both the host's Python 3.14 and Ubuntu 24.04/Python 3.12 in `ratings-lab`. Ruff
-lint and formatting checks passed. No live charm deployment was performed.
+Validation: **88 tests passed**, with **99% charm-code coverage**, on the host's
+Python 3.14. Tests cover
+zero/unknown success counts with successful, refused, and timed-out TCP probes,
+non-UP checks, check events without service restarts, and readiness reset after
+restart. Existing standard-Base64 creation/rotation tests continue to pass. Ruff
+lint and formatting checks passed. All 88 tests also passed on Ubuntu 24.04 /
+Python 3.12 in `ratings-lab` through `just vm charm-test`. Live validation covered full rollout,
+refresh, host gRPC authentication/database reads, two-unit scaling with shared
+JWT verification, and workload log ingestion into COS Loki. Ratings was returned
+to one Active/Idle unit after validation; Snap Store-backed queries and production
+TLS were not tested.
 
 The Harness tests run **offline after dependency installation**, using the real
 vendored libraries and fake Juju/Pebble/database data. They cover provisioning,

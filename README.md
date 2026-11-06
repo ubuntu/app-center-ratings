@@ -18,11 +18,33 @@ for managing the new vote and rating system used in [App Center](https://github.
 For general details, including installation, getting started and setting up a
 development environment, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-For a local Kubernetes and Juju deployment using Multipass, including host-local
-gRPC access, scaling, and optional COS Lite logging, see
-[doc/charming.md](doc/charming.md). The implemented Ratings operator lives in
-[`charm/`](charm/); see its [README](charm/README.md) for endpoints, configuration,
-JWT rotation, and charm development.
+## Local Juju deployment
+
+For a local Kubernetes and Juju deployment using Multipass, see
+[doc/charming.md](doc/charming.md). With the lab already prepared and COS Lite
+deployed, run from the repository root:
+
+```sh
+just up
+just vm rollout
+just vm ratings-status
+just kubeconfig
+just ratings
+```
+
+`rollout` builds the rock and charm, publishes a digest-pinned image to a
+VM-loopback registry, deploys or refreshes Ratings, integrates PostgreSQL and COS
+Loki logging, and waits for readiness with a 600-second readiness deadline.
+`just ratings` stays in the foreground and forwards **plaintext gRPC** to host
+**`127.0.0.1:8080`**; it is not a web page or public ingress. See the guide for the
+[proto-based API smoke check](doc/charming.md#host-local-grpc-smoke-check),
+[rollout without COS and subsequent refreshes](doc/charming.md#7-deploy-ratings-and-use-the-api),
+and Juju-managed scaling. These commands do not assert that a deployment has
+already passed runtime validation.
+
+The implemented Ratings operator lives in [`charm/`](charm/); see its
+[README](charm/README.md) for endpoints, configuration, JWT rotation, and charm
+development.
 
 ## Dependencies
 

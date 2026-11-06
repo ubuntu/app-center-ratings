@@ -7,8 +7,11 @@ database relation, configuration, shared JWT secret, and scaling. This is a loca
 plaintext gRPC lab, not a production ingress or high-availability deployment.
 
 If the local environment is already installed, skip to
-[Deploy Ratings and use the API](#7-deploy-ratings-and-use-the-api). Preparing the
-VM alone does not deploy Ratings.
+[Deploy Ratings and use the API](#7-deploy-ratings-and-use-the-api):
+`just vm rollout` builds and deploys or refreshes Ratings through Juju, then waits
+for readiness. The default rollout also integrates logs with an existing COS
+Lite deployment; a no-COS rollout path is documented there too. Preparing the VM
+alone does not deploy Ratings.
 
 ## Contents
 
@@ -42,6 +45,7 @@ still a command you type on the host.
 | [`../justfile`](../justfile) | Host | Multipass lifecycle, mounting, VM execution, dedicated kubeconfig, local forwarding |
 | [`../justfile.vm`](../justfile.vm) | VM | Preparation, image/charm builds, Juju applications and relations, Kubernetes experiments |
 | [`../dev/concierge.yaml`](../dev/concierge.yaml) | VM via Concierge | Tool channels, providers, controller, Kubernetes features |
+| [`../dev/juju_rollout.py`](../dev/juju_rollout.py) | VM via recipes | Loopback registry, image publication, deploy/refresh, cross-model logging, bounded readiness polling |
 
 Concierge runs as root, initializes LXD, changes networking/iptables and group
 membership, and **overwrites the VM user's kubeconfig**. LXD socket access is
@@ -178,7 +182,8 @@ that preparation implies readiness. Save `just vm versions` and host `snap list
 just multipass kubectl` output with experiment notes. Channels, Rust stable, bundle
 contents, and dependencies can change; channels are **not immutable revision
 pins**. The guide's CLI/config references were checked against official docs
-(including Concierge v1.9.0); this is not a claim of a runtime-tested deployment.
+(including Concierge v1.9.0). The implemented rollout was also exercised in the
+local lab; see the validation scope at the end of section 7.
 
 For a reusable baseline:
 
@@ -196,8 +201,14 @@ is a disposable single-node lab, not production HA storage or a database backup.
 ```sh
 just vm build
 just vm test
+just vm charm-test
 just vm rock
 ```
+
+`charm-test` installs the locked development dependencies into a VM-local venv
+under `~/ratings-lab-artifacts/test-venv`, then runs the charm's pytest suite and
+Ruff lint. Dependency installation needs network access; the tests themselves
+use fake Juju/Pebble data, not a live deployment.
 
 `build` runs `cargo build --release`; `test` runs `cargo test --lib`, with
 `CARGO_TARGET_DIR` under `/home/ubuntu/.cache/ratings/target` rather than the
@@ -205,11 +216,13 @@ host-mounted `target/`. Database-feature tests are ignored by default; passing
 unit tests does not verify a working database, gRPC deployment, or integration
 suite. See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for the existing Compose tests.
 
-`rock` copies sources into VM-local storage with rsync, excluding `.git`, root and
-mock build targets, generated `.rock`/`.charm` archives, and `.local/`, then runs `rockcraft pack`. This avoids building
-directly over SSHFS. Inspect the recipe/output for its artifact location.
-[`../rockcraft.yaml`](../rockcraft.yaml) already targets amd64, uses `base: bare`
-and `build_base: ubuntu@24.04`, runs as `_daemon_`, and defines an enabled Pebble
+`rock` copies sources into `/home/ubuntu/.cache/ratings/rock-src` with rsync,
+excluding `.git`, root and mock build targets, generated `.rock`/`.charm`
+archives, `.local/`, and `charm/`, then runs `rockcraft pack`. This avoids building
+directly over SSHFS. The full rollout also builds the rock, so a separate `rock`
+invocation is optional.
+[`../rockcraft.yaml`](../rockcraft.yaml) targets amd64, uses `base: bare`
+and `build-base: ubuntu@24.04`, runs as `_daemon_`, and defines an enabled Pebble
 service named `ratings` executing `/bin/ratings`. A packed `.rock` is **not** a
 `.charm`, a published registry image, or an application deployment. Deployment
 must also publish an image reachable by Kubernetes and supply it as the charm's
@@ -217,8 +230,11 @@ must also publish an image reachable by Kubernetes and supply it as the charm's
 
 ## 5. Database and optional observability dependencies
 
-PostgreSQL is required for Ratings; COS Lite is optional. These commands manage
-the dependencies separately from the Ratings image/charm deployment:
+PostgreSQL is required for Ratings; COS Lite is optional for the charm. The
+full `rollout` recipe creates/reuses PostgreSQL but expects COS Lite to exist
+for its logging step. Skip an existing COS deployment rather than redeploying
+the bundle on every application change. These commands manage the dependencies
+separately from the Ratings image/charm deployment:
 
 ```sh
 just vm models
@@ -269,10 +285,29 @@ Stop with Ctrl-C. No load-balancer route, host SSH key, or public listener is ne
 localhost; that is **not** your host's localhost. Avoid `--address=0.0.0.0`: it
 exposes the port to other machines and is only appropriate on a trusted lab network.
 
-Ratings implements the optional **`logging`** endpoint (`loki_push_api`). For COS
-in the separate `cos-lite` model, offer the actual Loki application's `logging`
-endpoint there, consume the offer in `ratings-dev`, and integrate it with
-**`ratings:logging`**. Inspect the deployed application names and offer URL;
+Ratings implements the optional **`logging`** endpoint (`loki_push_api`). After
+Ratings and COS Lite are deployed, connect the two models with:
+
+```sh
+just vm ratings-observability
+```
+
+This recipe expects application **`loki`** (`loki-k8s`) in
+`ratings-k8s:cos-lite`. It creates/reuses the **`ratings-logs`** offer for
+`loki:logging`, consumes its actual offer URL in `ratings-k8s:ratings-dev` as
+**`ratings-loki`**, and integrates **`ratings:logging ratings-loki:logging`**.
+It refuses to reuse an unrelated offer or a consumer alias pointing elsewhere.
+It does not deploy COS, and the full `rollout` already invokes this step.
+
+For this NAT-based lab, it also removes **only Loki's** `loki:ingress` relation
+to `traefik:ingress-per-unit`. Otherwise Loki advertises the L2 load-balancer
+address, which workload pods cannot reliably reach. Loki then advertises its
+internal `loki-0.loki-endpoints.cos-lite.svc.cluster.local:3100` endpoint instead.
+This deliberately removes Loki's external ingress route, not its Grafana data
+source or other COS ingress relations. Do not apply this lab-specific change to
+a shared production COS model. Reapplying the COS bundle can restore the ingress
+relation; rerun `ratings-observability` afterwards to restore the internal path.
+
 `ratings:database` is not a logging endpoint. The charm uses native Pebble log
 forwarding with Juju model/application/unit labels, not an extra Promtail sidecar.
 Relating logging sends workload stdout/stderr to COS: consider the privacy impact
@@ -320,6 +355,150 @@ enforcement to Juju/COS workloads without testing their sidecars and permissions
 
 ## 7. Deploy Ratings and use the API
 
+### Roll out from the existing environment
+
+Reuse your prepared VM and the same `RATINGS_VM` setting. Do not rerun bootstrap,
+recreate the VM, or redeploy an existing COS bundle just to deploy Ratings. The
+default path assumes the Kubernetes/Juju environment is installed and COS Lite
+already has application `loki` in `ratings-k8s:cos-lite`:
+
+```sh
+just up
+just vm rollout
+just vm ratings-status
+just kubeconfig
+just ratings
+```
+
+`just ratings` stays in the foreground; leave that terminal open for the
+[gRPC smoke check](#host-local-grpc-smoke-check) in another host terminal. If COS
+is absent and you want logging, run `just vm cos` once and inspect its status
+before rollout. PostgreSQL need not be deployed separately: rollout creates the
+models and the one-unit `postgresql` application if absent, or reuses them.
+
+The full recipe runs these stages in order:
+
+| Stage | Effect |
+| --- | --- |
+| `postgres` | Create/reuse models and PostgreSQL; do not automatically upgrade an existing provider |
+| `rock` | Build the Ratings workload rock from VM-local sources |
+| `charm-pack` | Pack the tracked Ratings operator from VM-local sources |
+| `ratings-image` | Run `ratings-registry`, publish the rock, and record a digest-pinned OCI reference |
+| `ratings-deploy` | Deploy one Ratings unit, or refresh the existing application; integrate its database |
+| `ratings-observability` | Create/reuse the cross-model Loki logging integration; do not deploy COS |
+| `ratings-wait` | Poll Ratings and PostgreSQL readiness with a default **600-second** deadline |
+
+Builds and earlier stages are outside that readiness deadline. The waiter checks
+that both applications are Active, their unit counts match the requested scale,
+and all units are Active with Idle agents. A unit hook error aborts promptly;
+individual Juju CLI calls also have bounded timeouts. It does not certify Loki
+delivery, a successful gRPC request, or Snap Store connectivity. On failure,
+inspect rather than blindly rerunning the whole build:
+
+```sh
+just vm ratings-status
+just vm ratings-logs 100
+# After diagnosing/fixing the issue, wait again without rebuilding:
+just vm ratings-wait 600
+```
+
+`ratings-logs` shows the last 100 workload-container log lines by default, not
+Juju agent logs or all replicas. A deliberately longer positive timeout, such as
+`just vm ratings-wait 900`, changes only that readiness wait.
+
+**Without COS:** the charm's logging relation is optional, but the full `rollout`
+recipe always tries to create it. To deploy without COS, run the same stages
+explicitly and omit `ratings-observability`:
+
+```sh
+just vm postgres
+just vm rock
+just vm charm-pack
+just vm ratings-image
+just vm ratings-deploy
+just vm ratings-wait 600
+```
+
+You can add COS later and run `just vm ratings-observability` without rebuilding
+Ratings.
+
+### Image registry, build paths, and refreshes
+
+All paths below are **inside the VM**, not in the host's mounted checkout:
+
+| Path | Purpose |
+| --- | --- |
+| `/home/ubuntu/.cache/ratings/rock-src` | VM-local rock build tree and `.rock` archive |
+| `/home/ubuntu/.cache/ratings/charm-src` | VM-local charm build tree and native pack output |
+| `/home/ubuntu/ratings-lab-artifacts/ratings_amd64.charm` | Copied deployment archive readable by snapped Juju |
+| `/home/ubuntu/ratings-lab-artifacts/image.json` | Published image reference, source rock path, and archive checksum |
+| `/var/lib/ratings-registry` | Persistent VM-local registry image storage |
+
+The non-hidden **`~/ratings-lab-artifacts`** directory is intentional: strictly
+confined Juju cannot read deployment archives under `~/.cache`. Do not move the
+handoff back into `.cache` or disable snap confinement to work around that.
+`charm-pack` defaults to the existing `charm/` project and runs
+`sudo -n charmcraft pack --destructive-mode --platform amd64` from its VM-local
+copy. This native build can install APT development dependencies on the disposable
+VM; it does not install them on the host. Do not run that destructive-mode build
+on your workstation. `charm-init` is only for unrelated starter projects, not a
+step for building this already-implemented Ratings charm.
+
+`ratings-registry` installs the VM's **`docker-registry` APT package**, not a
+registry container or Docker daemon. During package installation it masks the
+default `docker-registry.service` to prevent an all-interface listener. It manages
+**`ratings-registry.service`**, configured under `/etc/ratings-registry`, bound
+only to the **VM's `127.0.0.1:5000`**. This is not the host's localhost or a pod's
+localhost. Images have no registry authentication or TLS, so loopback-only
+exposure is essential; do not open it to the network. Images remain in VM-local
+storage across service restarts; this is not an external image archive or backup.
+
+The helper requires **one Kubernetes node** and the existing containerd
+`config_path=/etc/containerd/hosts.d`. It writes only the scoped HTTP registry
+entry `/etc/containerd/hosts.d/127.0.0.1:5000/hosts.toml`, without restarting
+containerd or rewriting its main config. It refuses to overwrite unmanaged
+configuration. A multi-node cluster needs a shared registry instead of this
+node-loopback design.
+
+`ratings-image` uses **skopeo** to copy the OCI `.rock` archive, preserve its
+digests, inspect the published manifest, and write
+`127.0.0.1:5000/ratings@sha256:...` to `image.json`. The digest-pinned reference,
+not a mutable tag, is passed as **`ratings-image`** to Juju. With no argument,
+`just vm ratings-image` requires exactly one `ratings_*_amd64.rock` in
+`rock-src`; if several exist, pass the desired **VM-side** archive path as its
+positional argument. Publication does not rebuild the rock.
+
+`just vm ratings-deploy` does **no builds**: it requires the packaged charm and
+`image.json` above, verifies the image is present in the registry, then deploys
+or refreshes `ratings` using that archive and OCI resource. It requires the
+existing `postgresql` provider, reuses the expected database relation, and
+refuses to replace a different database relation or an unrelated application.
+For subsequent changes, choose only the stages needed:
+
+```sh
+# Rust/application or rock changes: rebuild and publish the image, then refresh.
+just vm rock
+just vm ratings-image
+just vm ratings-deploy
+just vm ratings-wait 600
+```
+
+```sh
+# Charm-only changes: repack the operator, keeping the recorded image.
+just vm charm-pack
+just vm ratings-deploy
+just vm ratings-wait 600
+```
+
+The image-only path still requires a previously packed charm; the charm-only
+path requires an existing `image.json` and published image. Both use Juju refresh
+with `--path` and `--resource` when the application exists. The full
+`just vm rollout` is also repeatable, but rebuilds both artifacts; it does not
+upgrade PostgreSQL or redeploy the COS bundle. No path here promises a zero-downtime
+upgrade or a reversible schema migration.
+
+### Charm interfaces
+
 Use the existing [`../charm/`](../charm/) project, not a generated starter charm.
 It declares Ubuntu 24.04/amd64 and requires Juju **3.6.4+**. The workload container
 and Pebble service are both named `ratings`; the image resource is
@@ -334,7 +513,8 @@ operator lifecycle.
 | `ratings-peers` | Shared application JWT secret reference and rotation notification |
 
 The lab PostgreSQL application is named **`postgresql`**, not `postgresql-k8s`
-(the charm's name). Once both applications are deployed, the relation is:
+(the charm's name). `ratings-deploy` creates this relation when absent; the
+corresponding Juju command, if managing the integration manually, is:
 
 ```sh
 just vm juju integrate -m ratings-k8s:ratings-dev \
@@ -377,19 +557,39 @@ in a separate host terminal:
 
 ```sh
 just kubeconfig
-just kubectl --namespace ratings-dev port-forward --address=127.0.0.1 \
-  service/ratings 8080:8080
+just ratings
 ```
 
-The endpoint is **`127.0.0.1:8080` on the host**, speaking **plaintext gRPC**.
-It is not a web page or a REST API. This foreground port-forward creates neither
-an ingress nor a public listener; it does not require routing the lab's
+`just ratings [port=8080]` forwards Service **`ratings`** in namespace
+**`ratings-dev`**, using the dedicated host kubeconfig and binding only to host
+loopback. The endpoint is **`127.0.0.1:8080` on the host**, speaking **plaintext
+gRPC**. If that host port is occupied, `just ratings 18080` forwards
+`127.0.0.1:18080` to the same Service port 8080; change the grpcurl address below
+to match. It is not a web page or a REST API. This foreground port-forward creates
+neither an ingress nor a public listener; it does not require routing the lab's
 LoadBalancer pool through Multipass NAT. Stop it with Ctrl-C, and restart it if
 the selected pod is replaced during refresh or scaling. Do not bind it to
 `0.0.0.0` or expose this plaintext listener on an untrusted network. The charm
 opens 8080/TCP but does not configure listener TLS or certificate relations.
 
-Optionally install **grpcurl on the host** using the
+For an automated smoke check, optionally install **uv on the host** using its
+[official installation instructions](https://docs.astral.sh/uv/getting-started/installation/)
+and run this in another host terminal while `just ratings` is running:
+
+```sh
+just grpc-smoke
+```
+
+This executes [`../dev/grpc_smoke.py`](../dev/grpc_smoke.py). uv downloads the
+pinned gRPC Python tools into its own environment; the script generates clients
+in a temporary directory, creates a random smoke-test identity, authenticates,
+performs a database-backed request, checks authorization rejection, and deletes
+the identity. It prints no tokens or database credentials and needs no gRPC
+reflection. An alternate forward can be checked with
+`just grpc-smoke 127.0.0.1:18080`. uv is optional and is not installed by
+`just host-install`; your host application can connect without it.
+
+Alternatively, install **grpcurl on the host** using the
 [upstream installation instructions](https://github.com/fullstorydev/grpcurl#installation)
 or the matching Linux amd64 binary from its
 [releases](https://github.com/fullstorydev/grpcurl/releases), and put it on your
@@ -442,7 +642,8 @@ only on a trusted local workstation.
 
 ```sh
 just vm scale 3
-just vm juju status -m ratings-k8s:ratings-dev --relations
+just vm ratings-wait 600
+just vm ratings-status
 ```
 
 `scale` calls **`juju scale-application`** for `ratings`; it is manual
@@ -470,18 +671,26 @@ secret is not a rotation mechanism and stops the workload. Treat database/JWT
 values in Pebble's environment as sensitive: do not share unredacted environment
 dumps, Pebble plans, or debug logs.
 
-The implemented charm has offline lifecycle tests; those tests do not establish
-that image publication, charm packing, a live Juju rollout, or the host gRPC
-examples have succeeded. Check actual rollout/status output and perform the smoke
-check in your lab rather than treating this guide as a deployment result.
+**Validation scope:** the complete `just vm rollout` succeeded against the local
+Juju 3.6.29 / Kubernetes 1.32 lab, including an image refresh. Host-side gRPC
+Authenticate, an authenticated database read, rejection without authorization,
+and smoke-identity cleanup passed. Two units reached Active/Idle and a JWT issued
+by one was accepted by the other; scaling back to one also passed. A Loki query
+returned Ratings workload logs. The charm's 88 offline tests passed with 99%
+coverage, including all 88 passing in the Ubuntu 24.04 VM; rollout orchestration
+has 17 passing stdlib regression tests. This is
+not production certification: external Snap Store queries, listener TLS,
+NetworkPolicy enforcement, automatic scaling, and failure recovery under load
+were not validated.
 
 ## Daily workflow and recipe reference
 
 ```sh
 just up
 just vm status
-just vm build
-just vm test
+just vm ratings-status
+just vm ratings-logs
+# After changing source, choose the image/charm refresh stages in section 7.
 just shell
 # VM: exit to return to the host.
 just stop
@@ -494,14 +703,26 @@ just stop
 | `just up` / `just stop` / `just shell` | Bring lab up / stop it / open VM shell |
 | `just vm <recipe> [args...]` | Execute `justfile.vm` with VM tool PATH |
 | `just kubeconfig` / `just kubectl ...` | Export dedicated admin file / use it |
-| `just info` / `just grafana` | Inspect VM / foreground host localhost forwarding |
+| `just info` | Inspect the VM |
+| `just ratings [port=8080]` / `just grafana` | Foreground host-loopback gRPC / Grafana forwarding |
+| `just grpc-smoke [target=127.0.0.1:8080]` | Optional host-uv gRPC check and identity cleanup |
+| `just vm rollout` | Build/publish/deploy or refresh Ratings; integrate existing COS; bounded readiness wait |
+| `just vm ratings-status` / `just vm ratings-logs [lines=100]` | Ratings relations/status / recent workload logs |
+| `just vm ratings-wait [seconds=600]` | Wait for Ratings/PostgreSQL Active/Idle units without rebuilding |
+| `just vm scale N` | Set Ratings' requested unit count through Juju, not HPA |
 | `just snapshot [name]` | Default `prepared`; stop, snapshot, **remain stopped** |
 | `just restore <name>` | Prompt for destructive restore; stop/restore/restart |
 | `just delete` | Prompt; delete **only configured VM** with `--purge`, no global purge |
 
-VM recipes: `prepare`, `rust`, `status`, `versions`, `build`, `test`, `rock`, `models`, `postgres`, `cos`,
-`grafana-password`, `cos-endpoints`, `cos-forward`, `metrics-server`, `metrics-server-local-tls`, `sandbox`, `kubectl ...`, `juju ...`,
-`charm-init [directory=charm]`, `charm-pack [directory=charm]`, `scale [units=3]`.
+VM recipes: `prepare`, `prepare-plan`, `rust`, `status`, `versions`, `build`,
+`test`, `rock`, `models`, `postgres`, `cos`, `grafana-password`, `cos-endpoints`,
+`cos-forward`, `metrics-server`, `metrics-server-local-tls`, `sandbox`,
+`charm-pack [directory=charm]`, `charm-test`, `ratings-registry`,
+`ratings-image [rock=""]`, `ratings-deploy`, `ratings-observability`,
+`ratings-wait [seconds=600]`, `ratings-status`, `ratings-logs [lines=100]`,
+`rollout`, `scale [units=3]`, `kubectl ...`, and `juju ...`.
+`charm-init [directory=charm]` is an unrelated-project scaffold helper; do not run
+it over the implemented Ratings charm.
 Inside the VM use `just -f justfile.vm <recipe>`; bare `just` selects the host Justfile. Inspect recipes with host `just --list` or `just vm default`.
 
 Restore discards post-snapshot VM state, including database data and credentials, but does not restore mounted sources. After `just restore prepared`, run `just kubeconfig` and check status.
@@ -514,8 +735,11 @@ Deletion permanently removes the selected VM's state/snapshots; verify `RATINGS_
 - Export stalls: use the pipe-based `just kubeconfig` recipe, not direct file redirection from snapped `just` (see the AppArmor explanation above). The last progress message identifies VM inspection versus kubeconfig export. Try `timeout 30s multipass info ratings-lab` and `timeout 30s multipass exec --no-map-working-directory ratings-lab -- sudo -n k8s status --timeout=10s` (substitute your configured VM name). If sudo requires a password, inspect the VM's sudo configuration in `just shell` rather than removing `-n` from this unattended export.
 - API failures: use `just info`, regenerate kubeconfig, and check VM IP/firewall/VPN access to TCP 6443. Do not disable API TLS verification.
 - Pending pods: inspect events/storage/resources with `just kubectl get pods -A` and `just kubectl -n <namespace> describe pod <pod-name>` using actual names.
-- Ratings waiting/blocked: inspect `just vm juju status -m ratings-k8s:ratings-dev --relations`. Check the `ratings:database` relation, PostgreSQL readiness, charm configuration, and image-pull events before changing resources. A TCP-ready listener does not establish that later DB/Snap Store requests will succeed.
+- Ratings waiting/blocked or a readiness timeout: inspect `just vm ratings-status`, `just vm ratings-logs 100`, and pod events in `ratings-dev`. Check the `ratings:database` relation, PostgreSQL readiness, charm configuration, and image-pull events before changing resources. A TCP-ready listener does not establish that later DB/Snap Store requests will succeed. Diagnose Juju hook errors with `just vm juju debug-log -m ratings-k8s:ratings-dev --replay --no-tail`; do not repeatedly rebuild the image to retry a failed hook.
+- Artifact permission denied: `ratings-deploy` uses `/home/ubuntu/ratings-lab-artifacts/ratings_amd64.charm`, not the hidden `.cache` build output. Re-run `just vm charm-pack` to refresh that handoff, rather than weakening snap confinement.
+- Image/registry failures: `ratings-image` expects one default rock or an explicit VM-side archive path. Inspect the VM's `ratings-registry.service` and registry/containerd configuration before changing exposure; the helper intentionally refuses unmanaged config and multi-node clusters. Do not bind the unauthenticated registry to `0.0.0.0` as a workaround.
+- Logging integration failures: `ratings-observability` requires COS application `loki` in `ratings-k8s:cos-lite`. Inspect that model, the `ratings-logs` offer, and `ratings-loki` consumer alias; do not repoint unrelated offers. Either deploy COS intentionally or use the no-COS rollout sequence.
 - gRPC failures: keep the host port-forward running and use `-plaintext`, the local proto, and a 64-character Authenticate `id`. Missing/expired Bearer metadata fails protected RPCs; reflection being unavailable is expected. Snap Store failures require checking workload egress and `snap-store-url`, not weakening Kubernetes API TLS.
 
 Official references: [Ops environment tutorial](https://documentation.ubuntu.com/ops/latest/tutorial/from-zero-to-hero-write-your-first-kubernetes-charm/set-up-your-development-environment/), [Concierge configuration](https://canonical.com/juju/docs/concierge/reference/configuration/) ([v1.9.0 schema source](https://github.com/canonical/concierge/blob/v1.9.0/docs/reference/configuration.md)).
-Also: [Canonical Kubernetes commands](https://documentation.ubuntu.com/canonical-kubernetes/latest/snap/reference/commands/), [Charmcraft init](https://documentation.ubuntu.com/charmcraft/latest/reference/commands/init/), and [Metrics Server v0.8.0 requirements](https://github.com/kubernetes-sigs/metrics-server/blob/v0.8.0/README.md).
+Also: [Canonical Kubernetes commands](https://documentation.ubuntu.com/canonical-kubernetes/latest/snap/reference/commands/), [Charmcraft pack](https://documentation.ubuntu.com/charmcraft/latest/reference/commands/pack/), and [Metrics Server v0.8.0 requirements](https://github.com/kubernetes-sigs/metrics-server/blob/v0.8.0/README.md).
