@@ -1,0 +1,54 @@
+type: charm
+name: ratings
+summary: Local Kubernetes operator for the App Center Ratings service
+description: |
+  Runs the Ratings gRPC backend using Pebble, a relation-provisioned PostgreSQL
+  database, and an application-owned Juju JWT secret. Intended for local labs.
+base: ubuntu@24.04
+platforms:
+  amd64:
+    build-on: [amd64]
+    build-for: [amd64]
+assumes:
+  - k8s-api
+  - juju >= 3.6.4
+containers:
+  ratings:
+    resource: ratings-image
+resources:
+  ratings-image:
+    type: oci-image
+    description: Ratings rock containing /bin/ratings and the ratings Pebble service
+requires:
+  database:
+    interface: postgresql_client
+    limit: 1
+  logging:
+    interface: loki_push_api
+    optional: true
+peers:
+  ratings-peers:
+    interface: ratings_peers
+config:
+  options:
+    snap-store-url:
+      type: string
+      default: https://api.snapcraft.io/v2/
+      description: Absolute HTTP(S) Snap Store API base URL, including trailing slash.
+    rust-log:
+      type: string
+      default: info,sqlx=warn,hyper=warn,reqwest=warn
+      description: Rust tracing EnvFilter; verbose filters may log sensitive workload data.
+actions:
+  rotate-jwt-secret:
+    description: |
+      Rotate the application JWT signing secret on the leader. Restarts all units
+      as peer changes propagate; existing JWTs become invalid. No secret is returned.
+parts:
+  charm:
+    plugin: charm
+    source: .
+    charm-entrypoint: src/charm.py
+    charm-requirements: [requirements.txt]
+    charm-strict-dependencies: true
+    charm-binary-python-packages: [pydantic-core]

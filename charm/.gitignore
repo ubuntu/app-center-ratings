@@ -1,0 +1,14 @@
+.venv/
+.python-lab/
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+*.charm
+build/
+parts/
+stage/
+prime/
+.charmcraft/
+*.log

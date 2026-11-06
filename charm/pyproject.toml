@@ -1,0 +1,19 @@
+[tool.pytest.ini_options]
+testpaths = ["tests/unit"]
+pythonpath = ["src", "lib"]
+filterwarnings = ["ignore:Harness is deprecated:PendingDeprecationWarning"]
+
+[tool.pyright]
+include = ["src"]
+extraPaths = ["src", "lib"]
+pythonVersion = "3.12"
+venvPath = "."
+venv = ".venv"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["lib"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]

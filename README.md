@@ -18,8 +18,11 @@ for managing the new vote and rating system used in [App Center](https://github.
 For general details, including installation, getting started and setting up a
 development environment, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-For a local Kubernetes and Juju charm-development environment using Multipass,
-see [doc/charming.md](doc/charming.md).
+For a local Kubernetes and Juju deployment using Multipass, including host-local
+gRPC access, scaling, and optional COS Lite logging, see
+[doc/charming.md](doc/charming.md). The implemented Ratings operator lives in
+[`charm/`](charm/); see its [README](charm/README.md) for endpoints, configuration,
+JWT rotation, and charm development.
 
 ## Dependencies
 

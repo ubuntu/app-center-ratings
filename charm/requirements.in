@@ -1,0 +1,3 @@
+# Direct dependencies; requirements.txt pins the entire resolved runtime closure.
+ops==2.23.2
+cosl==1.11.3

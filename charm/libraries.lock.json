@@ -1,0 +1,26 @@
+[
+  {
+    "path": "lib/charms/data_platform_libs/v0/data_interfaces.py",
+    "source": "https://raw.githubusercontent.com/canonical/data-platform-libs/87e246a5392e9d3dd5c084a824a83c4bc1c34b77/lib/charms/data_platform_libs/v0/data_interfaces.py",
+    "commit": "87e246a5392e9d3dd5c084a824a83c4bc1c34b77",
+    "sha256": "7ce20ee20e555a42c1b61502d132cf915fc6a1dded216d30a809b5d833aaaea6",
+    "LIBID": "6c3e6b6680d64e9c89e611d1a15f65be",
+    "LIBAPI": 0,
+    "LIBPATCH": 62,
+    "PYDEPS": [
+      "ops>=2.0.0"
+    ]
+  },
+  {
+    "path": "lib/charms/loki_k8s/v1/loki_push_api.py",
+    "source": "https://raw.githubusercontent.com/canonical/loki-k8s-operator/dbc2e7d78fcde4be11ae5328e7c882904befadf3/lib/charms/loki_k8s/v1/loki_push_api.py",
+    "commit": "dbc2e7d78fcde4be11ae5328e7c882904befadf3",
+    "sha256": "f24cc66fe7d5166224ad5863593fa15dbea32be35768d6ab775c4c8e566be614",
+    "LIBID": "bf76f23cdd03464b877c52bd1d2f563e",
+    "LIBAPI": 1,
+    "LIBPATCH": 35,
+    "PYDEPS": [
+      "cosl"
+    ]
+  }
+]
