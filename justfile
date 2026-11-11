@@ -113,8 +113,12 @@ grafana:
     kubectl --kubeconfig "{{ kubeconfig_path }}" --namespace cos-lite port-forward --address=127.0.0.1 service/grafana 3000:3000
 
 # Foreground gRPC forwarding for the Juju-managed Ratings application.
-ratings port="8080":
+ratings port="8080": clean-cache
     kubectl --kubeconfig "{{ kubeconfig_path }}" --namespace ratings-dev port-forward --address=127.0.0.1 service/ratings "$1:8080"
+
+clean-cache:
+    just kubectl -n ratings-dev exec ratings-0 \
+      -c ratings -- /charm/bin/pebble restart ratings
 
 # Optional API check: requires host uv; keep just ratings running separately.
 grpc-smoke target="127.0.0.1:8080":
