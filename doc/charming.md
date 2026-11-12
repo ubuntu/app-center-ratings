@@ -2,8 +2,11 @@
 
 This guide uses a disposable **Ubuntu 24.04 amd64 VM** with Canonical Kubernetes,
 Juju, PostgreSQL, optional COS Lite, and Rust/charm/rock build tools. The Ratings
-sidecar charm is implemented in [`../charm/`](../charm/): Juju owns the workload,
-database relation, configuration, shared JWT secret, and scaling. This is a local
+sidecar charm is maintained at the root of
+[`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator)
+on the PS7 sidecar change (`vpmyx`, bookmark `feat/ps7`), not this application's
+former `charm/` directory. Juju owns the workload, database relation,
+configuration, shared JWT secret, and scaling. This is a local
 plaintext gRPC lab, not a production ingress or high-availability deployment.
 
 If the local environment is already installed, skip to
@@ -11,7 +14,9 @@ If the local environment is already installed, skip to
 `just vm rollout` builds and deploys or refreshes Ratings through Juju, then waits
 for readiness. The default rollout also integrates logs with an existing COS
 Lite deployment; a no-COS rollout path is documented there too. Preparing the VM
-alone does not deploy Ratings.
+alone does not deploy Ratings. **After migrating an existing lab**, run
+`just up` and `just operator-mount` first to attach the standalone sidecar checkout;
+`just vm charm-test` then tests it without redeploying anything.
 
 ## Contents
 
@@ -51,7 +56,7 @@ Concierge runs as root, initializes LXD, changes networking/iptables and group
 membership, and **overwrites the VM user's kubeconfig**. LXD socket access is
 root-equivalent; Kubernetes admin credentials and Juju `--trust` deployments are
 privileged too. Do not run this preparation on your everyday host or a shared
-cluster. The mounted checkout is writable from the VM: isolation does not protect
+cluster. Both mounted checkouts are writable from the VM: isolation does not protect
 host source files from VM edits. Keep important work committed or backed up.
 
 The existing [`../docker-compose.yml`](../docker-compose.yml) has three services:
@@ -67,7 +72,29 @@ a requirement for this VM lab, and these helpers do not start the Compose stack.
 
 Assumes snapd already installed.
 
-**HOST, after cloning:** install the prerequisites:
+Keep the application and operator as sibling checkouts:
+
+```text
+Work/
+  app-center-ratings/
+  container-runner-operator/
+```
+
+The operator checkout must contain the migrated **Kubernetes sidecar at its root**
+(currently local jj change `vpmyx`, bookmark `feat/ps7`). Its `main` branch is the
+legacy machine charm and is not compatible. A plain clone of upstream `main` is
+not enough; obtain the sidecar change/branch through the team's source workflow.
+This guide does not assume that the local branch has already been published.
+No recipe switches branches or edits jj changes for you.
+
+By default, the host uses the sibling `container-runner-operator` directory. Set
+`RATINGS_OPERATOR_REPO` to another host checkout path if necessary. The host
+resolves it to an absolute path and mounts it at
+`/home/ubuntu/container-runner-operator`; VM recipes receive that VM path rather
+than the host path. When running recipes directly in a VM shell, the same
+variable refers to a **VM-accessible** checkout path.
+
+**HOST, after obtaining both checkouts:** install the prerequisites:
 
 ```sh
 sudo snap install just --classic --channel=latest/stable
@@ -102,8 +129,11 @@ just vm rust
 ```
 
 `create` launches Ubuntu 24.04 if absent, or starts the existing VM, and mounts
-this checkout at `/home/ubuntu/app-center-ratings` using Multipass's **classic
-SSHFS mount**. This is the portability choice, not the native mount from some
+this checkout at `/home/ubuntu/app-center-ratings` and the sidecar operator at
+`/home/ubuntu/container-runner-operator`, using Multipass's **classic SSHFS mounts**.
+It reuses matching mounts and refuses to replace a different source. For an
+already-created lab, run `just up` then `just operator-mount` to add just the
+operator mount without reprovisioning or deploying. This is the portability choice, not the native mount from some
 upstream tutorials. Resource variables apply at launch; they do not resize an
 existing VM. Do not replace or purge another VM to resolve a naming conflict.
 
@@ -382,7 +412,7 @@ The full recipe runs these stages in order:
 | --- | --- |
 | `postgres` | Create/reuse models and PostgreSQL; do not automatically upgrade an existing provider |
 | `rock` | Build the Ratings workload rock from VM-local sources |
-| `charm-pack` | Pack the tracked Ratings operator from VM-local sources |
+| `charm-pack` | Pack the standalone operator checkout via a VM-local source copy |
 | `ratings-image` | Run `ratings-registry`, publish the rock, and record a digest-pinned OCI reference |
 | `ratings-deploy` | Deploy one Ratings unit, or refresh the existing application; integrate its database |
 | `ratings-observability` | Create/reuse the cross-model Loki logging integration; do not deploy COS |
@@ -437,7 +467,11 @@ All paths below are **inside the VM**, not in the host's mounted checkout:
 The non-hidden **`~/ratings-lab-artifacts`** directory is intentional: strictly
 confined Juju cannot read deployment archives under `~/.cache`. Do not move the
 handoff back into `.cache` or disable snap confinement to work around that.
-`charm-pack` defaults to the existing `charm/` project and runs
+`charm-pack` defaults to the external operator checkout at
+`/home/ubuntu/container-runner-operator` (override its VM-visible source with
+`RATINGS_OPERATOR_REPO` or the explicit directory argument). It rejects the
+legacy machine checkout, excludes source-control/build/test caches when syncing,
+and runs
 `sudo -n charmcraft pack --destructive-mode --platform amd64` from its VM-local
 copy. This native build can install APT development dependencies on the disposable
 VM; it does not install them on the host. Do not run that destructive-mode build
@@ -499,12 +533,14 @@ upgrade or a reversible schema migration.
 
 ### Charm interfaces
 
-Use the existing [`../charm/`](../charm/) project, not a generated starter charm.
+Use the standalone sidecar project at the root of
+[`container-runner-operator`'s PS7 branch](https://github.com/canonical/container-runner-operator),
+not upstream's legacy machine `main` or a generated starter charm.
 It declares Ubuntu 24.04/amd64 and requires Juju **3.6.4+**. The workload container
 and Pebble service are both named `ratings`; the image resource is
 **`ratings-image`**. The image is not bundled inside the `.charm` archive.
-See [`../charm/README.md`](../charm/README.md) for packing, tests, and the full
-operator lifecycle.
+See the operator checkout's `README.md` and `CONTRIBUTING.md` for packing, tests,
+and the full operator lifecycle.
 
 | Charm endpoint | Purpose |
 | --- | --- |
@@ -527,6 +563,12 @@ workload rather than leaving stale credentials in use.
 
 ### Configuration, readiness, and migrations
 
+- `database-name` defaults to `ratings` for this local lab. PS7 staging sets
+  `stg-app-center-rating` for its existing DBaaS-managed SQL database; this is not
+  a reason to rename the local database. Set the option before creating a database
+  relation. Changing it while related blocks/stops the service without changing
+  the request; restore the previous value to recover. Managed DBaaS access still
+  needs a compatible approved provider/offer, not just a SQL database name.
 - `snap-store-url` defaults to `https://api.snapcraft.io/v2/`; it must be an
   absolute HTTP(S) URL ending in `/`. This uses the public Snap Store, **not**
   the Compose mock. Do not set it to the host's localhost: inside the workload
@@ -699,7 +741,8 @@ just stop
 | Host command | Effect |
 | --- | --- |
 | `just host-install` | Install host prerequisites after `just` is available |
-| `just create` / `just bootstrap` | Launch/start + classic mount / prepare VM |
+| `just create` / `just bootstrap` | Launch/start + mount both checkouts / prepare VM |
+| `just operator-mount` | Add/reuse the standalone sidecar checkout mount in an existing lab |
 | `just up` / `just stop` / `just shell` | Bring lab up / stop it / open VM shell |
 | `just vm <recipe> [args...]` | Execute `justfile.vm` with VM tool PATH |
 | `just kubeconfig` / `just kubectl ...` | Export dedicated admin file / use it |
@@ -717,11 +760,11 @@ just stop
 VM recipes: `prepare`, `prepare-plan`, `rust`, `status`, `versions`, `build`,
 `test`, `rock`, `models`, `postgres`, `cos`, `grafana-password`, `cos-endpoints`,
 `cos-forward`, `metrics-server`, `metrics-server-local-tls`, `sandbox`,
-`charm-pack [directory=charm]`, `charm-test`, `ratings-registry`,
+`charm-pack [directory=operator_repo]`, `charm-test [directory=operator_repo]`, `ratings-registry`,
 `ratings-image [rock=""]`, `ratings-deploy`, `ratings-observability`,
 `ratings-wait [seconds=600]`, `ratings-status`, `ratings-logs [lines=100]`,
 `rollout`, `scale [units=3]`, `kubectl ...`, and `juju ...`.
-`charm-init [directory=charm]` is an unrelated-project scaffold helper; do not run
+`charm-init directory` requires an explicit path for an unrelated-project scaffold; do not run
 it over the implemented Ratings charm.
 Inside the VM use `just -f justfile.vm <recipe>`; bare `just` selects the host Justfile. Inspect recipes with host `just --list` or `just vm default`.
 

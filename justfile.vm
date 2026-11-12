@@ -3,6 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
 repo := justfile_directory()
+operator_repo := env_var_or_default("RATINGS_OPERATOR_REPO", parent_directory(repo) / "container-runner-operator")
 controller := "ratings-k8s"
 app_model := controller + ":ratings-dev"
 cos_model := controller + ":cos-lite"
@@ -141,7 +142,7 @@ sandbox:
     sudo k8s kubectl label namespace ratings-sandbox pod-security.kubernetes.io/warn=restricted pod-security.kubernetes.io/warn-version=latest pod-security.kubernetes.io/audit=restricted pod-security.kubernetes.io/audit-version=latest --overwrite
 
 # Scaffold a future charm. Refuse to overwrite any existing directory contents.
-charm-init directory="charm":
+charm-init directory:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "$1"
@@ -151,14 +152,18 @@ charm-init directory="charm":
     fi
     charmcraft init --name ratings-k8s --project-dir "$1"
 
-# Pack on the disposable VM itself; no nested build VM or host-side APT changes.
-charm-pack directory="charm":
+# Pack the external operator on the disposable VM; no host-side APT changes.
+charm-pack directory=operator_repo:
     #!/usr/bin/env bash
     set -euo pipefail
+    if ! grep -qx 'name: ratings' "$1/charmcraft.yaml"; then
+        printf 'Expected the standalone Ratings sidecar at %s. On the host run just operator-mount with the feat/ps7 checkout.\n' "$1" >&2
+        exit 1
+    fi
     mkdir -p "{{ charm_source }}" "{{ rollout_dir }}"
     sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"
     trap 'sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"' EXIT
-    rsync -a --delete --exclude '/parts/' --exclude '/prime/' --exclude '/stage/' --exclude '/overlay/' --exclude '.venv/' --exclude '.pytest_cache/' --exclude '.ruff_cache/' --exclude '__pycache__/' --exclude '.coverage' --exclude '*.charm' "$1/" "{{ charm_source }}/"
+    rsync -a --delete --exclude '/parts/' --exclude '/prime/' --exclude '/stage/' --exclude '/overlay/' --exclude '/.git/' --exclude '/.jj/' --exclude '.venv/' --exclude '.tox/' --exclude '.pytest_cache/' --exclude '.ruff_cache/' --exclude '__pycache__/' --exclude '.coverage' --exclude 'coverage.xml' --exclude 'htmlcov/' --exclude '*.charm' "$1/" "{{ charm_source }}/"
     cd "{{ charm_source }}"
     sudo -n charmcraft pack --destructive-mode --platform amd64
     install -m 0644 "{{ charm_source }}/ratings_amd64.charm" "{{ rollout_dir }}/ratings_amd64.charm"
@@ -203,14 +208,19 @@ ratings-logs lines="100":
 rollout: postgres rock charm-pack ratings-image ratings-deploy ratings-observability ratings-wait
 
 # Offline charm tests after Python dependencies have been installed into a VM-local venv.
-charm-test:
+charm-test directory=operator_repo:
     #!/usr/bin/env bash
     set -euo pipefail
+    if ! grep -qx 'name: ratings' "$1/charmcraft.yaml"; then
+        printf 'Expected the standalone Ratings sidecar at %s; mount the feat/ps7 checkout with just operator-mount on the host.\n' "$1" >&2
+        exit 1
+    fi
     python3 -m venv "{{ rollout_dir }}/test-venv"
-    "{{ rollout_dir }}/test-venv/bin/pip" install -r "{{ repo }}/charm/requirements-dev.txt"
-    cd "{{ repo }}/charm"
+    "{{ rollout_dir }}/test-venv/bin/pip" install -r "$1/requirements-dev.txt"
+    cd "$1"
     "{{ rollout_dir }}/test-venv/bin/python" -m pytest -q
     "{{ rollout_dir }}/test-venv/bin/ruff" check src tests
+    "{{ rollout_dir }}/test-venv/bin/ruff" format --check src tests
 
 # Manual Juju unit scaling; do not attach a native HPA to this application.
 scale units="3":

@@ -26,6 +26,7 @@ deployed, run from the repository root:
 
 ```sh
 just up
+just operator-mount
 just vm rollout
 just vm ratings-status
 just kubeconfig
@@ -42,9 +43,13 @@ Loki logging, and waits for readiness with a 600-second readiness deadline.
 and Juju-managed scaling. These commands do not assert that a deployment has
 already passed runtime validation.
 
-The implemented Ratings operator lives in [`charm/`](charm/); see its
-[README](charm/README.md) for endpoints, configuration, JWT rotation, and charm
-development.
+The Ratings sidecar operator now lives at the root of
+[`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator)
+on the PS7 sidecar change (`vpmyx`, bookmark `feat/ps7`); that repository's `main`
+remains the legacy machine charm. Keep a sibling sidecar checkout, or set
+`RATINGS_OPERATOR_REPO` to its host path. `just create` mounts both checkouts;
+`just operator-mount` adds the operator to an existing lab. See the operator's
+`README.md` for endpoints, configuration, JWT rotation, and charm development.
 
 ## Dependencies
 

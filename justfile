@@ -7,7 +7,9 @@ cpus := env_var_or_default("RATINGS_VM_CPUS", "4")
 memory := env_var_or_default("RATINGS_VM_MEMORY", "12G")
 disk := env_var_or_default("RATINGS_VM_DISK", "60G")
 repo := justfile_directory()
+operator_repo := absolute_path(env_var_or_default("RATINGS_OPERATOR_REPO", parent_directory(repo) / "container-runner-operator"))
 vm_repo := "/home/ubuntu/app-center-ratings"
+vm_operator_repo := "/home/ubuntu/container-runner-operator"
 kubeconfig_path := home_directory() / ".kube/ratings-local.yaml"
 kubeconfig_timeout := env_var_or_default("RATINGS_KUBECONFIG_TIMEOUT", "30s")
 vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -26,7 +28,7 @@ host-install:
     if ! snap list kubectl >/dev/null 2>&1; then sudo snap install kubectl --classic --channel=1.32/stable; fi
     kvm-ok
 
-# Create or start the VM and mount this checkout without duplicating the mount.
+# Create or start the VM and mount the application and sidecar operator checkouts.
 create:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -42,13 +44,30 @@ create:
         printf 'Refusing to replace existing mount from %s at %s\n' "$source_path" "{{ vm_repo }}" >&2
         exit 1
     fi
+    just --justfile "{{ repo }}/justfile" operator-mount
+
+# Mount the standalone sidecar checkout into an existing lab; never replace a mount.
+operator-mount:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if ! grep -qx 'name: ratings' "{{ operator_repo }}/charmcraft.yaml"; then
+        printf 'Expected the Ratings sidecar checkout at %s. Select feat/ps7 (jj change vpmyx), not the legacy machine main, or set RATINGS_OPERATOR_REPO.\n' "{{ operator_repo }}" >&2
+        exit 1
+    fi
+    source_path=$(multipass info "{{ vm }}" --format=json | python3 -c 'import json, sys; d=json.load(sys.stdin)["info"][sys.argv[1]]; print(d.get("mounts", {}).get(sys.argv[2], {}).get("source_path", ""))' "{{ vm }}" "{{ vm_operator_repo }}")
+    if [ -z "$source_path" ]; then
+        multipass mount --type classic "{{ operator_repo }}" "{{ vm }}:{{ vm_operator_repo }}"
+    elif [ "$source_path" != "{{ operator_repo }}" ]; then
+        printf 'Refusing to replace existing operator mount from %s at %s\n' "$source_path" "{{ vm_operator_repo }}" >&2
+        exit 1
+    fi
 
 # First-time VM setup; deliberately does not depend on just already existing there.
 bootstrap:
     multipass exec "{{ vm }}" -- sudo apt-get update
     multipass exec "{{ vm }}" -- sudo apt-get install -y ca-certificates curl git python3 snapd
     multipass exec "{{ vm }}" -- sh -c 'if ! snap list just >/dev/null 2>&1; then sudo snap install just --classic --channel=latest/stable; fi'
-    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" /snap/bin/just --justfile justfile.vm prepare
+    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" RATINGS_OPERATOR_REPO="{{ vm_operator_repo }}" /snap/bin/just --justfile justfile.vm prepare
 
 # Resume an existing lab; no package installation or redeployment.
 up:
@@ -65,7 +84,7 @@ info:
 
 # Run any VM recipe, forwarding arguments without shell re-interpretation.
 vm recipe *args:
-    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" /snap/bin/just --justfile justfile.vm "$@"
+    multipass exec --working-directory "{{ vm_repo }}" "{{ vm }}" -- env PATH="{{ vm_path }}" RATINGS_OPERATOR_REPO="{{ vm_operator_repo }}" /snap/bin/just --justfile justfile.vm "$@"
 
 # Export admin credentials atomically to a separate host kubeconfig, not ~/.kube/config.
 kubeconfig:
