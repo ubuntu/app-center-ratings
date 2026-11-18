@@ -1,0 +1,17 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", ":maintainLockFilesWeekly", "security:minimumReleaseAgeCrate"],
+  "schedule": ["* 0-6 * * 1"],
+  "semanticCommits": "enabled",
+  "osvVulnerabilityAlerts": true,
+  "pip-compile": { "managerFilePatterns": ["/(^|/)requirements(-dev)?\\.txt$/"] },
+  "pip_requirements": { "enabled": false },
+  "packageRules": [
+    { "matchManagers": ["cargo"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Rust dependencies" },
+    { "matchManagers": ["github-actions"], "matchUpdateTypes": ["minor", "patch"], "groupName": "GitHub Actions" },
+    { "matchManagers": ["pip-compile"], "matchUpdateTypes": ["minor", "patch"], "groupName": "Charm dependencies" },
+    { "matchManagers": ["cargo"], "matchCurrentVersion": "/^0\\./", "matchUpdateTypes": ["minor"], "groupName": null, "dependencyDashboardApproval": true },
+    { "matchManagers": ["cargo"], "matchPackageNames": ["tonic", "tonic-*", "prost", "prost-*"], "matchUpdateTypes": ["minor", "major"], "groupName": "gRPC stack", "dependencyDashboardApproval": true },
+    { "matchUpdateTypes": ["major"], "dependencyDashboardApproval": true }
+  ]
+}
