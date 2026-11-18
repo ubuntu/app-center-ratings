@@ -60,7 +60,7 @@ rock:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "{{ rock_source }}"
-    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' --exclude '/charm/' "{{ repo }}/" "{{ rock_source }}/"
+    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' --exclude '/dev/build/' --exclude '/charm/' "{{ repo }}/" "{{ rock_source }}/"
     cd "{{ rock_source }}"
     rockcraft pack
     printf '\nRock archives are in %s; they have not been pushed to a registry or deployed.\n' "{{ rock_source }}"
@@ -206,6 +206,22 @@ ratings-logs lines="100":
 
 # Full Juju rollout, using existing database/COS models; builds may take several minutes.
 rollout: postgres rock charm-pack ratings-image ratings-deploy ratings-observability ratings-wait
+
+# Opt-in only: bounded bootstrap of a separate local LXD machine controller.
+ingress-bootstrap:
+    python3 "{{ repo }}/dev/juju_ingress.py" bootstrap
+
+# Add the pinned HAProxy -> model-local Traefik -> native gRPC stack, not a new rollout.
+ingress-deploy:
+    python3 "{{ repo }}/dev/juju_ingress.py" deploy
+
+# Poll both substrates; hook errors fail promptly, no automatic retry/redeploy.
+ingress-wait seconds="900":
+    python3 "{{ repo }}/dev/juju_ingress.py" wait --timeout "$1"
+
+ingress-status:
+    timeout --kill-after=5s 120s juju status --model "{{ app_model }}" --relations
+    timeout --kill-after=5s 120s juju status --model ratings-lxd:ratings-edge --relations
 
 # Offline charm tests after Python dependencies have been installed into a VM-local venv.
 charm-test directory=operator_repo:

@@ -21,7 +21,7 @@ default:
 # Install Ubuntu workstation prerequisites (requires just to already be installed).
 host-install:
     sudo apt-get update
-    sudo apt-get install -y ca-certificates cpu-checker curl git python3 snapd
+    sudo apt-get install -y ca-certificates cpu-checker curl git openssh-client openssl python3 snapd
     sudo systemctl enable --now snapd.socket
     if ! snap list just >/dev/null 2>&1; then sudo snap install just --classic --channel=latest/stable; fi
     if ! snap list multipass >/dev/null 2>&1; then sudo snap install multipass --channel=latest/stable; fi
@@ -142,6 +142,26 @@ clean-cache:
 # Optional API check: requires host uv; keep just ratings running separately.
 grpc-smoke target="127.0.0.1:8080":
     uv run "{{ repo }}/dev/grpc_smoke.py" --target "$1"
+
+# Public CA only, atomically exported to ignored dev/build/ingress/edge-ca.pem.
+ingress-ca:
+    python3 "{{ repo }}/dev/ingress_access.py" ca --vm "{{ vm }}"
+
+# Foreground host-loopback SSH forward through Multipass to the LXD HAProxy port 443.
+ingress port="8443":
+    python3 "{{ repo }}/dev/ingress_access.py" tunnel --vm "{{ vm }}" --port "$1"
+
+# Keep just ingress running separately; verify CA + hostname + ALPN before gRPC.
+ingress-tls-check port="8443":
+    python3 "{{ repo }}/dev/ingress_access.py" tls-check --port "$1"
+
+ingress-smoke port="8443":
+    just --justfile "{{ repo }}/justfile" ingress-tls-check "$1"
+    uv run "{{ repo }}/dev/grpc_smoke.py" --target "ratings.localhost:$1" --ca-file "{{ repo }}/dev/build/ingress/edge-ca.pem"
+
+# Stdlib-only offline orchestration checks; all external commands are mocked.
+lab-test:
+    python3 -m unittest discover -s "{{ repo }}/dev" -p 'test_*.py' -v
 
 # Stop and snapshot the VM. It remains stopped; mounted source is not snapshotted.
 snapshot name="prepared":

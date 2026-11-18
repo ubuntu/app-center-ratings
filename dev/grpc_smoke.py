@@ -19,13 +19,28 @@ from grpc_tools import protoc
 import grpc_tools
 
 
+def connect(target, credentials=None):
+    if credentials is not None:
+        return grpc.secure_channel(target, credentials)
+    return grpc.insecure_channel(target)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", default="127.0.0.1:8080")
     parser.add_argument(
+        "--ca-file",
+        type=Path,
+        help="Use verified TLS with this public lab CA (no hostname override)",
+    )
+    parser.add_argument(
         "--verify-target", help="Optional second unit endpoint to verify the shared JWT"
     )
     args = parser.parse_args()
+    credentials = (
+        grpc.ssl_channel_credentials(args.ca_file.read_bytes()) if args.ca_file else None
+    )
+
     root = Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix="ratings-grpc-") as temporary:
         proto = root / "proto"
@@ -49,7 +64,7 @@ def main():
         user_grpc = importlib.import_module("ratings_features_user_pb2_grpc")
         app_pb = importlib.import_module("ratings_features_app_pb2")
         app_grpc = importlib.import_module("ratings_features_app_pb2_grpc")
-        with grpc.insecure_channel(args.target) as channel:
+        with connect(args.target, credentials) as channel:
             grpc.channel_ready_future(channel).result(timeout=15)
             user = user_grpc.UserStub(channel)
             app = app_grpc.AppStub(channel)
@@ -66,7 +81,7 @@ def main():
                     timeout=10,
                 )
                 if args.verify_target:
-                    with grpc.insecure_channel(args.verify_target) as second_channel:
+                    with connect(args.verify_target, credentials) as second_channel:
                         grpc.channel_ready_future(second_channel).result(timeout=15)
                         second_app = app_grpc.AppStub(second_channel)
                         second_app.GetBulkRatings(
