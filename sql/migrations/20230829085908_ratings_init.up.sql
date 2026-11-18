@@ -1,13 +1,5 @@
--- Create database and then execute the second set of commands when connected
--- to the ratings database
---
-
--- Stage 1
-
--- CREATE DATABASE IF EXISTS ratings;
-
--- Stage 2
---
+-- Initialise the schema in the connected database; its name and CONNECT access
+-- are managed by the deployment, not by application schema migrations.
 
 CREATE TABLE users (
    id SERIAL PRIMARY KEY,
@@ -36,4 +28,3 @@ GRANT ALL PRIVILEGES ON TABLE users TO CURRENT_USER;
 GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO CURRENT_USER;
 GRANT ALL PRIVILEGES ON TABLE votes TO CURRENT_USER;
 GRANT USAGE, SELECT ON SEQUENCE votes_id_seq TO CURRENT_USER;
-GRANT CONNECT ON DATABASE ratings TO CURRENT_USER;

@@ -62,6 +62,24 @@ or namespace.
   Juju interfaces. The operations examples do not establish an existing automatic
   workload-image promotion mechanism.
 
+**Managed database inventory (actual PostgreSQL SQL names, maintainer-confirmed):**
+
+| Environment | SQL database | Use in this plan |
+| --- | --- | --- |
+| Staging | `stg-app-center-rating` | Existing DBaaS-managed staging database; configure the sidecar charm's `database-name`. |
+| Production | `prod-app-center-rating` | Production inventory/export only; never a staging application target. |
+
+These are SQL database names, not DBaaS instance/model identifiers, Juju offer
+URLs, or connection URIs. The staging offer is
+`795798e4-922f-49c7-9169-004ffc17df90@serviceaccount/dbaas-stg-app-center-rating.postgresql`
+on `jaas-ps7`, exposing `database` / `postgresql_client` with consume access.
+Offer visibility does not grant access to the provider model or establish network
+reachability. Endpoint/credential delivery, TLS, grants, and approval for a
+PgBouncer backend relation still need confirmation. Do not deploy a replacement
+PostgreSQL instance or infer an offer URL from these SQL names. Repack/publish the
+updated sidecar charm before applying Terraform's `database-name` setting; the
+original local-only charm hardcoded `ratings`.
+
 There are two operational stories: a PS6 production database export and a PS7
 staging deployment. They are linked by optional authorised restore testing, not
 by a production migration or traffic switch. Staging can be deployed with an
@@ -214,21 +232,25 @@ new deployment required by this story.
 - [ ] Define a staging PostgreSQL service/relation, storage, backup/restore ownership,
       availability requirements, and an isolated restore destination. The staging
       application must never use PS6 production database credentials or endpoints.
-- [ ] Define staging gRPC routing/load balancing, TLS termination, DNS, access
-      restrictions, and staging-only secrets/JWT signing keys. Do not copy production
-      signing keys or redirect production clients to staging.
+- [x] Select the same ingress architecture for the lab and PS7: HAProxy edge →
+      model-local Traefik → Ratings, with ingress-configurator managing edge routes.
+      See the implementation and remaining acceptance checks below.
+- [ ] Verify staging gRPC routing, certificates/DNS, access restrictions, and
+      staging-only secrets/JWT signing keys. Do not copy production signing keys
+      or redirect production clients to staging.
 - [x] Keep deployment Terraform and its runbook in the operations repository's
       `ratings/` directory; keep this repository responsible for application/charm
-      artifacts and their tests. The initial scaffold declares the application,
-      a required staging database offer, and optional OTEL log forwarding; it has
-      not been applied and does not implement external gRPC ingress.
+      artifacts and their tests. The configuration declares Ratings,
+      PgBouncer backed by the staging offer, optional OTEL log forwarding, and
+      opt-in native-gRPC ingress. These additions have offline tests, not live
+      deployment validation.
 
 ### 2. Adapt the MediaWiki reference and validate Ratings
 
 The deployment directory is
 `models/ps7/desktop/k8s-stg-desktop-managed-cluster/ratings/` in the operations
-repository. Its `README.md` documents the current scaffold, required artifact/model/
-database/backend inputs, validation, and the remaining ingress work. The current
+repository. Its `README.md` documents the confirmed model, required artifact/
+database/backend inputs, PgBouncer, opt-in ingress, and live acceptance gates. The current
 Terraform provider requires the sidecar charm to be published to Charmhub; the
 lab's local `.charm` archive is not directly deployable through that provider.
 
@@ -240,7 +262,7 @@ repository. Reuse its platform conventions, not its application-specific service
 | --- | --- |
 | `providers.tf`, `backend.tf`, `versions.tf` | Follow Vault/Juju authentication and remote-state conventions; use Ratings' own approved identity, state location, and provider constraints. |
 | `main.tf`: existing model and application declarations | Target Ratings' own staging model/namespace on the same Desktop cluster as MediaWiki, deploy the existing Ratings charm, and pin charm and workload-image artifacts. |
-| `main.tf`: Traefik, ingress configurator, shared ingress offers | Follow the routing topology; verify end-to-end gRPC/HTTP2, backend protocol, TLS termination, and health checks. Add compatible charm relations if required. |
+| `main.tf`: Traefik, ingress configurator, shared ingress offers | Implemented in Ratings' `ingress.tf`, using the charm's optional `traefik-route`; verify native gRPC/HTTP2, certificates, and network policy live. |
 | `cos.tf`: OpenTelemetry collector and aggregator offers | Follow the platform telemetry topology and certificate handling; verify Ratings' log integration and implement metrics/traces separately. |
 | Separate `stg-desktop-mediawiki-db` model and database offer | Use the separation/ownership pattern where appropriate, but design and validate PostgreSQL relations, connectivity, TLS, backups, and Shadowgrab restore independently. |
 
@@ -265,6 +287,60 @@ configuration unless Ratings has a separately demonstrated requirement.
       isolated staging database; verify schema, row counts, sequence state,
       constraints, startup migrations, and representative gRPC results. Do not
       point the staging application at the production source to perform these tests.
+
+### Ingress and PgBouncer implementation decisions
+
+Both environments use **HAProxy → model-local Traefik → Ratings**, not the PS6
+Insights NGINX integrator pattern. `ingress-configurator` manages the edge route
+and Traefik's Kubernetes NodePort exposure; it is not another data-plane hop.
+PS7 reuses the Desktop edge offers and hostname `ratings.staging.ubuntu.com`.
+The lab uses a separate LXD HAProxy machine model and `ratings.localhost`, with
+private lab CAs and a host-loopback SSH tunnel. The opt-in workflow is documented
+in [charming.md](charming.md#opt-in-haproxy-edge-ingress-same-stack-as-ps7).
+
+The edge terminates client TLS and establishes **a new HTTPS/HTTP2 connection**
+to Traefik. Traefik terminates that TLS and forwards **plaintext HTTP/2 (`h2c`)**
+to Ratings on port 8080. This is not TLS passthrough or end-to-end workload TLS.
+Transfer Traefik's server CA to the edge. The reference HAProxy 551 verifies this
+CA but does not render backend SNI/hostname verification; review that limitation
+and restrict the final plaintext hop with the platform's network policies.
+
+The charm's optional `traefik-route` / `traefik_route` requirement publishes a
+raw `Host` router on `websecure`, with TLS enabled and `h2c://ratings:8080` as its
+backend. No prefix or path rewriting is used: native gRPC method paths must
+arrive unchanged. The new `external-hostname` option defaults to empty so an
+existing direct-access lab remains unchanged. PS7's `ingress_enabled` defaults
+to false; publish/select the updated charm before explicitly enabling it.
+Kubernetes Service routing is not per-RPC balancing across persistent HTTP/2
+connections, and one Traefik replica does not provide HA.
+
+The staging database path is **Ratings → pgbouncer-k8s → existing DBaaS provider**.
+The operations config pins PgBouncer 562 on `1/stable`, three replicas, internal
+exposure, and **session pooling** to preserve SQLx prepared statements and
+session-level advisory migration locks. This reduces connection churn but does
+not guarantee uninterrupted sessions, queries, or transactions during failover.
+Pool sizing and application reconnection behavior still need validation.
+
+**DBaaS approval gate:** this PgBouncer version requests its own `pgbouncer`
+service database and a `SUPERUSER` backend account. The visible application offer
+is not proof that this administrative integration is permitted. Obtain provider
+approval before applying; do not grant Ratings itself superuser access. Confirm
+both TLS hops and run migration/DDL tests with the Ratings relation user.
+
+**Database-name correction:** the obsolete hardcoded database `CONNECT` grant
+and matching down-migration revoke have been removed from the initial SQL
+migration. Schema migrations now use only the connected database; Juju/DBaaS owns
+connection access. A fresh `stg-app-center-rating` database no longer needs a
+separate `ratings` database. Rebuild the Rust image to embed the corrected SQL.
+Existing labs/restored databases need the narrowly scoped, explicitly approved
+SQLx checksum reconciliation in [database-migrations.md](database-migrations.md);
+checksums are not ignored or repaired automatically. Leave the live PS6 source
+untouched.
+
+Live acceptance remains required: DNS and public certificate, HTTP/2 on both TLS
+hops, native authenticated RPCs through the edge, withdrawal of invalid hostname
+routes, database migrations/restarts through PgBouncer, and network restrictions.
+The offline charm/helper/Terraform tests do not establish any of these live checks.
 
 ### 3. Design Juju-aware automatic updates
 

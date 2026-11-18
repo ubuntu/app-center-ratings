@@ -3,8 +3,10 @@
 This guide uses a disposable **Ubuntu 24.04 amd64 VM** with Canonical Kubernetes,
 Juju, PostgreSQL, optional COS Lite, and Rust/charm/rock build tools. The Ratings
 sidecar charm is implemented in [`../charm/`](../charm/): Juju owns the workload,
-database relation, configuration, shared JWT secret, and scaling. This is a local
-plaintext gRPC lab, not a production ingress or high-availability deployment.
+database relation, configuration, shared JWT secret, and scaling. The default
+access path remains local plaintext gRPC forwarding. An **opt-in ingress workflow**
+adds the same HAProxy edge → model-local Traefik → native Ratings gRPC stack used
+for PS7, with private lab CAs. Neither workflow is a production or HA deployment.
 
 If the local environment is already installed, skip to
 [Deploy Ratings and use the API](#7-deploy-ratings-and-use-the-api):
@@ -46,6 +48,8 @@ still a command you type on the host.
 | [`../justfile.vm`](../justfile.vm) | VM | Preparation, image/charm builds, Juju applications and relations, Kubernetes experiments |
 | [`../dev/concierge.yaml`](../dev/concierge.yaml) | VM via Concierge | Tool channels, providers, controller, Kubernetes features |
 | [`../dev/juju_rollout.py`](../dev/juju_rollout.py) | VM via recipes | Loopback registry, image publication, deploy/refresh, cross-model logging, bounded readiness polling |
+| [`../dev/juju_ingress.py`](../dev/juju_ingress.py) | VM via opt-in recipes | Pinned ingress apps, local LXD controller/model, local cross-model offers, readiness, public CA action |
+| [`../dev/ingress_access.py`](../dev/ingress_access.py) | Host via opt-in recipes | Public edge CA export, restricted SSH tunnel, CA/hostname/ALPN check |
 
 Concierge runs as root, initializes LXD, changes networking/iptables and group
 membership, and **overwrites the VM user's kubeconfig**. LXD socket access is
@@ -510,6 +514,7 @@ operator lifecycle.
 | --- | --- |
 | `database` | Required `postgresql_client` relation; dedicated `ratings` database and relation-scoped user |
 | `logging` | Optional `loki_push_api` relation; Pebble stdout/stderr forwarding to Loki |
+| `traefik-route` | Optional `traefik_route` requirement, limit 1; raw native-gRPC route for opt-in ingress |
 | `ratings-peers` | Shared application JWT secret reference and rotation notification |
 
 The lab PostgreSQL application is named **`postgresql`**, not `postgresql-k8s`
@@ -544,6 +549,11 @@ workload rather than leaving stale credentials in use.
   readiness check on port **8080** has succeeded. This is listener readiness,
   not a continuous database transaction or a Snap Store health test.
 - Ratings embeds its migrations and runs them before opening the listener.
+  The initial migration no longer grants/revokes access to a hardcoded database;
+  the deployment owns `CONNECT`. Rebuild the rock to include the SQL change.
+  Existing lab or restored database histories may need the reviewed checksum
+  procedure in [database-migrations.md](database-migrations.md) before the new
+  image starts; there is no automatic checksum bypass.
   Locked SQLx **0.8.6** enables PostgreSQL advisory migration locks by default,
   so concurrent units serialize migrations through the database. No separate
   migration Job or charm migration leader is needed. Take a real PostgreSQL
@@ -638,6 +648,195 @@ one day; authenticate again after expiry or deliberate key rotation. The token
 is still present in grpcurl's process arguments while the call runs, so use this
 only on a trusted local workstation.
 
+### Opt-in HAProxy edge ingress (same stack as PS7)
+
+The default `rollout`, `just ratings`, and plaintext smoke check are unchanged.
+This separate workflow adds **a real HAProxy machine charm in LXD**, not NGINX,
+a pod pretending to be the edge, or direct-to-Traefik host access:
+
+```text
+Host ratings.localhost:8443 (127.0.0.1 only)
+  -- SSH through ratings-lab, carrying TLS unchanged -->
+LXD edge:443 (HAProxy terminates client TLS, ALPN h2)
+  -- HTTPS + HTTP/2, private backend CA trust -->
+model-local Traefik websecure
+  -- h2c://ratings:8080 --> Ratings native gRPC
+```
+
+Ingress-configurator configures HAProxy through `haproxy-route`. On Kubernetes,
+revision 95 creates the NodePort Service for Traefik and publishes the node
+addresses/port to the edge. LXD containers can reach the VM's Kubernetes node;
+there is no requirement to route the lab LoadBalancer pool from the workstation.
+The workflow does not modify the existing `postgres`, `ratings-dev`, or `cos-lite`
+model layout, the database relation, or the COS Traefik. It adds ingress apps to
+`ratings-k8s:ratings-dev` and a separate **`ratings-lxd:ratings-edge`** machine model.
+
+**Prerequisites and scope:** finish the normal Ratings deployment first. Refresh
+with the sibling sidecar charm implementing optional `traefik-route` and
+`external-hostname` (default empty) before enabling ingress. This repository does
+not implement or edit that charm. Its route must use a `Host` rule for `ratings.localhost`,
+`websecure`, TLS, and `h2c://ratings:8080`. It must not add path prefixes or
+StripPrefix middleware: **`/ratings.features.user.User/Authenticate`** and the
+other native method paths must arrive unchanged. Traefik's upstream integration
+requires **`routing_mode=path`** and **`external_hostname=ratings.localhost`**;
+these settings do not mean that the raw Ratings route should be path-prefixed.
+Ingress-configurator explicitly uses `hostname=ratings.localhost`, `paths=/`,
+`backend-protocol=https`, `allow-http=false`, and no path or Host rewrite.
+Do not set `external-grpc-port`: gRPC shares the edge's TLS port 443.
+
+The helpers pin these PS7 comparison revisions; they do not follow changing
+stable channels on repeat runs:
+
+| Application | Charm revision / channel | Packaged base | Trust |
+| --- | --- | --- | --- |
+| `edge` (LXD) | `haproxy` 551 / `2.8/stable` | Ubuntu 24.04 amd64 | No |
+| `traefik` (`ratings-dev`) | `traefik-k8s` 377 / `latest/stable` | Ubuntu 20.04 amd64 | Yes |
+| `ingress-configurator` (`ratings-dev`) | 95 / `latest/stable` | Ubuntu 24.04 amd64 | Yes |
+| `self-signed-certificates` (`ratings-dev`) | 586 / `1/stable` | Ubuntu 24.04 amd64 | No |
+| `edge-certificates` (LXD) | `self-signed-certificates` 586 / `1/stable` | Ubuntu 24.04 amd64 | No |
+
+These bases/interfaces and HAProxy's HTTP/2 TLS configuration were checked in
+the published `.charm` archives, not inferred from today's channels. Traefik 377's
+20.04 base is its charm image base, not the Multipass VM's OS. The two certificate
+applications create **separate private lab CAs**: one signs Traefik, the other
+signs HAProxy's client-facing certificate. No public ACME, DNS registration,
+production database offers, or copied credentials are involved.
+
+From the host, explicitly opt in:
+
+```sh
+# Only if the deployed Ratings charm predates the optional ingress interface:
+just vm charm-pack
+just vm ratings-deploy
+just vm ratings-wait 600
+
+# One-time, explicitly requested machine-controller bootstrap (no snap installs):
+just vm ingress-bootstrap
+# Reconcile pinned apps, config, offers, and relations; safe to repeat:
+just vm ingress-deploy
+just vm ingress-wait 900
+just vm ingress-status
+```
+
+`ingress-bootstrap` uses Concierge's existing local LXD provider, with an explicit
+`bootstrap-timeout=900` and a 960-second client command limit. It does not change
+the active controller or model. Juju 3.6's
+[cloud compatibility matrix](https://github.com/juju/juju/blob/3.6/cloud/whitelist.go)
+permits LXD clouds on Kubernetes controllers, but that still requires a
+controller-reachable LXD endpoint and credentials; the existing Concierge setup
+only supplies local LXD socket access. This workflow deliberately bootstraps a
+separate local LXD controller instead of assuming that `ratings-k8s` can access
+that socket or exposing LXD's API. It adds a controller container and two machine
+applications; allow extra VM RAM/disk beyond the baseline lab, and inspect LXD
+capacity if provisioning stalls. Bootstrap is **never** an implicit dependency
+of `rollout` or `ingress-deploy`.
+
+The exact relation graph is:
+
+```text
+ratings:traefik-route                 -> traefik:traefik-route
+traefik:upstream-ingress               -> ingress-configurator:ingress
+traefik:certificates                   -> self-signed-certificates:certificates
+self-signed-certificates:send-ca-cert  -> edge:receive-ca-certs
+                                      (offered as ratings-traefik-ca; consumed as traefik-ca)
+ingress-configurator:haproxy-route     -> edge:haproxy-route
+                                      (offered as ratings-edge; consumed as edge)
+edge:certificates                      -> edge-certificates:certificates
+```
+
+Both offers are local to this lab and its controllers. Existing pinned apps and
+relations are reused, not refreshed or duplicated. Wrong charms/revisions,
+unrelated models/controllers/offers/aliases, conflicting providers, and nondefault
+conflicting config cause errors rather than replacement. A partial failure leaves
+successful stages in place: inspect and correct the reported conflict, then rerun.
+Queries fail closed; they are not treated as missing resources. Ordinary commands
+have 120-second limits (deploys 300 seconds); readiness polls both models and fails
+on hook errors or the requested deadline, with at most in-flight status-command
+time added. The helper does not retry hooks, expose Juju applications, or destroy
+anything. `receive-ca-certs` is kept dedicated to this lab's Traefik CA.
+
+**Verified host access:** `just host-install` installs host `python3`,
+`openssh-client` (`ssh`, `ssh-keygen`), and `openssl`; `uv` is optional for the API
+smoke check. Existing labs can install the added host packages with
+`sudo apt-get install -y openssh-client openssl`. Ensure `ratings.localhost`
+resolves to host loopback:
+
+```sh
+getent ahostsv4 ratings.localhost
+```
+
+If your resolver does not implement `.localhost`, manually add
+`127.0.0.1 ratings.localhost` to the host's `/etc/hosts`. These recipes never edit
+system resolver configuration or install a CA in the system trust store.
+Then export the **public** edge CA and leave the foreground tunnel running:
+
+```sh
+just ingress-ca
+just ingress                 # host 127.0.0.1:8443 -> LXD HAProxy:443; Ctrl-C stops it
+```
+
+`ingress-ca` runs only `edge-certificates/leader get-ca-certificate`, captures the
+JSON privately, validates the public PEM, and atomically writes
+**`dev/build/ingress/edge-ca.pem`** on the host. Existing files survive failed or
+empty exports. `dev/build/` is already ignored by the repository's `build/` rule and excluded
+from the rock build's source copy. No kubeconfig, TLS private key, Juju secret, or action dump is printed/exported.
+Re-export after rebuilding the lab or intentionally rotating the edge CA.
+
+`just ingress` generates a dedicated unencrypted SSH key under that same ignored
+directory (mode 0600), and authorizes only this key in the VM user's
+`~/.ssh/authorized_keys`, preserving unrelated entries. Its authorization is
+restricted to the current **edge IP:443** for local TCP forwarding, with no shell,
+PTY, or agent/X11 forwarding. The recipe requests no reverse forwarding; OpenSSH's
+per-key `permitopen` restricts local forwarding destinations, not reverse listeners. It pins the VM's SSH host public key
+obtained through Multipass; it does not disable SSH host-key checks or export
+Multipass/Juju private keys. Treat this ignored directory as private local state,
+not a file to attach to bug reports. The foreground SSH process uses keepalives,
+connection/forward failure checks, no background daemon, and no privileged host
+port. To revoke access, remove that dedicated key's `ratings-lab-ingress` entry
+from the VM's authorized keys and remove its host key files. Run the recipe again
+after an edge IP change; it updates only its own restricted authorization.
+
+In another host terminal:
+
+```sh
+just ingress-tls-check       # CA verification + ratings.localhost SAN + ALPN h2
+just ingress-smoke           # above check, then Authenticate/read/auth rejection/cleanup
+# If 8443 is busy: just ingress 18443, then just ingress-smoke 18443
+```
+
+The TLS smoke check uses the CA file with the real hostname; it does not override
+TLS authority or bypass certificate verification. An equivalent grpcurl call
+(requires your own disposable 64-character ID and prints a JWT; do not share it):
+
+```sh
+grpcurl -cacert dev/build/ingress/edge-ca.pem -max-time 10 \
+  -import-path proto -proto ratings_features_user.proto \
+  -d '{"id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}' \
+  ratings.localhost:8443 ratings.features.user.User/Authenticate
+```
+
+There is **no** `/ratings-dev-ratings` prefix, `-plaintext`, or `-insecure` on this
+TLS path. TLS terminates at the actual HAProxy edge, then HAProxy establishes TLS
+to Traefik with ALPN `h2,http/1.1` and the transferred backend CA. HAProxy 551 does
+not render backend SNI or `verifyhost`; its backend verification is CA-chain
+verification, **not backend hostname pinning**. The host→edge check does verify
+both CA and hostname. Do not claim the pinned upstream charm provides stronger
+backend identity checking; that requires an upstream charm/interface enhancement,
+not a local unmanaged HAProxy config patch. Use a dedicated private backend CA
+and do not weaken either leg's CA verification. This limitation also needs to be
+considered when comparing PS7 behavior.
+
+**Validation boundary:** the ingress recipes have offline mocked tests, but no
+controller bootstrap, deployment, tunnel, certificate issuance, or end-to-end
+HTTP/2 request was run while adding this workflow. Active/Idle is not proof of
+gRPC routing or ALPN; the commands above are the live acceptance checks. If they
+fail, inspect both models, the configurator-owned NodePort, certificates relations,
+VM↔LXD networking, and raw route publication. Do not work around a missing
+certificate/route with plaintext backends, insecure gRPC, or direct Traefik access.
+
+Run the orchestration regression tests without Juju, Multipass, or Python package
+downloads using `just lab-test`.
+
 ### Scaling and JWT rotation
 
 ```sh
@@ -706,6 +905,11 @@ just stop
 | `just info` | Inspect the VM |
 | `just ratings [port=8080]` / `just grafana` | Foreground host-loopback gRPC / Grafana forwarding |
 | `just grpc-smoke [target=127.0.0.1:8080]` | Optional host-uv gRPC check and identity cleanup |
+| `just vm ingress-bootstrap` / `just vm ingress-deploy` | Explicit bounded LXD controller bootstrap / opt-in pinned ingress reconciliation |
+| `just vm ingress-wait [seconds=900]` / `just vm ingress-status` | Readiness / relations across both ingress models |
+| `just ingress-ca` / `just ingress [port=8443]` | Export public edge CA / loopback SSH tunnel to HAProxy:443 |
+| `just ingress-tls-check [port=8443]` / `just ingress-smoke [port=8443]` | Verified CA/hostname/HTTP2 ALPN / verified native gRPC API check |
+| `just lab-test` | Offline stdlib orchestration regression tests; no controller commands |
 | `just vm rollout` | Build/publish/deploy or refresh Ratings; integrate existing COS; bounded readiness wait |
 | `just vm ratings-status` / `just vm ratings-logs [lines=100]` | Ratings relations/status / recent workload logs |
 | `just vm ratings-wait [seconds=600]` | Wait for Ratings/PostgreSQL Active/Idle units without rebuilding |
@@ -720,7 +924,8 @@ VM recipes: `prepare`, `prepare-plan`, `rust`, `status`, `versions`, `build`,
 `charm-pack [directory=charm]`, `charm-test`, `ratings-registry`,
 `ratings-image [rock=""]`, `ratings-deploy`, `ratings-observability`,
 `ratings-wait [seconds=600]`, `ratings-status`, `ratings-logs [lines=100]`,
-`rollout`, `scale [units=3]`, `kubectl ...`, and `juju ...`.
+`rollout`, `ingress-bootstrap`, `ingress-deploy`, `ingress-wait [seconds=900]`,
+`ingress-status`, `scale [units=3]`, `kubectl ...`, and `juju ...`.
 `charm-init [directory=charm]` is an unrelated-project scaffold helper; do not run
 it over the implemented Ratings charm.
 Inside the VM use `just -f justfile.vm <recipe>`; bare `just` selects the host Justfile. Inspect recipes with host `just --list` or `just vm default`.
