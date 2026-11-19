@@ -1,0 +1,15 @@
+name: Push (Sidecar)
+
+on:
+  push:
+    branches:
+      - main
+      - feat/ps7
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    uses: ./.github/workflows/build.yaml

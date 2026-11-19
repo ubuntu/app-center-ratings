@@ -1,0 +1,70 @@
+name: Build/Test Charm
+
+on:
+  workflow_call:
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run linters
+        run: |
+          python -m ruff check src tests
+          python -m ruff format --check src tests
+
+  unit-test:
+    name: Unit tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install locked dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run offline tests and verify vendored library pins
+        run: python -m pytest -q --cov=charm --cov-report=term-missing --cov-report=xml
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./coverage.xml
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: false
+
+  pack:
+    name: Pack standalone sidecar
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs:
+      - lint
+      - unit-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Install Charmcraft
+        run: sudo snap install charmcraft --classic --channel=4.x/stable
+      - name: Pack on disposable runner (no deploy or publish)
+        run: sudo charmcraft pack --destructive-mode --platform amd64
+      - name: Upload local charm artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratings-amd64
+          path: ratings_amd64.charm
+          if-no-files-found: error

@@ -1,0 +1,17 @@
+name: Pull Request (Sidecar)
+
+on:
+  pull_request:
+    branches:
+      - main
+      - feat/ps7
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    uses: ./.github/workflows/build.yaml
+  cla:
+    uses: ./.github/workflows/cla.yaml
