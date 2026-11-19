@@ -1,9 +1,9 @@
 type: charm
-name: ratings
-summary: Local Kubernetes operator for the App Center Ratings service
+name: app-center-ratings
+summary: Kubernetes sidecar operator for the App Center Ratings service
 description: |
   Runs the Ratings gRPC backend using Pebble, a relation-provisioned PostgreSQL
-  database, and an application-owned Juju JWT secret. Intended for local labs.
+  database, and an application-owned Juju JWT secret.
 base: ubuntu@24.04
 platforms:
   amd64:
@@ -18,7 +18,7 @@ containers:
 resources:
   ratings-image:
     type: oci-image
-    description: Ratings rock containing /bin/ratings and the ratings Pebble service
+    description: Ratings rock containing service backend and the ratings Pebble service
 requires:
   database:
     interface: postgresql_client
@@ -26,11 +26,27 @@ requires:
   logging:
     interface: loki_push_api
     optional: true
+  traefik-route:
+    interface: traefik_route
+    limit: 1
+    optional: true
 peers:
   ratings-peers:
     interface: ratings_peers
 config:
   options:
+    database-name:
+      type: string
+      default: ratings
+      description: |
+        PostgreSQL SQL database name requested from the provider.
+    external-hostname:
+      type: string
+      default: ""
+      description: |
+        DNS hostname for optional Traefik gRPC ingress. Required only when traefik-route is related.
+        ASCII DNS labels of 1-63 characters, at most 253 total; no URLs, ports,
+        paths, wildcards or trailing dot.
     snap-store-url:
       type: string
       default: https://api.snapcraft.io/v2/
@@ -52,3 +68,14 @@ parts:
     charm-requirements: [requirements.txt]
     charm-strict-dependencies: true
     charm-binary-python-packages: [pydantic-core]
+    prime:
+        - dispatch
+        - hooks
+        - src/charm.py
+        - lib/charms
+        - venv
+        - libraries.lock.json
+        - requirements.txt
+        - "-**/__pycache__"
+        - "-**/*.pyc"
+        - "-**/*.pyo"

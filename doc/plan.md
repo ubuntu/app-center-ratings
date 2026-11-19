@@ -8,7 +8,6 @@ operations repository has now been identified:
 checked locally on 2026-11-11 (checkout HEAD `bd3f539`). Ratings staging
 configuration now lives in
 `models/ps7/desktop/k8s-stg-desktop-managed-cluster/ratings/` in that repository.
-The PS6 production configuration and export access are still being located.
 
 The maintainer identifies MediaWiki as the team's latest PS7 deployment and the
 primary reference for Ratings. Use its Kubernetes deployment pattern as the PS7
@@ -20,20 +19,17 @@ been inspected as configuration, not independently validated against live state.
 
 The intended hosting platform is the **existing Desktop-owned Kubernetes cluster
 reportedly hosting MediaWiki**, not a new cluster. The maintainer has identified
-this as the Ratings **staging** target, but MediaWiki's actual cluster placement
-still needs confirmation. Deploy Ratings alongside MediaWiki at cluster level,
+this as the Ratings **staging** target, but MediaWiki's actual cluster placement is the same for staging. Deploy Ratings alongside MediaWiki at cluster level,
 with its own staging Juju model/namespace following the team's isolation
 conventions; do not assume that sharing a cluster means sharing MediaWiki's model
 or namespace.
 
 **Current scope:**
 
-- **PS6 production:** access the existing deployment only to identify and dump the
-  database (Operation Shadowgrab). No redeployment, upgrade, traffic change, write
-  freeze, or retirement is planned.
 - **PS7 staging:** deploy Ratings with the existing sidecar charm on the Desktop
-  cluster, using MediaWiki as the reference. An authorised copy of the PS6 dump
-  can be used to validate restore and application migrations in staging.
+  cluster, using MediaWiki as the reference and the existing DBaaS-managed SQL
+  database `stg-app-center-rating`. An authorised copy of the PS6 dump `../../prod-desktop-ratings-db-2026-11-13.sql` can be used
+  to validate restore and application migrations in staging.
 - **Out of scope:** PS7 production deployment, production traffic cutover,
   continuous PS6-to-PS7 replication, and PS6 decommissioning. These require a
   separate future plan, not completion of this staging work.
@@ -50,10 +46,12 @@ or namespace.
   model: it needs a Kubernetes cloud/model. Neither blanket Kubernetes support
   nor blanket machine-only availability can be inferred for Ratings from the
   evidence currently available.
-- Keep the current Ratings sidecar charm in [`../charm/`](../charm/) and the
-  local Kubernetes lab. The sidecar charm remains the preferred implementation
-  if Ratings can use an approved PS7 Kubernetes model. The lab is not yet a
-  production-ready deployment. Setup is in [charming.md](charming.md).
+- The Ratings sidecar charm now lives at the root of
+  [`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator),
+  in jj change `vpmyx` / bookmark `feat/ps7`. Its legacy machine charm remains on
+  `main`; this is not an in-place machine-charm upgrade. The application repository
+  owns Rust/image code and lab orchestration, not a second copy of the charm.
+  Keep the local Kubernetes lab; setup is in [charming.md](charming.md).
 - Follow MediaWiki for the PS7 staging platform integrations and target the same
   Desktop-owned Kubernetes cluster. Confirm cluster identity, staging model
   provisioning, access, and operational ownership. Record any blocker without
@@ -130,78 +128,10 @@ provide the stronger evidence.
   to repo automation for now. `renovate.json` describes dependency-update PR
   configuration, not workload-image deployment. The inspected GitHub workflows
   cover QA, Renovate validation, and scheduled database backups; they do not define
-  Terraform apply or application promotion. No Ratings/Shadowgrab configuration
+  Terraform apply or application promotion. No Ratings configuration
   was found in the searched model Terraform/Markdown/YAML files, and no Container
   Runner/image-update configuration was found in the scoped PS7 search. External
   deployment automation may still exist.
-
-## Story 1: PS6 production database dump (Operation Shadowgrab)
-
-**Goal:** As an operator, identify and access the existing PS6 production database
-and safely obtain its dump for later restore/migration testing. PS6 is an export
-source only; do not redeploy or modify its service, database schema, or traffic.
-This document does not imply that an export has already been performed.
-
-**PS6 source locator (maintainer-provided):**
-`admin/prod-desktop-ratings-db.postgresql`
-
-In Juju offer-URL syntax this identifies owner `admin`, model
-`prod-desktop-ratings-db`, and offer `postgresql`. Confirm the backing PostgreSQL
-application and relation through the approved PS6 controller. This locator is not
-a PostgreSQL connection URI: it does not supply the SQL database name, host/port,
-credentials, or controller identity. It identifies the production export source
-only, never the PS7 staging application's database connection.
-
-### 1. Discover the deployed system
-
-- [ ] Locate the operations repository, deployment bundle/overlays, and runbooks.
-- [ ] Resolve `admin/prod-desktop-ratings-db.postgresql` on the approved PS6
-      controller; record the cloud/controller, backing application, and deployed
-      database charm revision. Do not consume the production offer from staging
-      merely to obtain access for a dump.
-- [ ] Identify the PostgreSQL version, SQL database name, relation, primary endpoint,
-      backup facilities, and approved access route; do not infer these from the
-      offer name or the local lab.
-- [ ] Identify operational owners and obtain approval for production access and
-      data export. Use read-only inspection until an export procedure is agreed.
-
-The renamed operator provides useful context, but its current defaults are not
-proof of the configuration deployed on PS6. Do not guess production endpoints,
-credentials, charm revisions, or database names from the local lab.
-
-### 2. Prepare and rehearse the export
-
-- [ ] Agree the data scope, destination, authorised recipients, retention period,
-      and deletion policy, including whether production data may enter staging
-      and what sanitisation is required. Treat the dump as sensitive production
-      data; do not commit dumps or credentials or place them in CI artifacts.
-- [ ] Choose a PostgreSQL-compatible logical dump/restore procedure and client
-      versions after identifying the source and target versions. A custom-format
-      `pg_dump` archive is a candidate, not an already agreed production command.
-- [ ] Plan access through the approved operator path and credentials with the
-      minimum required privileges. Avoid exposing PostgreSQL publicly.
-- [ ] Assess source load, dump duration, and storage requirements. Use an existing
-      backup or isolated restored copy for rehearsal where operationally suitable.
-- [ ] Document ownership/role handling, required extensions, and a consistent dump
-      scope. A logical dump gives a snapshot; it does not capture later writes.
-- [ ] Encrypt the export and transfer through an approved channel; record a
-      checksum, source/version, snapshot timing, and tool versions without secrets.
-
-### 3. Verify and hand off the dump
-
-- [ ] Verify archive readability, checksum, and completeness using the agreed scope;
-      validate restoration into an isolated PostgreSQL instance where authorised.
-- [ ] Record the snapshot timing and document that subsequent PS6 writes are not
-      included. This export does not require a production write freeze or catch-up.
-- [ ] Hand off the protected archive and restore notes through the approved path;
-      apply the agreed retention/deletion policy to temporary copies.
-- [ ] Leave the PS6 deployment unchanged. Do not upgrade its charm/image, run new
-      application migrations against it, switch traffic, or decommission it.
-
-**Acceptance:** the source database is identified, an authorised dump is obtained,
-its integrity is verified, and access/restore notes are recorded without secrets.
-PS6 production remains unchanged. No production cutover runbook or replacement
-machine deployment is required for this story.
 
 ## Story 2: PS7 staging Kubernetes deployment using MediaWiki as the reference
 
@@ -229,9 +159,13 @@ new deployment required by this story.
       name, platform versions, networking, and operational owners.
 - [ ] Record the target: current Ratings sidecar charm in its own provisioned
       PS7 staging Kubernetes model/namespace; record any platform blocker explicitly.
-- [ ] Define a staging PostgreSQL service/relation, storage, backup/restore ownership,
-      availability requirements, and an isolated restore destination. The staging
-      application must never use PS6 production database credentials or endpoints.
+- [ ] Identify the existing DBaaS-managed `stg-app-center-rating` database's approved
+      staging offer and confirm its `postgresql_client` compatibility, access grants,
+      TLS, network reachability, and backup/restore ownership. Do not provision a
+      replacement database. Agree an isolated restore destination and permissions
+      for startup migrations; staging must never use production credentials/endpoints.
+      If DBaaS does not expose a compatible relation, the current Terraform/charm
+      integration needs an explicitly designed adapter or connection mechanism.
 - [x] Select the same ingress architecture for the lab and PS7: HAProxy edge →
       model-local Traefik → Ratings, with ingress-configurator managing edge routes.
       See the implementation and remaining acceptance checks below.
@@ -239,8 +173,9 @@ new deployment required by this story.
       staging-only secrets/JWT signing keys. Do not copy production signing keys
       or redirect production clients to staging.
 - [x] Keep deployment Terraform and its runbook in the operations repository's
-      `ratings/` directory; keep this repository responsible for application/charm
-      artifacts and their tests. The configuration declares Ratings,
+      `ratings/` directory. This repository owns the Rust application/image and
+      lab helpers; `container-runner-operator`'s PS7 change owns the sidecar source,
+      charm packaging, and charm tests. The configuration declares Ratings,
       PgBouncer backed by the staging offer, optional OTEL log forwarding, and
       opt-in native-gRPC ingress. These additions have offline tests, not live
       deployment validation.
@@ -253,6 +188,10 @@ repository. Its `README.md` documents the confirmed model, required artifact/
 database/backend inputs, PgBouncer, opt-in ingress, and live acceptance gates. The current
 Terraform provider requires the sidecar charm to be published to Charmhub; the
 lab's local `.charm` archive is not directly deployable through that provider.
+Build and publish from the standalone operator repository's sidecar change, not
+its legacy machine `main`. The local lab mounts that checkout separately with
+`just operator-mount`; `charm-pack` and `charm-test` no longer use an application-local
+charm project.
 
 The reference directory is
 `models/ps7/desktop/k8s-stg-desktop-managed-cluster/mediawiki/` in the operations
@@ -264,7 +203,7 @@ repository. Reuse its platform conventions, not its application-specific service
 | `main.tf`: existing model and application declarations | Target Ratings' own staging model/namespace on the same Desktop cluster as MediaWiki, deploy the existing Ratings charm, and pin charm and workload-image artifacts. |
 | `main.tf`: Traefik, ingress configurator, shared ingress offers | Implemented in Ratings' `ingress.tf`, using the charm's optional `traefik-route`; verify native gRPC/HTTP2, certificates, and network policy live. |
 | `cos.tf`: OpenTelemetry collector and aggregator offers | Follow the platform telemetry topology and certificate handling; verify Ratings' log integration and implement metrics/traces separately. |
-| Separate `stg-desktop-mediawiki-db` model and database offer | Use the separation/ownership pattern where appropriate, but design and validate PostgreSQL relations, connectivity, TLS, backups, and Shadowgrab restore independently. |
+| Separate `stg-desktop-mediawiki-db` model and database offer | Use the separation/ownership pattern where appropriate, but design and validate PostgreSQL relations, connectivity, TLS, backups, and DB restore independently. |
 
 Do not bring over MediaWiki, MySQL Router, Valkey, or media-upload/object-storage
 configuration unless Ratings has a separately demonstrated requirement.

@@ -12,3 +12,18 @@ stage/
 prime/
 .charmcraft/
 *.log
+
+# Retained repository/developer exclusions.
+.vscode/
+.idea/
+/target/
+.env
+.env_test
+.DS_STORE
+*.rock
+*.nix
+venv/
+.tox/
+.pyrightconfig.json
+*.py[cod]
+coverage.xml

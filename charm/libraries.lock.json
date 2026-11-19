@@ -22,5 +22,14 @@
     "PYDEPS": [
       "cosl"
     ]
+  },
+  {
+    "path": "lib/charms/traefik_k8s/v0/traefik_route.py",
+    "source": "https://raw.githubusercontent.com/canonical/traefik-k8s-operator/99734ac72fda56b8d6138e411af343bc76c1fb9f/lib/charms/traefik_k8s/v0/traefik_route.py",
+    "commit": "99734ac72fda56b8d6138e411af343bc76c1fb9f",
+    "sha256": "c727ee26196f9604a7d77cadbaa7bd26d8dfd82d246dc7310e0257e838704c09",
+    "LIBID": "f0d93d2bdf354b99a527463a9c49fce3",
+    "LIBAPI": 0,
+    "LIBPATCH": 7
   }
 ]
