@@ -18,7 +18,16 @@ vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local
 default:
     @just --list
 
+#[group("publish")]
+charm:
+    just vm charm-pack
+
+#[group("publish")]
+rock:
+    just vm rock
+
 # Install Ubuntu workstation prerequisites (requires just to already be installed).
+#[group("dev")]
 host-install:
     sudo apt-get update
     sudo apt-get install -y ca-certificates cpu-checker curl git openssh-client openssl python3 snapd
