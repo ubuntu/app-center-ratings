@@ -42,7 +42,7 @@ async fn get_json<T: DeserializeOwned>(
     let s = client
         .get(url)
         .header("User-Agent", "ratings-service")
-        .header("Snap-Device-Series", 16)
+        .header("Snap-Device-Series", 16) // FIXME: Magic number.
         .query(query)
         .send()
         .await?
@@ -68,7 +68,7 @@ pub(crate) async fn get_snap_name(
 ) -> Result<String, Error> {
     let base_url = reqwest::Url::parse(base).map_err(|e| Error::InvalidUrl(e.to_string()))?;
     let assertions_url = base_url
-        .join(&format!("assertions/snap-declaration/16/{snap_id}"))
+        .join(&format!("assertions/snap-declaration/16/{snap_id}")) // FIXME: Same magic number.
         .map_err(|e| Error::InvalidUrl(e.to_string()))?;
 
     let AssertionsResp {

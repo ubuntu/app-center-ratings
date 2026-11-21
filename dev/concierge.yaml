@@ -1,0 +1,46 @@
+# Run only inside the disposable Multipass VM; see doc/charming.md.
+juju:
+  channel: 3.6/stable
+  extra-bootstrap-args: "--config bootstrap-timeout=1800"
+  model-defaults:
+    test-mode: "true"
+    automatically-retry-hooks: "false"
+
+providers:
+  lxd:
+    enable: true
+    bootstrap: false
+    channel: 5.21/stable
+  k8s:
+    enable: true
+    bootstrap: true
+    channel: 1.32-classic/stable
+    controller-name: ratings-k8s
+    bootstrap-constraints:
+      root-disk: "2G"
+    features:
+      network: {}
+      dns: {}
+      local-storage: {}
+      # This lab pool is not automatically routable from the workstation.
+      # Use kubeconfig + port-forward for host access instead.
+      load-balancer:
+        l2-mode: "true"
+        cidrs: "10.43.45.0/28"
+
+host:
+  packages:
+    - gnome-keyring
+    - python3-pip
+    - python3-venv
+  snaps:
+    charmcraft:
+      channel: latest/stable
+    rockcraft:
+      channel: latest/stable
+    astral-uv:
+      channel: latest/stable
+    just:
+      channel: latest/stable
+    rustup:
+      channel: latest/stable

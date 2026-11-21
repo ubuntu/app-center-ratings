@@ -83,8 +83,57 @@ pub async fn check_db_conn() -> Result<()> {
 mod tests {
     use super::*;
     use crate::conn;
+    use sha2::{Digest, Sha256, Sha384};
     use sqlx::types::time::OffsetDateTime;
     use tracing_subscriber::EnvFilter;
+
+    #[test]
+    fn initial_migrations_leave_database_access_to_the_deployment() {
+        for script in [
+            include_str!("../../sql/migrations/20230829085908_ratings_init.up.sql"),
+            include_str!("../../sql/migrations/20230829085908_ratings_init.down.sql"),
+        ] {
+            let sql = script
+                .lines()
+                .map(|line| line.split("--").next().unwrap())
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_ascii_uppercase();
+            assert!(!sql.contains("ON DATABASE"));
+            assert!(!sql.contains("CREATE DATABASE"));
+            assert!(!sql.contains("DROP DATABASE"));
+        }
+    }
+
+    #[test]
+    fn initial_schema_is_unchanged_by_removing_the_database_grant() {
+        let script = include_str!("../../sql/migrations/20230829085908_ratings_init.up.sql");
+        let sql = script
+            .lines()
+            .map(|line| line.split("--").next().unwrap())
+            .collect::<Vec<_>>()
+            .join(" ");
+        let normalized = sql.split_whitespace().collect::<Vec<_>>().join(" ");
+        // Fingerprint of the original schema, excluding comments and the obsolete CONNECT grant.
+        assert_eq!(
+            format!("{:x}", Sha256::digest(normalized.as_bytes())),
+            "af1e80a8aa83b573fb0d92c4471500103f21924953a5cd080b8422eca9c313bc"
+        );
+    }
+
+    #[test]
+    fn initial_migration_checksum_matches_the_upgrade_runbook() {
+        let migrator = sqlx::migrate!("sql/migrations");
+        let initial = migrator
+            .iter()
+            .find(|migration| {
+                migration.version == 20230829085908 && migration.migration_type.is_up_migration()
+            })
+            .unwrap();
+        let checksum = Sha384::digest(initial.sql.as_bytes());
+        assert_eq!(initial.checksum.as_ref(), checksum.as_slice());
+        assert!(include_str!("../../doc/database-migrations.md").contains(&format!("{checksum:x}")));
+    }
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]
     #[tokio::test]

@@ -18,6 +18,39 @@ for managing the new vote and rating system used in [App Center](https://github.
 For general details, including installation, getting started and setting up a
 development environment, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
+## Local Juju deployment
+
+For a local Kubernetes and Juju deployment using Multipass, see
+[doc/charming.md](doc/charming.md). With the lab already prepared and COS Lite
+deployed, run from the repository root:
+
+```sh
+just up
+just operator-mount
+just vm rollout
+just vm ratings-status
+just kubeconfig
+just ratings
+```
+
+`rollout` builds the rock and charm, publishes a digest-pinned image to a
+VM-loopback registry, deploys or refreshes Ratings, integrates PostgreSQL and COS
+Loki logging, and waits for readiness with a 600-second readiness deadline.
+`just ratings` stays in the foreground and forwards **plaintext gRPC** to host
+**`127.0.0.1:8080`**; it is not a web page or public ingress. See the guide for the
+[proto-based API smoke check](doc/charming.md#host-local-grpc-smoke-check),
+[rollout without COS and subsequent refreshes](doc/charming.md#7-deploy-ratings-and-use-the-api),
+and Juju-managed scaling. These commands do not assert that a deployment has
+already passed runtime validation.
+
+The Ratings sidecar operator now lives at the root of
+[`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator)
+on the PS7 sidecar change (`vpmyx`, bookmark `feat/ps7`); that repository's `main`
+remains the legacy machine charm. Keep a sibling sidecar checkout, or set
+`RATINGS_OPERATOR_REPO` to its host path. `just create` mounts both checkouts;
+`just operator-mount` adds the operator to an existing lab. See the operator's
+`README.md` for endpoints, configuration, JWT rotation, and charm development.
+
 ## Dependencies
 
 In order to run, this needs you to install at minimum `libssl-dev` (for

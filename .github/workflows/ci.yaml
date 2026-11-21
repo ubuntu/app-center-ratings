@@ -16,7 +16,7 @@ jobs:
     name: Build Ratings
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -25,7 +25,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler docker-compose
+          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Check code formating
         uses: mbrobbel/rustfmt-check@master
@@ -44,51 +44,87 @@ jobs:
           ignore: RUSTSEC-2023-0071 # patch not available att
 
       - name: Setup and Run Tests
-        run: make ci-test
+        run: make ci-test DOCKER_COMPOSE="docker compose"
 
   publish:
-    if: github.event_name == 'push'
-    name: Publish to ghcr.io
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    name: Upload rock to Charmhub
     needs: build
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
     permissions:
       contents: read
-      packages: write
+    outputs:
+      image-revision: ${{ steps.publish.outputs.image-revision }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
-      - name: Install build dependencies
+      - name: Check Charmhub credentials
+        shell: bash
+        env:
+          CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_AUTH }}
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
-
-      - name: Setup rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: stable
-
-      - name: Log in to gchr.io
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Extract metadata for image labels and tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=sha,format=short
+          if [[ -z "$CHARMCRAFT_AUTH" ]]; then
+            echo "Set the CHARMCRAFT_AUTH Actions secret with upload access to app-center-ratings." >&2
+            exit 1
+          fi
 
       - name: Build rock
-        uses: canonical/craft-actions/rockcraft-pack@main
+        uses: canonical/craft-actions/rockcraft/pack@5d072661cd0e3a60ad1b79d6ba93db88344e2b5b
         id: rockcraft
+        with:
+          channel: latest/stable
 
-      - name: Publish rock to GHCR
+      - name: Install Charmcraft
         run: |
-          skopeo --insecure-policy copy oci-archive:${{ steps.rockcraft.outputs.rock }} docker://ghcr.io/${{ steps.meta.outputs.tags }}
+          sudo snap install charmcraft --classic --channel=4.x/stable
+          charmcraft version
 
+      - name: Upload rock as a Charmhub resource
+        id: publish
+        shell: bash
+        env:
+          CHARMCRAFT_AUTH: ${{ secrets.CHARMCRAFT_AUTH }}
+          ROCKS: ${{ steps.rockcraft.outputs.rocks }}
+        run: |
+          set -euo pipefail
+          if [[ ! -f "$ROCKS" || "$ROCKS" != *.rock ]]; then
+            echo "Expected exactly one .rock archive from the amd64 build; got: $ROCKS" >&2
+            exit 1
+          fi
+
+          if ! charmcraft upload-resource app-center-ratings ratings-image \
+            --image "$ROCKS" --format=json > charmhub-resource.json; then
+            cat charmhub-resource.json >&2
+            exit 1
+          fi
+          revision="$(python3 -c 'import json; print(json.load(open("charmhub-resource.json"))["revision"])')"
+          if [[ ! "$revision" =~ ^[0-9]+$ ]]; then
+            echo "Charmhub did not return a valid resource revision; check the upload before retrying." >&2
+            exit 1
+          fi
+          printf '%s\n' "$revision" > ratings-image-revision.txt
+          printf 'image-revision=%s\n' "$revision" >> "$GITHUB_OUTPUT"
+          {
+            printf '## Uploaded Ratings rock\n\n'
+            printf 'Charm: `app-center-ratings`; resource: `ratings-image`; revision: `%s`\n\n' "$revision"
+            printf 'Source commit: `%s`\n\n' "$GITHUB_SHA"
+            printf 'Release this resource with a tested charm revision before deploying.\n\n'
+            printf 'Staging Terraform input: `ratings_image_revision = %s`\n' "$revision"
+            if [[ "$revision" == 0 ]]; then
+              printf '\n**Provider limitation:** Juju Terraform provider 1.5.7 rejects revision 0. Obtain a positive resource revision before deployment.\n'
+            fi
+            printf '\nThis upload does not release a channel or deploy to a model.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Save uploaded resource revision
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratings-image-${{ github.sha }}
+          path: |
+            ratings-image-revision.txt
+            charmhub-resource.json
+          if-no-files-found: error

@@ -1,3 +1,6 @@
+# Override with DOCKER_COMPOSE="docker compose" to use the v2 plugin.
+DOCKER_COMPOSE ?= docker-compose
+
 .PHONY: build
 build:
 	@cargo build --release
@@ -8,15 +11,15 @@ docker-build:
 
 .PHONY: up
 up:
-	@docker-compose up
+	@$(DOCKER_COMPOSE) up
 
 .PHONY: up-detached
 up-detached:
-	@docker-compose up --detach
+	@$(DOCKER_COMPOSE) up --detach
 
 .PHONY: down
 down:
-	@docker-compose down
+	@$(DOCKER_COMPOSE) down
 
 .PHONY: test
 test:
@@ -45,7 +48,7 @@ test-all: db-test integration-test
 .PHONY: wait-for-server
 wait-for-server:
 	@echo "Waiting for ratings server to start on port 8080..."
-	@until docker-compose ps | grep -E '^ratings\s' | grep healthy; do \
+	@until $(DOCKER_COMPOSE) ps | grep -E '^ratings\s' | grep healthy; do \
 		echo "..."; \
 		sleep 1; \
 	done
@@ -55,15 +58,15 @@ ci-test: up-detached wait-for-server test-all down
 
 .PHONY: clear-db-data
 clear-db-data:
-	@docker-compose exec -T db psql -U postgres ratings < tests/clear-db.sql
+	@$(DOCKER_COMPOSE) exec -T db psql -U postgres ratings < tests/clear-db.sql
 
 .PHONY: rebuild-local
 rebuild-local:
-	@docker-compose build
+	@$(DOCKER_COMPOSE) build
 
 .PHONY: rm-db
 rm-db:
-	@docker-compose rm db
+	@$(DOCKER_COMPOSE) rm db
 	@docker volume rm -f postgres_data
 
 .PHONY: rm-volumes

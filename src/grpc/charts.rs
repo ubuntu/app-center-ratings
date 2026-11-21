@@ -7,7 +7,7 @@ use crate::{
             chart_server::{self, ChartServer},
             GetChartRequest, GetChartResponse,
         },
-        common::{Rating as PbRating, RatingsBand as PbRatingsBand},
+        common::{Rating as ProtobufRating, RatingsBand as ProtobufRatingsBand},
     },
     ratings::{Chart, Rating, RatingsBand},
     Context,
@@ -92,8 +92,8 @@ async fn get_chart_cached(
     Ok(Chart::new(timeframe, summaries))
 }
 
-impl From<PbRating> for Rating {
-    fn from(r: PbRating) -> Self {
+impl From<ProtobufRating> for Rating {
+    fn from(r: ProtobufRating) -> Self {
         Self {
             snap_id: r.snap_id,
             total_votes: r.total_votes,
@@ -102,7 +102,7 @@ impl From<PbRating> for Rating {
     }
 }
 
-impl From<RatingsBand> for PbRatingsBand {
+impl From<RatingsBand> for ProtobufRatingsBand {
     fn from(rb: RatingsBand) -> Self {
         match rb {
             RatingsBand::VeryGood => Self::VeryGood,
