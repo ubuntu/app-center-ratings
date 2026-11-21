@@ -109,10 +109,7 @@ impl App for RatingService {
                 Status::unknown("Internal server error")
             })?;
 
-        let chart = Chart::new(
-            TIMEFRAME,
-            vote_summaries.into_iter().collect(),
-        );
+        let chart = Chart::new(TIMEFRAME, vote_summaries.into_iter().collect());
 
         let ratings = populate_chart_data_with_names(&self.ctx, chart.data).await?;
 
