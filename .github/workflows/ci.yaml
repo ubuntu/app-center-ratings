@@ -29,15 +29,14 @@ jobs:
           sudo apt-get install -y libssl-dev pkg-config protobuf-compiler docker-compose
 
       - name: Check code formating
-        uses: mbrobbel/rustfmt-check@master
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path mock_server/Cargo.toml -- --check
 
       - name: Clippy linting
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: "github-pr-review"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo clippy --locked
+          cargo clippy --locked --manifest-path mock_server/Cargo.toml
 
       - name: Dependencies security audit
         uses: actions-rust-lang/audit@v1
