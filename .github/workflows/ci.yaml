@@ -14,8 +14,7 @@ on:
 jobs:
   build:
     name: Build Ratings
-    # On ubuntu-latest (26.04) apt installs only the "docker compose" plugin, but the Makefile calls docker-compose
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -26,7 +25,7 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler docker-compose
+          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Check code formating
         run: |
