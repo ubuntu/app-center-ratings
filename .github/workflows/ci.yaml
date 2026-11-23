@@ -14,7 +14,8 @@ on:
 jobs:
   build:
     name: Build Ratings
-    runs-on: ubuntu-latest
+    # On ubuntu-latest (26.04) apt installs only the "docker compose" plugin, but the Makefile calls docker-compose
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
 
