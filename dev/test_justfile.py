@@ -14,6 +14,18 @@ JUST = shutil.which("just") or shutil.which("just", path="/snap/bin")
 DB = ["cargo", "test", "--lib", "--features", "db_tests"]
 INTEGRATION = ["cargo", "test", "--test", "*"]
 CLEAR = ["docker", "compose", "exec", "-T", "db", "psql", "-U", "postgres", "ratings"]
+STARTUP = ["docker", "compose", "up", "--detach", "--build"]
+WAIT = ["docker", "compose", "up", "--no-build", "--wait", "--wait-timeout", "600"]
+PS = ["docker", "compose", "ps", "--all"]
+LOGS = ["docker", "compose", "logs", "--no-color", "--tail=200"]
+DOWN = ["docker", "compose", "down"]
+DOCKER_FAILURES = {
+    "startup": (STARTUP, 31),
+    "readiness": (WAIT, 32),
+    "ps": (PS, 33),
+    "logs": (LOGS, 34),
+    "down": (DOWN, 35),
+}
 DB_ENV = {
     "APP_HOST": "0.0.0.0", "APP_PORT": "8080", "APP_JWT_SECRET": "deadbeef",
     "APP_SNAPCRAFT_IO_URI": "localhost:11111/",
@@ -33,14 +45,19 @@ if argv == %r:
     event["stdin"] = sys.stdin.read()
 with open(os.environ["MOCK_LOG"], "a") as log:
     log.write(json.dumps(event) + "\\n")
-if argv == ["docker", "compose", "ps"]:
-    print("ratings running healthy")
+for phase, (command, status) in %r.items():
+    matches = argv == command or (
+        phase == "readiness" and argv[:-1] == command[:-1] and len(argv) == len(command)
+    )
+    if matches and phase in os.environ.get("MOCK_DOCKER_FAIL", "").split(","):
+        print("mock docker failure: " + phase, file=sys.stderr)
+        sys.exit(status)
 if argv[0] == "cargo":
     phase = "db" if "db_tests" in argv else "integration"
     if os.environ.get("MOCK_CARGO_FAIL") == phase:
         print("mock cargo failure: " + phase, file=sys.stderr)
         sys.exit(23)
-""" % ([*list(DB_ENV | INTEGRATION_ENV), "COMPOSE_FILE"], CLEAR)
+""" % ([*list(DB_ENV | INTEGRATION_ENV), "COMPOSE_FILE"], CLEAR, DOCKER_FAILURES)
 
 
 @unittest.skipUnless(JUST, "just is not installed")
@@ -54,8 +71,7 @@ class JustfileTests(unittest.TestCase):
         self.bin.mkdir()
         self.log = self.root / "commands.jsonl"
         # Restricted PATH prevents an accidental fallback to an installed external tool.
-        for name in ("bash", "grep", "sleep"):
-            (self.bin / name).symlink_to(shutil.which(name))
+        (self.bin / "bash").symlink_to(shutil.which("bash"))
         for name in ("docker", "cargo", "multipass", "docker-compose"):
             executable = self.bin / name
             executable.write_text(f"#!{sys.executable}\n" + MOCK)
@@ -68,21 +84,23 @@ class JustfileTests(unittest.TestCase):
             "MOCK_LOG": str(self.log), "RATINGS_VM": "regression-vm",
         }
 
-    def invoke(self, *args, failure=None):
+    def invoke(self, *args, failure=None, docker_failures=(), expected_status=0):
         self.log.write_text("")
         env = dict(self.env)
         if failure:
             env["MOCK_CARGO_FAIL"] = failure
+        if docker_failures:
+            env["MOCK_DOCKER_FAIL"] = ",".join(docker_failures)
         result = subprocess.run(
             [JUST, "--justfile", str(self.root / "justfile"), *args],
             cwd=self.root, env=env, input="", text=True, capture_output=True, timeout=20,
         )
         self.output = result.stdout + result.stderr
+        self.assertEqual(result.returncode, 23 if failure else expected_status, self.output)
         if failure:
-            self.assertNotEqual(result.returncode, 0, self.output)
-            self.assertIn("mock cargo failure: " + failure, self.output)
-        else:
-            self.assertEqual(result.returncode, 0, self.output)
+            self.assertIn("mock cargo failure: " + failure, result.stderr)
+        for phase in docker_failures:
+            self.assertIn("mock docker failure: " + phase, result.stderr)
         return [json.loads(line) for line in self.log.read_text().splitlines()]
 
     def event(self, argv, env=None, **extra):
@@ -90,6 +108,10 @@ class JustfileTests(unittest.TestCase):
 
     def integration(self, args=()):
         return [self.event(CLEAR, stdin=SQL), self.event(INTEGRATION + list(args), INTEGRATION_ENV)]
+
+    def cleanup(self, failed=False):
+        commands = [PS, LOGS, DOWN] if failed else [DOWN]
+        return [self.event(command) for command in commands]
 
     def ci_events(self, events):
         compose_file = f"{self.root}/docker-compose.yml:{self.root}/docker-compose.ci.yml"
@@ -127,6 +149,17 @@ class JustfileTests(unittest.TestCase):
         expected = [self.event(["docker", "compose", "up", "--detach", "--build", "--wait"])]
         self.assertEqual(self.invoke("up-detached", "--build", "--wait"), expected, self.output)
 
+    def test_wait_for_server_uses_bounded_compose_readiness(self):
+        for args, timeout in [((), "600"), (("45",), "45")]:
+            with self.subTest(timeout=timeout):
+                expected = [self.event(WAIT[:-1] + [timeout])]
+                self.assertEqual(self.invoke("wait-for-server", *args), expected, self.output)
+
+    def test_wait_for_server_preserves_compose_failure_status(self):
+        expected = [self.event(WAIT[:-1] + ["45"])]
+        events = self.invoke("wait-for-server", "45", docker_failures=("readiness",), expected_status=32)
+        self.assertEqual(events, expected, self.output)
+
     def test_db_test_environment(self):
         self.assertEqual(self.invoke("db-test"), [self.event(DB, DB_ENV)], self.output)
 
@@ -141,12 +174,10 @@ class JustfileTests(unittest.TestCase):
 
     def test_ci_startup_readiness_tests_and_cleanup_order(self):
         expected = [
-            self.event(["docker", "compose", "up", "--detach", "--build"]),
-            self.event(["docker", "compose", "ps"]), self.event(DB, DB_ENV),
-            *self.integration(), self.event(["docker", "compose", "down"]),
+            self.event(STARTUP), self.event(WAIT), self.event(DB, DB_ENV),
+            *self.integration(), *self.cleanup(),
         ]
         self.assertEqual(self.invoke("ci-test"), self.ci_events(expected), self.output)
-        self.assertIn("ratings running healthy", self.output)
         self.assertEqual(self.invoke("up-detached"), [self.event(["docker", "compose", "up", "--detach"])])
 
     def test_ci_overrides_ambient_compose_file(self):
@@ -154,15 +185,48 @@ class JustfileTests(unittest.TestCase):
         events = self.invoke("ci-test")
         self.assertEqual(events, self.ci_events(events), self.output)
 
+    def test_ci_diagnoses_startup_and_readiness_failures_before_cleanup(self):
+        for phase in ("startup", "readiness"):
+            with self.subTest(phase=phase):
+                expected = [self.event(STARTUP)]
+                if phase == "readiness":
+                    expected.append(self.event(WAIT))
+                expected.extend(self.cleanup(failed=True))
+                events = self.invoke(
+                    "ci-test", docker_failures=(phase,), expected_status=DOCKER_FAILURES[phase][1],
+                )
+                self.assertEqual(events, self.ci_events(expected), self.output)
+
     def test_ci_cleans_up_after_either_cargo_phase_fails(self):
-        startup = [self.event(["docker", "compose", "up", "--detach", "--build"]), self.event(["docker", "compose", "ps"])]
+        startup = [self.event(STARTUP), self.event(WAIT)]
         for phase in ("db", "integration"):
             with self.subTest(phase=phase):
                 expected = [*startup, self.event(DB, DB_ENV)]
                 if phase == "integration":
                     expected.extend(self.integration())
-                expected.append(self.event(["docker", "compose", "down"]))
+                expected.extend(self.cleanup(failed=True))
                 self.assertEqual(self.invoke("ci-test", failure=phase), self.ci_events(expected), self.output)
+
+    def test_ci_preserves_failure_when_diagnostics_and_teardown_fail(self):
+        for phase in ("readiness", "integration"):
+            with self.subTest(phase=phase):
+                expected = [self.event(STARTUP), self.event(WAIT)]
+                failures = ("ps", "logs", "down")
+                if phase == "integration":
+                    expected.extend([self.event(DB, DB_ENV), *self.integration()])
+                    events = self.invoke("ci-test", failure=phase, docker_failures=failures)
+                else:
+                    events = self.invoke("ci-test", docker_failures=(phase, *failures), expected_status=32)
+                expected.extend(self.cleanup(failed=True))
+                self.assertEqual(events, self.ci_events(expected), self.output)
+
+    def test_ci_fails_when_teardown_fails_after_successful_tests(self):
+        expected = [
+            self.event(STARTUP), self.event(WAIT), self.event(DB, DB_ENV),
+            *self.integration(), *self.cleanup(),
+        ]
+        events = self.invoke("ci-test", docker_failures=("down",), expected_status=35)
+        self.assertEqual(events, self.ci_events(expected), self.output)
 
 
 if __name__ == "__main__":

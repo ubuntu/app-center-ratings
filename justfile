@@ -57,19 +57,30 @@ integration-test *args: clear-db-data
 test-all *args: db-test
     just --justfile "{{ repo }}/justfile" integration-test "$@"
 
-wait-for-server:
-    @echo "Waiting for ratings server to start on port 8080..."
-    @until docker compose ps | grep -E '^ratings\s' | grep healthy; do \
-        echo "..."; \
-        sleep 1; \
-    done
+# Wait for the stack's healthchecks, failing on unhealthy/exited containers or timeout.
+wait-for-server timeout="600":
+    docker compose up --no-build --wait --wait-timeout "$1"
 
 # Use the non-watching CI image; always tear down, including on startup/test failure.
 ci-test:
     #!/usr/bin/env bash
     set -euo pipefail
     export COMPOSE_FILE="{{ repo }}/docker-compose.yml:{{ repo }}/docker-compose.ci.yml"
-    trap 'just --justfile "{{ repo }}/justfile" down' EXIT
+    cleanup() {
+        local status=$? cleanup_status=0
+        trap - EXIT
+        if (( status != 0 )); then
+            echo "CI failed; collecting container status and logs before teardown." >&2
+            docker compose ps --all || true
+            docker compose logs --no-color --tail=200 || true
+        fi
+        just --justfile "{{ repo }}/justfile" down || cleanup_status=$?
+        if (( status == 0 )); then
+            status=$cleanup_status
+        fi
+        exit "$status"
+    }
+    trap cleanup EXIT
     just --justfile "{{ repo }}/justfile" up-detached --build
     just --justfile "{{ repo }}/justfile" wait-for-server
     just --justfile "{{ repo }}/justfile" test-all

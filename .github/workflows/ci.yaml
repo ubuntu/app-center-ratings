@@ -48,6 +48,7 @@ jobs:
           arguments: --locked
 
       - name: Setup and Run Tests
+        timeout-minutes: 30
         run: |
           just lab-test
           just ci-test

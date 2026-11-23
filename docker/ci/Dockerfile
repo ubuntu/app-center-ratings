@@ -1,7 +1,7 @@
 FROM rust:1-bookworm
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libssl-dev pkg-config protobuf-compiler netcat-openbsd \
+    && apt-get install -y --no-install-recommends libssl-dev pkg-config protobuf-compiler libprotobuf-dev netcat-openbsd \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

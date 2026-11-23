@@ -1,12 +1,31 @@
 services:
+  db:
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "postgres", "-d", "ratings"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
   ratings:
     build:
       context: .
       dockerfile: docker/ci/Dockerfile
     entrypoint: ["cargo", "run", "--locked"]
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # Both Rust services compile on first startup; allow time for a cold build.
+      start_period: 600s
 
   snapcraft-mock:
     build:
       context: .
       dockerfile: docker/ci/Dockerfile
     entrypoint: ["cargo", "run", "--locked"]
+    healthcheck:
+      test: ["CMD", "nc", "-z", "-w5", "localhost", "11111"]
+      interval: 5s
+      timeout: 10s
+      start_period: 600s
+      retries: 12

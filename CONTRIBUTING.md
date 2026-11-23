@@ -129,9 +129,14 @@ just integration-test test_name -- --nocapture
 `just ci-test` layers `docker-compose.ci.yml` over the base Compose file and
 builds `docker/ci/Dockerfile`. This image installs the repository's `stable` Rust
 toolchain and runs both the server and mock directly with `cargo run --locked`,
-without `cargo-watch`. The override applies only to this recipe, including its
-cleanup; ordinary Compose recipes retain the local development setup.
-It uses the same Compose stack, so stop any local instance first.
+without `cargo-watch`. CI waits for PostgreSQL readiness before starting the
+server, and for both the server and mock to be healthy before running tests.
+Readiness has a 600-second limit (`just wait-for-server 900` selects a different
+limit for a manual wait). Failures print container status and recent logs before
+teardown; the GitHub Actions test step has a 30-minute overall timeout.
+The override applies only to this recipe, including its cleanup; ordinary Compose
+recipes retain the local development setup. It uses the same Compose stack, so
+stop any local instance first.
 
 `just up` still starts the Multipass VM, not Compose; use `just compose-up` or
 `just up-detached` for the Compose stack. Workstation `just build` / `just test`
