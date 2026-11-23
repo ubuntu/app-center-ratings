@@ -1,0 +1,3 @@
+# The CI image needs only toolchain metadata; application sources are bind-mounted.
+**
+!rust-toolchain.toml

@@ -66,7 +66,8 @@ Once merged to the main branch, `po` files and any documentation change will be 
 * rust and cargo >= 1.69
 * protobuf-compiler >= 3.21
 * docker >= 24.04
-* docker-compose >= 2.18
+* Docker Compose plugin >= 2.18 (`docker compose`)
+* just
 
 ### Setup on Ubuntu
 
@@ -79,8 +80,11 @@ rustup install stable
 sudo apt-get update
 sudo apt-get install -y git gcc libssl-dev pkg-config protobuf-compiler
 
-# Install Docker for running the OCI image and integration tests
-sudo apt-get docker-compose
+# Install the task runner
+sudo snap install just --classic --channel=latest/stable
+
+# Install Docker and the Compose plugin for integration tests (Ubuntu 24.04+)
+sudo apt-get install -y docker.io docker-compose-v2
 sudo usermod -aG docker $USER
 newgrp docker
 
@@ -92,30 +96,48 @@ sh /tmp/get-docker.sh
 
 ### Building and running the server
 
-For local development there is a docker-compose file that can be used to run
-the server alongside a local Postgres database for manual tesing and execution
-of the integration test suite. The `Makefile` in the root of the repo has a
-number of targets for running common actions within the project:
+For local development, `docker-compose.yml` runs the server alongside a local
+Postgres database for manual testing and execution of the integration test suite.
+The `justfile` in the root of the repo provides recipes for common project actions:
 
 ```bash
 # To build the release artifact (located in ./target/release/ratings)
-make build
+just build
 
 # To start the local stack:
-make up
+just compose-up
 
 # To stop the local stack
-make down
+just down
 
 # To run only the unit tests
-make test
+just test
 
 # To run only the integration tests (requires the local stack to be up)
-make integration-test
+just integration-test
 
 # To run all tests (requires the local stack to be up)
-make test-all
+just test-all
+
+# To start the stack, wait for readiness, run all tests, and stop it (also on failure)
+just ci-test
+
+# Pass a test filter and Cargo/test-harness arguments directly
+just integration-test test_name -- --nocapture
 ```
+
+`just ci-test` layers `docker-compose.ci.yml` over the base Compose file and
+builds `docker/ci/Dockerfile`. This image installs the repository's `stable` Rust
+toolchain and runs both the server and mock directly with `cargo run --locked`,
+without `cargo-watch`. The override applies only to this recipe, including its
+cleanup; ordinary Compose recipes retain the local development setup.
+It uses the same Compose stack, so stop any local instance first.
+
+`just up` still starts the Multipass VM, not Compose; use `just compose-up` or
+`just up-detached` for the Compose stack. Workstation `just build` / `just test`
+run locally; `just vm build` / `just vm test` retain their VM-specific behaviour.
+Use `just --list` for all recipes, including the migrated Docker build, database
+cleanup/shell, container shell, and volume-removal commands.
 
 ### About the testsuite
 
@@ -125,7 +147,7 @@ troubles with the testsuite, feel free to mention it on your PR description.
 
 Unit tests are located within the files containing the code they are testing.
 
-Integration tests located in `./tests/` and run against the local docker-compose
+Integration tests located in `./tests/` and run against the local Docker Compose
 stack (see the [Building and running the server](#building-and-running-the-server)
 section above for details).
 

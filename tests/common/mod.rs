@@ -27,7 +27,7 @@ use tonic::{
 // re-export to simplify setting up test data in the test files
 pub use ratings::db::Category;
 
-// NOTE: these are set by the 'tests' Makefile target
+// NOTE: these are set by the `just integration-test` recipe
 const MOCK_ADMIN_URL: Option<&str> = option_env!("MOCK_ADMIN_URL");
 const HOST: Option<&str> = option_env!("HOST");
 const PORT: Option<&str> = option_env!("PORT");
@@ -63,8 +63,8 @@ impl TestHelper {
         Self {
             server_url: format!(
                 "http://{}:{}/",
-                HOST.expect("the integration tests need to be run using make integration-test"),
-                PORT.expect("the integration tests need to be run using make integration-test")
+                HOST.expect("the integration tests need to be run using just integration-test"),
+                PORT.expect("the integration tests need to be run using just integration-test")
             ),
             mock_admin_url: MOCK_ADMIN_URL.unwrap(),
             client: Client::new(),

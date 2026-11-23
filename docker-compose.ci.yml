@@ -1,0 +1,12 @@
+services:
+  ratings:
+    build:
+      context: .
+      dockerfile: docker/ci/Dockerfile
+    entrypoint: ["cargo", "run", "--locked"]
+
+  snapcraft-mock:
+    build:
+      context: .
+      dockerfile: docker/ci/Dockerfile
+    entrypoint: ["cargo", "run", "--locked"]

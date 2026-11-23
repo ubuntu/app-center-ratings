@@ -1,4 +1,4 @@
-# Workstation recipes. Provisioning and application tools live in justfile.vm.
+# Workstation build, Compose, and VM recipes. VM tools live in justfile.vm.
 set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
@@ -17,6 +17,82 @@ vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local
 # List workstation recipes; see doc/charming.md for first-time installation.
 default:
     @just --list
+
+# Build the release binary on the workstation, not inside Multipass.
+build:
+    cargo build --release
+
+docker-build:
+    docker build -f docker/prod/Dockerfile .
+
+# Start the Compose stack; `up` below still starts the Multipass VM.
+compose-up:
+    docker compose up
+
+up-detached *args:
+    docker compose up --detach "$@"
+
+down:
+    docker compose down
+
+# Unit tests only; no database or Compose stack is started.
+test:
+    cargo test --lib
+
+db-test:
+    APP_HOST='0.0.0.0' \
+        APP_PORT='8080' \
+        APP_JWT_SECRET='deadbeef' \
+        APP_SNAPCRAFT_IO_URI='localhost:11111/' \
+        APP_POSTGRES_URI='postgresql://migration_user:strongpassword@localhost:5432/ratings' \
+        cargo test --lib --features db_tests
+
+integration-test *args: clear-db-data
+    APP_JWT_SECRET='deadbeef' \
+        MOCK_ADMIN_URL='http://127.0.0.1:11111/__admin__/register-snap' \
+        HOST='0.0.0.0' \
+        PORT='8080' \
+        cargo test --test '*' "$@"
+
+test-all *args: db-test
+    just --justfile "{{ repo }}/justfile" integration-test "$@"
+
+wait-for-server:
+    @echo "Waiting for ratings server to start on port 8080..."
+    @until docker compose ps | grep -E '^ratings\s' | grep healthy; do \
+        echo "..."; \
+        sleep 1; \
+    done
+
+# Use the non-watching CI image; always tear down, including on startup/test failure.
+ci-test:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    export COMPOSE_FILE="{{ repo }}/docker-compose.yml:{{ repo }}/docker-compose.ci.yml"
+    trap 'just --justfile "{{ repo }}/justfile" down' EXIT
+    just --justfile "{{ repo }}/justfile" up-detached --build
+    just --justfile "{{ repo }}/justfile" wait-for-server
+    just --justfile "{{ repo }}/justfile" test-all
+
+clear-db-data:
+    docker compose exec -T db psql -U postgres ratings < tests/clear-db.sql
+
+rebuild-local:
+    docker compose build
+
+rm-db:
+    docker compose rm db
+    docker volume rm -f postgres_data
+
+rm-volumes:
+    docker volume rm -f target-cache
+    docker volume rm -f cargo-cache
+
+db-shell:
+    docker exec -it ratings-db psql -U postgres ratings
+
+ratings-shell:
+    docker exec -it ratings bash
 
 #[group("publish")]
 charm:

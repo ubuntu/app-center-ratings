@@ -27,6 +27,9 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
+      - name: Install just
+        run: sudo snap install just --classic --channel=latest/stable
+
       - name: Check code formating
         uses: mbrobbel/rustfmt-check@master
         with:
@@ -45,7 +48,9 @@ jobs:
           arguments: --locked
 
       - name: Setup and Run Tests
-        run: make ci-test DOCKER_COMPOSE="docker compose"
+        run: |
+          just lab-test
+          just ci-test
 
   publish:
     if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
