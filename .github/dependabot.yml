@@ -1,11 +1,32 @@
+# Dependabot opens one PR per group on the 1st of each month; each cargo PR covers both directories. Assignees get notified.
+# Merge or close them: GitHub pauses Dependabot when its PRs sit untouched for 90 days.
+# Security fixes are separate and need Dependabot security updates enabled in the repo settings.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
-      # Check for updates to GitHub Actions every week
-      interval: "weekly"
+      # Check for updates to GitHub Actions once a month
+      interval: "monthly"
+    assignees:
+      - "matthew-hagemann"
+    groups:
+      actions:
+        patterns: ["*"]
   - package-ecosystem: "cargo"
-    directory: "/"
+    directories: ["/", "/mock_server"]
     schedule:
-      interval: "weekly"
+      interval: "monthly"
+    assignees:
+      - "matthew-hagemann"
+    # Also update crates that only appear in Cargo.lock
+    allow:
+      - dependency-type: "all"
+    groups:
+      cargo-patch:
+        patterns: ["*"]
+        update-types: ["patch"]
+      # Cargo treats 0.x minor bumps as breaking, like majors, so both share one PR that may need code changes
+      cargo-minor-major:
+        patterns: ["*"]
+        update-types: ["minor", "major"]
