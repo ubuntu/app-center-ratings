@@ -38,10 +38,11 @@ jobs:
           reporter: "github-pr-review"
           github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Dependencies security audit
-        uses: actions-rust-lang/audit@v1
+      - name: Check dependency policies
+        uses: EmbarkStudios/cargo-deny-action@v2
         with:
-          ignore: RUSTSEC-2023-0071 # patch not available att
+          rust-version: stable
+          arguments: --locked
 
       - name: Setup and Run Tests
         run: make ci-test DOCKER_COMPOSE="docker compose"
