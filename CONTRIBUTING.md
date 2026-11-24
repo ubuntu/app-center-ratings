@@ -61,6 +61,17 @@ Once merged to the main branch, `po` files and any documentation change will be 
 
 ## Contributing to the code
 
+### Repository layout
+
+The [root README](README.md#repository-layout-and-guides) describes the monorepo.
+The Python charm lives in root `src/`, `lib/`, and `tests/`, alongside
+`charmcraft.yaml`, requirements locks, `pyproject.toml`, and `tox.ini`. The Rust
+crate, its tests, protos, SQL, rock, Docker/Compose files, mock server, snap, and
+`.env_files/` live under `ratings_rock/`. Root `justfile`, `justfile.vm`, and `dev/`
+remain the orchestration entry points. The reusable [Terraform module](terraform/README.md)
+lives in `terraform/`; environment-specific platform services, credentials, state,
+and deployment inputs belong to the consuming operations stack, not the module.
+
 ### Required dependencies
 
 * rust and cargo >= 1.69
@@ -96,12 +107,15 @@ sh /tmp/get-docker.sh
 
 ### Building and running the server
 
-For local development, `docker-compose.yml` runs the server alongside a local
-Postgres database for manual testing and execution of the integration test suite.
-The `justfile` in the root of the repo provides recipes for common project actions:
+For local development, `ratings_rock/docker-compose.yml` runs the server alongside
+a local Postgres database for manual testing and execution of the integration test
+suite. Run these `justfile` recipes from the repository root; they select the
+`ratings_rock/` working directory automatically. Compose explicitly retains the
+`app-center-ratings` project name so relocating the files does not select new
+project-scoped cache volumes:
 
 ```bash
-# To build the release artifact (located in ./target/release/ratings)
+# To build the release artifact (located in ./ratings_rock/target/release/ratings)
 just build
 
 # To start the local stack:
@@ -126,8 +140,9 @@ just ci-test
 just integration-test test_name -- --nocapture
 ```
 
-`just ci-test` layers `docker-compose.ci.yml` over the base Compose file and
-builds `docker/ci/Dockerfile`. This image installs the repository's `stable` Rust
+`just ci-test` layers `ratings_rock/docker-compose.ci.yml` over
+`ratings_rock/docker-compose.yml` and builds `ratings_rock/docker/ci/Dockerfile`
+with `ratings_rock/` as the build context. This image installs the crate's `stable` Rust
 toolchain and runs both the server and mock directly with `cargo run --locked`,
 without `cargo-watch`. CI waits for PostgreSQL readiness before starting the
 server, and for both the server and mock to be healthy before running tests.
@@ -144,16 +159,66 @@ run locally; `just vm build` / `just vm test` retain their VM-specific behaviour
 Use `just --list` for all recipes, including the migrated Docker build, database
 cleanup/shell, container shell, and volume-removal commands.
 
+Manual Rust commands must run from the crate directory, not root `src/` (which
+now contains the Python charm):
+
+```sh
+cd ratings_rock
+cargo build --release
+cargo test --lib
+cargo fmt --all -- --check
+# On a prepared Rockcraft/LXD build host, pack the workload here too:
+rockcraft pack
+```
+
+The crate's `build.rs` reads `proto/`, SQLx embeds `sql/migrations/`, and Compose
+uses the Docker files and `.env_files/` in this same directory. From the repository
+root those paths are `ratings_rock/proto/`, `ratings_rock/sql/migrations/`, and
+`ratings_rock/.env_files/`. The GitHub Actions Rust checks and rock pack action
+also select `ratings_rock/`; root `just ci-test` handles the relocated Compose files.
+
+### Charm development
+
+Use Python 3.12 and run charm commands from the repository root:
+
+```sh
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements-dev.txt
+.venv/bin/python -m pytest -q --cov=charm --cov-report=term-missing
+.venv/bin/ruff check src tests
+.venv/bin/ruff format --check src tests
+# Optional, with tox installed:
+tox -e lint,unit
+# On a prepared Charmcraft/LXD build host:
+charmcraft pack --platform amd64
+```
+
+The runtime and development requirements locks and `tox.ini` are at the root,
+not under `charm/`. The preserved virtual environment moved from `charm/.venv`
+to `.venv`; its activation scripts and executable shebangs may still point to the
+old absolute path. If you use `source .venv/bin/activate`, rebuild it first with
+`python3 -m venv --clear .venv` and reinstall `requirements-dev.txt`, then activate
+the new environment. Do not rely on moving the environment to repair those paths.
+
+Charm packing produces `app-center-ratings_amd64.charm` at the root. For the
+prepared Multipass lab, root `just vm charm-test`, `just vm charm-pack`, and
+`just vm rollout` use this checkout by default; the lab application is still
+named `ratings`. No sibling Container Runner checkout is required.
+`RATINGS_OPERATOR_REPO` remains an optional override for a compatible operator.
+See the [operator details](README.md#ratings-kubernetes-sidecar-operator) and
+[lab guide](doc/charming.md) for the full workflow and deployment safety boundaries.
+
 ### About the testsuite
 
 The project includes a comprehensive testsuite made of unit and integration
 tests. All the tests must pass before the review is considered. If you have
 troubles with the testsuite, feel free to mention it on your PR description.
 
-Unit tests are located within the files containing the code they are testing.
+Rust unit tests are located within the files containing the code they are testing
+under `ratings_rock/src/`. Offline Python charm tests live in root `tests/unit/`.
 
-Integration tests located in `./tests/` and run against the local Docker Compose
-stack (see the [Building and running the server](#building-and-running-the-server)
+Rust integration tests are located in `ratings_rock/tests/` and run against the
+local Docker Compose stack (see the [Building and running the server](#building-and-running-the-server)
 section above for details).
 
 The test suite must pass before merging the PR to our main branch. Any new

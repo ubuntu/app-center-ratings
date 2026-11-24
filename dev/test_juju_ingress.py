@@ -29,7 +29,7 @@ class FakeJuju:
 
     def __init__(self):
         self.models = {
-            ingress.MODEL: {"applications": {"ratings": app("ratings")}},
+            ingress.MODEL: {"applications": {"ratings": app("app-center-ratings")}},
             ingress.EDGE_MODEL: {"applications": {}},
         }
         self.models[ingress.MODEL]["applications"]["ratings"]["endpoint-bindings"] = {"traefik-route": "alpha"}
@@ -119,6 +119,17 @@ class IngressTests(unittest.TestCase):
         self.enterContext(patch.object(subprocess, "run", side_effect=AssertionError("external command")))
         self.enterContext(patch.object(ingress, "run", side_effect=self.fake.run))
         self.query = self.enterContext(patch.object(ingress, "juju_json", side_effect=self.fake.query))
+
+    def test_explicit_legacy_operator_name_remains_compatible(self):
+        self.fake.models[ingress.MODEL]["applications"]["ratings"]["charm-name"] = "ratings"
+        ingress.deploy()
+        self.assertTrue(self.fake.mutations)
+
+    def test_unrelated_ratings_charm_is_refused(self):
+        self.fake.models[ingress.MODEL]["applications"]["ratings"]["charm-name"] = "unrelated"
+        with self.assertRaises(ingress.LabError):
+            ingress.deploy()
+        self.assertEqual(self.fake.mutations, [])
 
     def test_exact_pinned_topology_and_noop_repeat(self):
         ingress.deploy()

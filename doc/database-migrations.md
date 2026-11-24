@@ -1,5 +1,12 @@
 # Database names and the initial migration
 
+Migration source files now live in
+[`ratings_rock/sql/migrations/`](../ratings_rock/sql/migrations/), relative to the
+repository root. SQLx's `sql/migrations` path remains relative to the Rust crate
+in `ratings_rock/`; use `cd ratings_rock` for manual Cargo or rock packing commands.
+The layout move does not change migration versions, SQL contents, or checksums;
+the checksum history and reconciliation procedure below are unchanged.
+
 Schema migrations use the database selected by `APP_POSTGRES_URI`; they do not
 create a database or manage its `CONNECT` permission. Juju/DBaaS owns that access.
 In PS7 staging the SQL database is **`stg-app-center-rating`**. Do not rename it to

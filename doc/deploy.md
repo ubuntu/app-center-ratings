@@ -5,8 +5,8 @@ resource**. No separate GHCR publication or registry pull secret is required.
 
 ## 1. Build and upload the charm
 
-Use this repository's Kubernetes sidecar charm in [`../charm/`](../charm/).
-From that directory, with a prepared Charmcraft/LXD environment:
+Use this repository's Kubernetes sidecar charm at the [root](../README.md).
+From the repository root, with a prepared Charmcraft/LXD environment:
 
 ```sh
 charmcraft pack
@@ -22,7 +22,8 @@ yet` after a successful upload from outside a project. Check
 ## 2. Publish the workload and release a compatible pair
 
 The `.charm` archive contains the operator, not the Rust service image. Build the
-rock from this repository's `rockcraft.yaml` and upload it as the charm's
+rock from [`ratings_rock/rockcraft.yaml`](../ratings_rock/rockcraft.yaml)
+(`cd ratings_rock` before manual `rockcraft pack`) and upload it as the charm's
 `ratings-image` OCI resource, either with CI or manually using Charmcraft 4.5+:
 
 ```sh
@@ -38,6 +39,13 @@ release commands, and the Terraform provider's revision-zero limitation.
 Uploading a resource or releasing a channel does not deploy it.
 
 ## 3. Review and apply the staging pins
+
+The reusable [`terraform/` module](../terraform/README.md) in this repository
+follows the [MediaWiki charm module layout](https://github.com/canonical/mediawiki-k8s-operator/tree/main/terraform)
+and declares only the Ratings application and its endpoint outputs. The consuming
+operations stack owns model lookup, provider credentials, remote state,
+DBaaS/PgBouncer, ingress, and observability. Its MediaWiki neighbour is the
+platform-integration reference; see the [staging plan](plan.md).
 
 Populate the operations repository's approved staging inputs:
 

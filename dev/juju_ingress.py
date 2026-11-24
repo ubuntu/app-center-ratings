@@ -10,7 +10,7 @@ import subprocess
 import sys
 import time
 
-from juju_rollout import LabError, health, juju_json, run
+from juju_rollout import LabError, RATINGS_CHARMS, health, juju_json, run
 
 CONTROLLER = "ratings-lxd"
 MODEL = "ratings-k8s:ratings-dev"
@@ -189,9 +189,9 @@ def integrate(model, relations):
 def deploy():
     check_model(MODEL, "caas", "k8s")
     current = status(MODEL)
-    if current["applications"].get("ratings", {}).get("charm-name") != "ratings":
+    if current["applications"].get("ratings", {}).get("charm-name") not in RATINGS_CHARMS:
         raise LabError("Deploy the Ratings sidecar first (normal rollout is unchanged)")
-    # The parent operator supplies this optional interface; do not modify that checkout here.
+
     endpoint = current["applications"]["ratings"].get("endpoint-bindings", {})
     if "traefik-route" not in endpoint:
         raise LabError("Refresh Ratings with the optional traefik-route requirement before ingress-deploy")

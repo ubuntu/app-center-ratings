@@ -2,11 +2,10 @@
 
 This guide uses a disposable **Ubuntu 24.04 amd64 VM** with Canonical Kubernetes,
 Juju, PostgreSQL, optional COS Lite, and Rust/charm/rock build tools. The Ratings
-sidecar charm is maintained at the root of
-[`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator)
-on the PS7 sidecar change (`vpmyx`, bookmark `feat/ps7`), not this application's
-former `charm/` directory. Juju owns the workload, database relation,
-configuration, shared JWT secret, and scaling. The default access path remains
+sidecar charm is maintained at this repository's [root](../README.md), and the
+Rust service and rock sources live in [`ratings_rock/`](../ratings_rock/README.md).
+No separate Container Runner checkout is required. Juju owns the workload,
+database relation, configuration, shared JWT secret, and scaling. The default access path remains
 local plaintext gRPC forwarding. An **opt-in ingress workflow** adds the same
 HAProxy edge → model-local Traefik → native Ratings gRPC stack used for PS7,
 with private lab CAs. Neither workflow is a production or HA deployment.
@@ -17,8 +16,10 @@ If the local environment is already installed, skip to
 for readiness. The default rollout also integrates logs with an existing COS
 Lite deployment; a no-COS rollout path is documented there too. Preparing the VM
 alone does not deploy Ratings. **After migrating an existing lab**, run
-`just up` and `just operator-mount` first to attach the standalone sidecar checkout;
-`just vm charm-test` then tests it without redeploying anything.
+`just up` and `just operator-mount` to validate the root charm; with the default
+configuration this adds no second mount. Unset any old `RATINGS_OPERATOR_REPO`
+override to use the root charm. `just vm charm-test` then tests it without
+redeploying anything.
 
 ## Contents
 
@@ -60,14 +61,15 @@ Concierge runs as root, initializes LXD, changes networking/iptables and group
 membership, and **overwrites the VM user's kubeconfig**. LXD socket access is
 root-equivalent; Kubernetes admin credentials and Juju `--trust` deployments are
 privileged too. Do not run this preparation on your everyday host or a shared
-cluster. Both mounted checkouts are writable from the VM: isolation does not protect
-host source files from VM edits. Keep important work committed or backed up.
+cluster. The mounted checkout (and any optional operator override) is writable
+from the VM: isolation does not protect host source files from VM edits. Keep
+important work committed or backed up.
 
-The existing [`../docker-compose.yml`](../docker-compose.yml) has three services:
+The existing [`../ratings_rock/docker-compose.yml`](../ratings_rock/docker-compose.yml) has three services:
 `db` (PostgreSQL, port 5432), `ratings` (gRPC, port 8080), and `snapcraft-mock`
 (port 11111). Ratings needs database credentials, a JWT signing secret, and a
 Snap Store API URL. It runs SQL migrations before starting the server.
-[`../src/main.rs`](../src/main.rs) writes structured JSON logs to stdout; it does
+[`../ratings_rock/src/main.rs`](../ratings_rock/src/main.rs) writes structured JSON logs to stdout; it does
 not export OTLP traces or expose a Prometheus application-metrics endpoint.
 Compose remains a separate development/integration-test workflow; Docker is not
 a requirement for this VM lab, and these helpers do not start the Compose stack.
@@ -76,29 +78,33 @@ a requirement for this VM lab, and these helpers do not start the Compose stack.
 
 Assumes snapd already installed.
 
-Keep the application and operator as sibling checkouts:
+Use a single `app-center-ratings` checkout with the completed monorepo layout:
 
 ```text
 Work/
   app-center-ratings/
-  container-runner-operator/
+    charmcraft.yaml, src/, lib/, tests/   Python charm
+    requirements*.txt, tox.ini           Root charm dependencies and tests
+    ratings_rock/                        Cargo, proto, SQL, rock, Docker/Compose, mock, snap
+    terraform/                           Reusable Ratings application module
+    justfile, justfile.vm, dev/           Orchestration
 ```
 
-The operator checkout must contain the migrated **Kubernetes sidecar at its root**
-(currently local jj change `vpmyx`, bookmark `feat/ps7`). Its `main` branch is the
-legacy machine charm and is not compatible. A plain clone of upstream `main` is
-not enough; obtain the sidecar change/branch through the team's source workflow.
-This guide does not assume that the local branch has already been published.
-No recipe switches branches or edits jj changes for you.
+See the [root overview](../README.md#repository-layout-and-guides) for the full
+layout. The reusable [Terraform module](../terraform/README.md) follows the
+[MediaWiki charm module layout](https://github.com/canonical/mediawiki-k8s-operator/tree/main/terraform).
+Environment-specific model lookup, credentials, remote state, DBaaS/PgBouncer,
+ingress, and observability belong to the consuming operations stack; they are
+not required to run this local lab.
 
-By default, the host uses the sibling `container-runner-operator` directory. Set
-`RATINGS_OPERATOR_REPO` to another host checkout path if necessary. The host
-resolves it to an absolute path and mounts it at
-`/home/ubuntu/container-runner-operator`; VM recipes receive that VM path rather
-than the host path. When running recipes directly in a VM shell, the same
-variable refers to a **VM-accessible** checkout path.
+By default, `operator_repo` is this repository root. `RATINGS_OPERATOR_REPO` is
+retained only as an optional **compatible Kubernetes sidecar** override. If set,
+the host resolves that path to an absolute path and mounts the alternate checkout
+at `/home/ubuntu/ratings-operator`; VM recipes receive that VM path, not the host
+path. In a VM shell the variable must refer to a **VM-accessible** path. The legacy
+Container Runner machine charm is not compatible, and no recipe switches branches.
 
-**HOST, after obtaining both checkouts:** install the prerequisites:
+**HOST, from the `app-center-ratings` root:** install the prerequisites:
 
 ```sh
 sudo snap install just --classic --channel=latest/stable
@@ -133,13 +139,15 @@ just vm rust
 ```
 
 `create` launches Ubuntu 24.04 if absent, or starts the existing VM, and mounts
-this checkout at `/home/ubuntu/app-center-ratings` and the sidecar operator at
-`/home/ubuntu/container-runner-operator`, using Multipass's **classic SSHFS mounts**.
-It reuses matching mounts and refuses to replace a different source. For an
-already-created lab, run `just up` then `just operator-mount` to add just the
-operator mount without reprovisioning or deploying. This is the portability choice, not the native mount from some
-upstream tutorials. Resource variables apply at launch; they do not resize an
-existing VM. Do not replace or purge another VM to resolve a naming conflict.
+this checkout at `/home/ubuntu/app-center-ratings`, using Multipass's **classic
+SSHFS mount**. It reuses matching mounts and refuses to replace a different source.
+The root charm shares that mount; only an explicit `RATINGS_OPERATOR_REPO` override
+adds `/home/ubuntu/ratings-operator`. For an already-created lab, `just up` then
+`just operator-mount` validates the root charm (or attaches the explicit override)
+without reprovisioning or deploying. This is the portability choice, not the
+native mount from some upstream tutorials. Resource variables apply at launch;
+they do not resize an existing VM. Do not replace or purge another VM to resolve
+a naming conflict.
 
 `bootstrap` installs VM `ca-certificates`, `curl`, `git`, `python3`, `snapd`, and
 `just` if needed, then runs `just -f justfile.vm prepare` in the mounted checkout.
@@ -240,22 +248,25 @@ just vm rock
 ```
 
 `charm-test` installs the locked development dependencies into a VM-local venv
-under `~/ratings-lab-artifacts/test-venv`, then runs the charm's pytest suite and
-Ruff lint. Dependency installation needs network access; the tests themselves
-use fake Juju/Pebble data, not a live deployment.
+under `~/ratings-lab-artifacts/test-venv`, using root `requirements-dev.txt`, then
+runs the root charm's pytest suite and Ruff lint. Dependency installation needs
+network access; the tests themselves use fake Juju/Pebble data, not a live deployment.
 
-`build` runs `cargo build --release`; `test` runs `cargo test --lib`, with
-`CARGO_TARGET_DIR` under `/home/ubuntu/.cache/ratings/target` rather than the
-host-mounted `target/`. Database-feature tests are ignored by default; passing
-unit tests does not verify a working database, gRPC deployment, or integration
+`build` runs `cargo build --locked --release`; `test` runs `cargo test --locked --lib`
+from `ratings_rock/`, with `CARGO_TARGET_DIR` under
+`/home/ubuntu/.cache/ratings/target` rather than the host-mounted
+`ratings_rock/target/`. Manual Cargo commands require `cd ratings_rock`; root
+`just build` / `just test` also select the crate directory automatically.
+Database-feature tests are ignored by default; passing unit tests does not verify a working database, gRPC deployment, or integration
 suite. See [`../CONTRIBUTING.md`](../CONTRIBUTING.md) for the existing Compose tests.
 
-`rock` copies sources into `/home/ubuntu/.cache/ratings/rock-src` with rsync,
-excluding `.git`, root and mock build targets, generated `.rock`/`.charm`
-archives, `.local/`, and `charm/`, then runs `rockcraft pack`. This avoids building
-directly over SSHFS. The full rollout also builds the rock, so a separate `rock`
-invocation is optional.
-[`../rockcraft.yaml`](../rockcraft.yaml) targets amd64, uses `base: bare`
+`rock` copies only `ratings_rock/` into `/home/ubuntu/.cache/ratings/rock-src` with
+rsync, excluding source-control files, crate and mock build targets, generated
+`.rock`/`.charm` archives, and `.local/`, then runs `rockcraft pack`. The root Python
+charm, Terraform module, and orchestration files are outside that source tree.
+This avoids building directly over SSHFS. The full rollout also builds the rock,
+so a separate `rock` invocation is optional.
+[`../ratings_rock/rockcraft.yaml`](../ratings_rock/rockcraft.yaml) targets amd64, uses `base: bare`
 and `build-base: ubuntu@24.04`, runs as `_daemon_`, and defines an enabled Pebble
 service named `ratings` executing `/bin/ratings`. A packed `.rock` is **not** a
 `.charm`, a published registry image, or an application deployment. Deployment
@@ -416,7 +427,7 @@ The full recipe runs these stages in order:
 | --- | --- |
 | `postgres` | Create/reuse models and PostgreSQL; do not automatically upgrade an existing provider |
 | `rock` | Build the Ratings workload rock from VM-local sources |
-| `charm-pack` | Pack the standalone operator checkout via a VM-local source copy |
+| `charm-pack` | Pack the root charm (or explicit compatible override) via a VM-local source copy |
 | `ratings-image` | Run `ratings-registry`, publish the rock, and record a digest-pinned OCI reference |
 | `ratings-deploy` | Deploy one Ratings unit, or refresh the existing application; integrate its database |
 | `ratings-observability` | Create/reuse the cross-model Loki logging integration; do not deploy COS |
@@ -464,17 +475,18 @@ All paths below are **inside the VM**, not in the host's mounted checkout:
 | --- | --- |
 | `/home/ubuntu/.cache/ratings/rock-src` | VM-local rock build tree and `.rock` archive |
 | `/home/ubuntu/.cache/ratings/charm-src` | VM-local charm build tree and native pack output |
-| `/home/ubuntu/ratings-lab-artifacts/ratings_amd64.charm` | Copied deployment archive readable by snapped Juju |
+| `/home/ubuntu/ratings-lab-artifacts/app-center-ratings_amd64.charm` | Copied deployment archive readable by snapped Juju |
 | `/home/ubuntu/ratings-lab-artifacts/image.json` | Published image reference, source rock path, and archive checksum |
 | `/var/lib/ratings-registry` | Persistent VM-local registry image storage |
 
 The non-hidden **`~/ratings-lab-artifacts`** directory is intentional: strictly
 confined Juju cannot read deployment archives under `~/.cache`. Do not move the
 handoff back into `.cache` or disable snap confinement to work around that.
-`charm-pack` defaults to the external operator checkout at
-`/home/ubuntu/container-runner-operator` (override its VM-visible source with
-`RATINGS_OPERATOR_REPO` or the explicit directory argument). It rejects the
-legacy machine checkout, excludes source-control/build/test caches when syncing,
+`charm-pack` defaults to the root charm at `/home/ubuntu/app-center-ratings`
+(override its VM-visible source with `RATINGS_OPERATOR_REPO` or the explicit
+directory argument). The default charm name is `app-center-ratings`; the lab
+application remains `ratings`. It rejects incompatible charm metadata, excludes
+`ratings_rock/`, `terraform/`, and source-control/build/test caches when syncing,
 and runs
 `sudo -n charmcraft pack --destructive-mode --platform amd64` from its VM-local
 copy. This native build can install APT development dependencies on the disposable
@@ -537,14 +549,17 @@ upgrade or a reversible schema migration.
 
 ### Charm interfaces
 
-Use the standalone sidecar project at the root of
-[`container-runner-operator`'s PS7 branch](https://github.com/canonical/container-runner-operator),
-not upstream's legacy machine `main` or a generated starter charm.
+Use the sidecar project at this repository's [root](../README.md), not a legacy
+Container Runner machine charm or a generated starter charm. Its charm name is
+`app-center-ratings`; the lab Juju application stays `ratings`.
 It declares Ubuntu 24.04/amd64 and requires Juju **3.6.4+**. The workload container
 and Pebble service are both named `ratings`; the image resource is
 **`ratings-image`**. The image is not bundled inside the `.charm` archive.
-See the operator checkout's `README.md` and `CONTRIBUTING.md` for packing, tests,
-and the full operator lifecycle.
+See the root [README](../README.md) and [CONTRIBUTING.md](../CONTRIBUTING.md) for
+packing, root Python requirements/tox commands, tests, and the full operator
+lifecycle. The preserved `.venv` moved from `charm/.venv` to root `.venv`; recreate
+it and reinstall `requirements-dev.txt` before using `source .venv/bin/activate`
+if its scripts still contain the old absolute path.
 
 | Charm endpoint | Purpose |
 | --- | --- |
@@ -647,14 +662,14 @@ or the matching Linux amd64 binary from its
 [releases](https://github.com/fullstorydev/grpcurl/releases), and put it on your
 PATH. It is not installed by `just host-install` or VM preparation. The server
 does **not** enable gRPC reflection, so supply the repository's actual protos
-with `-import-path proto -proto ...`; reflection-based `grpcurl list` is not a
+with `-import-path ratings_rock/proto -proto ...`; reflection-based `grpcurl list` is not a
 health check for this service.
 
 From the repository root, authenticate without a Bearer header:
 
 ```sh
 grpcurl -plaintext -max-time 10 \
-  -import-path proto -proto ratings_features_user.proto \
+  -import-path ratings_rock/proto -proto ratings_features_user.proto \
   -d '{"id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}' \
   127.0.0.1:8080 ratings.features.user.User/Authenticate
 ```
@@ -674,7 +689,7 @@ history, then make a read-only authenticated query:
 read -r -s -p 'Paste the returned token: ' RATINGS_TOKEN
 printf '\n'
 grpcurl -plaintext -max-time 10 \
-  -import-path proto -proto ratings_features_app.proto \
+  -import-path ratings_rock/proto -proto ratings_features_app.proto \
   -H "authorization: Bearer $RATINGS_TOKEN" \
   -d '{"snap_ids":["ratings-lab-smoke-check"]}' \
   127.0.0.1:8080 ratings.features.app.App/GetBulkRatings
@@ -714,9 +729,8 @@ model layout, the database relation, or the COS Traefik. It adds ingress apps to
 `ratings-k8s:ratings-dev` and a separate **`ratings-lxd:ratings-edge`** machine model.
 
 **Prerequisites and scope:** finish the normal Ratings deployment first. Refresh
-with the sibling sidecar charm implementing optional `traefik-route` and
-`external-hostname` (default empty) before enabling ingress. This repository does
-not implement or edit that charm. Its route must use a `Host` rule for `ratings.localhost`,
+with the root sidecar charm implementing optional `traefik-route` and
+`external-hostname` (default empty) before enabling ingress. Its route must use a `Host` rule for `ratings.localhost`,
 `websecure`, TLS, and `h2c://ratings:8080`. It must not add path prefixes or
 StripPrefix middleware: **`/ratings.features.user.User/Authenticate`** and the
 other native method paths must arrive unchanged. Traefik's upstream integration
@@ -820,8 +834,8 @@ just ingress                 # host 127.0.0.1:8443 -> LXD HAProxy:443; Ctrl-C st
 `ingress-ca` runs only `edge-certificates/leader get-ca-certificate`, captures the
 JSON privately, validates the public PEM, and atomically writes
 **`dev/build/ingress/edge-ca.pem`** on the host. Existing files survive failed or
-empty exports. `dev/build/` is already ignored by the repository's `build/` rule and excluded
-from the rock build's source copy. No kubeconfig, TLS private key, Juju secret, or action dump is printed/exported.
+empty exports. `dev/build/` is already ignored by the repository's `build/` rule and is outside
+`ratings_rock/`, so it is not included in the rock build's source copy. No kubeconfig, TLS private key, Juju secret, or action dump is printed/exported.
 Re-export after rebuilding the lab or intentionally rotating the edge CA.
 
 `just ingress` generates a dedicated unencrypted SSH key under that same ignored
@@ -852,7 +866,7 @@ TLS authority or bypass certificate verification. An equivalent grpcurl call
 
 ```sh
 grpcurl -cacert dev/build/ingress/edge-ca.pem -max-time 10 \
-  -import-path proto -proto ratings_features_user.proto \
+  -import-path ratings_rock/proto -proto ratings_features_user.proto \
   -d '{"id":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"}' \
   ratings.localhost:8443 ratings.features.user.User/Authenticate
 ```
@@ -912,7 +926,8 @@ secret is not a rotation mechanism and stops the workload. Treat database/JWT
 values in Pebble's environment as sensitive: do not share unredacted environment
 dumps, Pebble plans, or debug logs.
 
-**Validation scope:** the complete `just vm rollout` succeeded against the local
+**Previously recorded validation scope (before this layout move):** the complete
+`just vm rollout` succeeded against the local
 Juju 3.6.29 / Kubernetes 1.32 lab, including an image refresh. Host-side gRPC
 Authenticate, an authenticated database read, rejection without authorization,
 and smoke-identity cleanup passed. Two units reached Active/Idle and a JWT issued
@@ -940,8 +955,8 @@ just stop
 | Host command | Effect |
 | --- | --- |
 | `just host-install` | Install host prerequisites after `just` is available |
-| `just create` / `just bootstrap` | Launch/start + mount both checkouts / prepare VM |
-| `just operator-mount` | Add/reuse the standalone sidecar checkout mount in an existing lab |
+| `just create` / `just bootstrap` | Launch/start + mount this checkout (plus any explicit override) / prepare VM |
+| `just operator-mount` | Validate the root charm, or add/reuse an explicit compatible-operator override mount |
 | `just up` / `just stop` / `just shell` | Bring lab up / stop it / open VM shell |
 | `just vm <recipe> [args...]` | Execute `justfile.vm` with VM tool PATH |
 | `just kubeconfig` / `just kubectl ...` | Export dedicated admin file / use it |
@@ -984,7 +999,7 @@ Deletion permanently removes the selected VM's state/snapshots; verify `RATINGS_
 - API failures: use `just info`, regenerate kubeconfig, and check VM IP/firewall/VPN access to TCP 6443. Do not disable API TLS verification.
 - Pending pods: inspect events/storage/resources with `just kubectl get pods -A` and `just kubectl -n <namespace> describe pod <pod-name>` using actual names.
 - Ratings waiting/blocked or a readiness timeout: inspect `just vm ratings-status`, `just vm ratings-logs 100`, and pod events in `ratings-dev`. Check the `ratings:database` relation, PostgreSQL readiness, charm configuration, and image-pull events before changing resources. A TCP-ready listener does not establish that later DB/Snap Store requests will succeed. Diagnose Juju hook errors with `just vm juju debug-log -m ratings-k8s:ratings-dev --replay --no-tail`; do not repeatedly rebuild the image to retry a failed hook.
-- Artifact permission denied: `ratings-deploy` uses `/home/ubuntu/ratings-lab-artifacts/ratings_amd64.charm`, not the hidden `.cache` build output. Re-run `just vm charm-pack` to refresh that handoff, rather than weakening snap confinement.
+- Artifact permission denied: `ratings-deploy` uses `/home/ubuntu/ratings-lab-artifacts/app-center-ratings_amd64.charm`, not the hidden `.cache` build output. Re-run `just vm charm-pack` to refresh that handoff, rather than weakening snap confinement.
 - Image/registry failures: `ratings-image` expects one default rock or an explicit VM-side archive path. Inspect the VM's `ratings-registry.service` and registry/containerd configuration before changing exposure; the helper intentionally refuses unmanaged config and multi-node clusters. Do not bind the unauthenticated registry to `0.0.0.0` as a workaround.
 - Logging integration failures: `ratings-observability` requires COS application `loki` in `ratings-k8s:cos-lite`. Inspect that model, the `ratings-logs` offer, and `ratings-loki` consumer alias; do not repoint unrelated offers. Either deploy COS intentionally or use the no-COS rollout sequence.
 - gRPC failures: keep the host port-forward running and use `-plaintext`, the local proto, and a 64-character Authenticate `id`. Missing/expired Bearer metadata fails protected RPCs; reflection being unavailable is expected. Snap Store failures require checking workload egress and `snap-store-url`, not weakening Kubernetes API TLS.

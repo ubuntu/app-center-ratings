@@ -38,6 +38,18 @@ class SmokeTransportTests(unittest.TestCase):
         self.grpc.secure_channel.assert_called_once_with("ratings.localhost:8443", credentials)
         self.grpc.insecure_channel.assert_not_called()
 
+    def test_proto_codegen_uses_application_subdirectory(self):
+        self.tools.protoc.main.return_value = 42
+        with patch.object(sys, "argv", ["grpc_smoke.py"]):
+            self.assertEqual(self.smoke.main(), 42)
+        args = self.tools.protoc.main.call_args.args[0]
+        proto = Path(__file__).resolve().parents[1] / "ratings_rock" / "proto"
+        self.assertIn(f"-I{proto}", args)
+        self.assertEqual(args[-3:], [
+            str(proto / f"ratings_features_{name}.proto") for name in ("user", "common", "app")
+        ])
+        self.grpc.insecure_channel.assert_not_called()
+
     def test_ca_file_is_passed_as_tls_roots(self):
         with tempfile.TemporaryDirectory() as directory:
             ca = Path(directory) / "edge-ca.pem"

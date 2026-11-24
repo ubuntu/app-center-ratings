@@ -3,9 +3,9 @@
 We use **Charmhub only** for the operator and its workload image. There is no
 separate GHCR push or GHCR pull credential to configure.
 
-- [`../charm/charmcraft.yaml`](../charm/charmcraft.yaml) defines the
+- [`../charmcraft.yaml`](../charmcraft.yaml) defines the
   `app-center-ratings` Kubernetes sidecar charm and its `ratings-image` OCI resource.
-- [`../rockcraft.yaml`](../rockcraft.yaml) builds the Rust service, Pebble, and SQL
+- [`../ratings_rock/rockcraft.yaml`](../ratings_rock/rockcraft.yaml) builds the Rust service, Pebble, and SQL
   migrations into an amd64 `.rock` OCI archive.
 - Charmcraft uploads that image to Canonical's registry and registers a Charmhub
   resource revision. The `.charm` archive itself does not contain the workload image.
@@ -54,8 +54,7 @@ access to Charmhub and its OCI/resource-delivery endpoints.
 
 ## 2. Build and upload the operator
 
-From this repository's `charm/` directory, with a configured Charmcraft/LXD build
-environment:
+From this repository's root, with a configured Charmcraft/LXD build environment:
 
 ```sh
 charmcraft pack
@@ -82,7 +81,9 @@ The `publish` job in [`../.github/workflows/ci.yaml`](../.github/workflows/ci.ya
 
 1. Waits for the existing Rust build/lint/test job to pass.
 2. Checks that `CHARMCRAFT_AUTH` is configured, then builds the amd64 rock with
-   Rockcraft in LXD on Ubuntu 24.04.
+   Rockcraft in LXD on Ubuntu 24.04. The rock pack action uses `path: ratings_rock`;
+   the upload step uses its returned `steps.rockcraft.outputs.rocks` archive path,
+   not an assumed root-level `.rock` path.
 3. Installs Charmcraft and runs:
 
    ```sh
@@ -93,7 +94,9 @@ The `publish` job in [`../.github/workflows/ci.yaml`](../.github/workflows/ci.ya
 4. Records the returned resource revision in the run summary, the job's
    `image-revision` output, and `ratings-image-revision.txt` in the
    `ratings-image-<full-commit-sha>` workflow artifact. The artifact also includes
-   Charmcraft's `charmhub-resource.json` response. The run identifies the source commit.
+   Charmcraft's `charmhub-resource.json` response. Both metadata files are written
+   and uploaded from the repository root; the `.rock` path comes from the pack
+   action. The run identifies the source commit.
 
 Publication runs after a **push to `main`**, or manually from **Actions → CI →
 Run workflow**, selecting **`main`**. Pull requests and manual runs on other
@@ -107,7 +110,7 @@ artifact you intend to deploy.
 
 ### Manual alternative
 
-Build using the prepared lab from [`charming.md`](charming.md):
+From the repository root, build using the prepared lab from [`charming.md`](charming.md):
 
 ```sh
 just rock
@@ -124,9 +127,10 @@ charmcraft upload-resource app-center-ratings ratings-image \
 ```
 
 Use the filename/version actually built. Alternatively, run `rockcraft pack` at
-the application repository's root on an existing Rockcraft/LXD build host, then
-pass the resulting `.rock` file to `--image`. Do **not** use `--filepath`: that
-uploads a file resource rather than an OCI image resource.
+`ratings_rock/` on an existing Rockcraft/LXD build host (`cd ratings_rock` from
+this repository's root), then pass the resulting `.rock` file to `--image`.
+Do **not** use `--filepath`: that uploads a file resource rather than an OCI image
+resource.
 
 Inspect resource revisions with:
 
@@ -154,6 +158,12 @@ model deployment. Charm and resource revisions are independent; neither is the
 rock version, Git commit, image digest, or `.rock` file checksum.
 
 ## 5. Deploy the pinned pair through the operations repository
+
+The reusable [Ratings application module](../terraform/README.md) lives in this
+repository's `terraform/`, following the MediaWiki charm module layout. The
+consuming operations stack owns the environment-specific model lookup, credentials,
+state, database/PgBouncer, ingress, observability, and artifact pins. Keep those
+settings out of the reusable module.
 
 Set the reviewed staging inputs in:
 

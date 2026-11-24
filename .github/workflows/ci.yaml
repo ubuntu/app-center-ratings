@@ -30,22 +30,23 @@ jobs:
       - name: Install just
         run: sudo snap install just --classic --channel=latest/stable
 
-      - name: Check code formating
-        uses: mbrobbel/rustfmt-check@master
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Check code formatting
+        working-directory: ratings_rock
+        run: cargo fmt --all -- --check
 
       - name: Clippy linting
         uses: giraffate/clippy-action@v1
         with:
           reporter: "github-pr-review"
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          workdir: ratings_rock
 
       - name: Check dependency policies
         uses: EmbarkStudios/cargo-deny-action@v2
         with:
           rust-version: stable
           arguments: --locked
+          manifest-path: ratings_rock/Cargo.toml
 
       - name: Setup and Run Tests
         timeout-minutes: 30
@@ -84,6 +85,7 @@ jobs:
         id: rockcraft
         with:
           channel: latest/stable
+          path: ratings_rock
 
       - name: Install Charmcraft
         run: |

@@ -1,3 +1,5 @@
+name: app-center-ratings
+
 services:
   db:
     container_name: ratings-db

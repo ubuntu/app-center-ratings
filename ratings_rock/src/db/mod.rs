@@ -132,7 +132,9 @@ mod tests {
             .unwrap();
         let checksum = Sha384::digest(initial.sql.as_bytes());
         assert_eq!(initial.checksum.as_ref(), checksum.as_slice());
-        assert!(include_str!("../../doc/database-migrations.md").contains(&format!("{checksum:x}")));
+        assert!(
+            include_str!("../../../doc/database-migrations.md").contains(&format!("{checksum:x}"))
+        );
     }
 
     #[cfg_attr(not(feature = "db_tests"), ignore)]

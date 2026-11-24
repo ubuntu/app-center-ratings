@@ -3,7 +3,7 @@ set shell := ["bash", "-euo", "pipefail", "-c"]
 set positional-arguments
 
 repo := justfile_directory()
-operator_repo := env_var_or_default("RATINGS_OPERATOR_REPO", parent_directory(repo) / "container-runner-operator")
+operator_repo := absolute_path(env_var_or_default("RATINGS_OPERATOR_REPO", repo))
 controller := "ratings-k8s"
 app_model := controller + ":ratings-dev"
 cos_model := controller + ":cos-lite"
@@ -48,10 +48,12 @@ rust:
     rustup default stable
 
 # Release binary is VM-local, not in the host's mounted target directory.
+[working-directory: "ratings_rock"]
 build:
     CARGO_TARGET_DIR="{{ target_dir }}" cargo build --locked --release
 
 # Unit tests only; this does not start a DB or run the Compose integration suite.
+[working-directory: "ratings_rock"]
 test:
     CARGO_TARGET_DIR="{{ target_dir }}" cargo test --locked --lib
 
@@ -60,7 +62,7 @@ rock:
     #!/usr/bin/env bash
     set -euo pipefail
     mkdir -p "{{ rock_source }}"
-    rsync -a --delete --exclude '/.git/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' --exclude '/dev/build/' --exclude '/charm/' "{{ repo }}/" "{{ rock_source }}/"
+    rsync -a --delete --exclude '/.git/' --exclude '/.jj/' --exclude '/target/' --exclude '/mock_server/target/' --exclude '*.rock' --exclude '*.charm' --exclude '/.local/' "{{ repo }}/ratings_rock/" "{{ rock_source }}/"
     cd "{{ rock_source }}"
     rockcraft pack
     printf '\nRock archives are in %s; they have not been pushed to a registry or deployed.\n' "{{ rock_source }}"
@@ -152,21 +154,25 @@ charm-init directory:
     fi
     charmcraft init --name ratings-k8s --project-dir "$1"
 
-# Pack the external operator on the disposable VM; no host-side APT changes.
+# Pack the root charm (or an explicit operator override) on the disposable VM.
 charm-pack directory=operator_repo:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! grep -qx 'name: ratings' "$1/charmcraft.yaml"; then
-        printf 'Expected the standalone Ratings sidecar at %s. On the host run just operator-mount with the feat/ps7 checkout.\n' "$1" >&2
-        exit 1
+    charm_name=$(sed -n 's/^name: //p' "$1/charmcraft.yaml")
+    case "$charm_name" in
+        app-center-ratings|ratings) ;;
+        *) printf 'Expected a Ratings charm at %s; check charmcraft.yaml.\n' "$1" >&2; exit 1 ;;
+    esac
+    if [ "$1" = "{{ repo }}" ]; then
+        grep -qx 'name: app-center-ratings' "$1/charmcraft.yaml"
     fi
     mkdir -p "{{ charm_source }}" "{{ rollout_dir }}"
     sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"
     trap 'sudo -n chown -R "$(id -u):$(id -g)" "{{ charm_source }}" "{{ rollout_dir }}"' EXIT
-    rsync -a --delete --exclude '/parts/' --exclude '/prime/' --exclude '/stage/' --exclude '/overlay/' --exclude '/.git/' --exclude '/.jj/' --exclude '.venv/' --exclude '.tox/' --exclude '.pytest_cache/' --exclude '.ruff_cache/' --exclude '__pycache__/' --exclude '.coverage' --exclude 'coverage.xml' --exclude 'htmlcov/' --exclude '*.charm' "$1/" "{{ charm_source }}/"
+    rsync -a --delete --exclude '/parts/' --exclude '/prime/' --exclude '/stage/' --exclude '/overlay/' --exclude '/.git/' --exclude '/.jj/' --exclude '.venv/' --exclude '.tox/' --exclude '.pytest_cache/' --exclude '.ruff_cache/' --exclude '__pycache__/' --exclude '.coverage' --exclude 'coverage.xml' --exclude 'htmlcov/' --exclude '*.charm' --exclude '*.rock' --exclude '/ratings_rock/' --exclude '/terraform/' --exclude '/target/' --exclude '/dev/build/' --exclude '/.local/' --exclude '/.cache/' --exclude 'venv/' --exclude 'virtualenv/' --exclude 'test-venv/' --exclude '/build/' --exclude '/artifacts/' --exclude '/ratings-lab-artifacts/' "$1/" "{{ charm_source }}/"
     cd "{{ charm_source }}"
     sudo -n charmcraft pack --destructive-mode --platform amd64
-    install -m 0644 "{{ charm_source }}/ratings_amd64.charm" "{{ rollout_dir }}/ratings_amd64.charm"
+    install -m 0644 "{{ charm_source }}/${charm_name}_amd64.charm" "{{ rollout_dir }}/app-center-ratings_amd64.charm"
 
 # Install a VM-loopback OCI registry and scoped containerd hosts configuration.
 ratings-registry:
@@ -188,7 +194,7 @@ ratings-image rock="": ratings-registry
 
 # Deploy/refresh packaged Ratings and integrate its dedicated PostgreSQL database.
 ratings-deploy:
-    {{ rollout }} deploy "{{ rollout_dir }}/ratings_amd64.charm"
+    {{ rollout }} deploy "{{ rollout_dir }}/app-center-ratings_amd64.charm"
 
 # Cross-model Juju integration for native Pebble workload log forwarding to Loki.
 ratings-observability:
@@ -227,9 +233,12 @@ ingress-status:
 charm-test directory=operator_repo:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! grep -qx 'name: ratings' "$1/charmcraft.yaml"; then
-        printf 'Expected the standalone Ratings sidecar at %s; mount the feat/ps7 checkout with just operator-mount on the host.\n' "$1" >&2
+    if ! grep -Eq '^name: (app-center-ratings|ratings)$' "$1/charmcraft.yaml"; then
+        printf 'Expected a Ratings charm at %s; check charmcraft.yaml.\n' "$1" >&2
         exit 1
+    fi
+    if [ "$1" = "{{ repo }}" ]; then
+        grep -qx 'name: app-center-ratings' "$1/charmcraft.yaml"
     fi
     python3 -m venv "{{ rollout_dir }}/test-venv"
     "{{ rollout_dir }}/test-venv/bin/pip" install -r "$1/requirements-dev.txt"

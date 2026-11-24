@@ -43,7 +43,7 @@ def main():
 
     root = Path(__file__).resolve().parent.parent
     with tempfile.TemporaryDirectory(prefix="ratings-grpc-") as temporary:
-        proto = root / "proto"
+        proto = root / "ratings_rock" / "proto"
         builtins = Path(grpc_tools.__file__).parent / "_proto"
         code = protoc.main(
             [

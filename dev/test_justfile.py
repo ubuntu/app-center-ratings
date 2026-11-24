@@ -39,8 +39,17 @@ SQL = "TRUNCATE TABLE regression_fixture;\n"
 MOCK = """import json, os, sys
 from pathlib import Path
 argv = [Path(sys.argv[0]).name, *sys.argv[1:]]
+if argv[0] == "python3" and argv[1:2] == ["-c"]:
+    os.execv(sys.executable, [sys.executable, *sys.argv[1:]])
+if argv[:3] == ["python3", "-m", "venv"]:
+    directory = Path(argv[3]) / "bin"
+    directory.mkdir(parents=True, exist_ok=True)
+    for name in ("pip", "python", "ruff"):
+        executable = directory / name
+        executable.write_text(Path(__file__).read_text())
+        executable.chmod(0o755)
 keys = %r
-event = {"argv": argv, "env": {k: os.environ[k] for k in keys if k in os.environ}}
+event = {"argv": argv, "cwd": os.getcwd(), "env": {k: os.environ[k] for k in keys if k in os.environ}}
 if argv == %r:
     event["stdin"] = sys.stdin.read()
 with open(os.environ["MOCK_LOG"], "a") as log:
@@ -52,27 +61,38 @@ for phase, (command, status) in %r.items():
     if matches and phase in os.environ.get("MOCK_DOCKER_FAIL", "").split(","):
         print("mock docker failure: " + phase, file=sys.stderr)
         sys.exit(status)
+if argv[:2] == ["multipass", "info"]:
+    print(os.environ.get("MOCK_VM_INFO", "{}"))
+if argv[:4] == ["sudo", "-n", "charmcraft", "pack"]:
+    Path(os.environ["MOCK_CHARM_NAME"] + "_amd64.charm").write_bytes(b"mock charm")
 if argv[0] == "cargo":
     phase = "db" if "db_tests" in argv else "integration"
     if os.environ.get("MOCK_CARGO_FAIL") == phase:
         print("mock cargo failure: " + phase, file=sys.stderr)
         sys.exit(23)
-""" % ([*list(DB_ENV | INTEGRATION_ENV), "COMPOSE_FILE"], CLEAR, DOCKER_FAILURES)
+""" % ([*list(DB_ENV | INTEGRATION_ENV), "COMPOSE_FILE", "CARGO_TARGET_DIR"], CLEAR, DOCKER_FAILURES)
 
 
 @unittest.skipUnless(JUST, "just is not installed")
 class JustfileTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory(prefix="ratings just ")))
-        shutil.copyfile(Path(__file__).resolve().parents[1] / "justfile", self.root / "justfile")
-        (self.root / "tests").mkdir()
-        (self.root / "tests" / "clear-db.sql").write_text(SQL)
+        for name in ("justfile", "justfile.vm"):
+            shutil.copyfile(Path(__file__).resolve().parents[1] / name, self.root / name)
+        (self.root / "charmcraft.yaml").write_text("name: app-center-ratings\n")
+        self.app = self.root / "ratings_rock"
+        (self.app / "tests").mkdir(parents=True)
+        (self.app / "tests" / "clear-db.sql").write_text(SQL)
+        for name in ("docker-compose.yml", "docker-compose.ci.yml"):
+            (self.app / name).write_text("services: {}\n")
         self.bin = self.root / "bin"
         self.bin.mkdir()
         self.log = self.root / "commands.jsonl"
         # Restricted PATH prevents an accidental fallback to an installed external tool.
         (self.bin / "bash").symlink_to(shutil.which("bash"))
-        for name in ("docker", "cargo", "multipass", "docker-compose"):
+        for name in ("grep", "sed", "id", "mkdir", "install"):
+            (self.bin / name).symlink_to(shutil.which(name))
+        for name in ("docker", "cargo", "multipass", "docker-compose", "sudo", "rsync", "rockcraft", "python3"):
             executable = self.bin / name
             executable.write_text(f"#!{sys.executable}\n" + MOCK)
             executable.chmod(0o755)
@@ -82,18 +102,22 @@ class JustfileTests(unittest.TestCase):
         self.env = {
             "PATH": str(self.bin), "HOME": os.environ.get("HOME", str(self.root)),
             "MOCK_LOG": str(self.log), "RATINGS_VM": "regression-vm",
+            "MOCK_VM_INFO": json.dumps({"info": {"regression-vm": {"mounts": {}}}}),
+            "MOCK_CHARM_NAME": "app-center-ratings",
         }
 
-    def invoke(self, *args, failure=None, docker_failures=(), expected_status=0):
+    def invoke(self, *args, failure=None, docker_failures=(), expected_status=0,
+               justfile="justfile", cwd=None, variables=None):
         self.log.write_text("")
         env = dict(self.env)
         if failure:
             env["MOCK_CARGO_FAIL"] = failure
         if docker_failures:
             env["MOCK_DOCKER_FAIL"] = ",".join(docker_failures)
+        settings = [item for key, value in (variables or {}).items() for item in ("--set", key, str(value))]
         result = subprocess.run(
-            [JUST, "--justfile", str(self.root / "justfile"), *args],
-            cwd=self.root, env=env, input="", text=True, capture_output=True, timeout=20,
+            [JUST, "--justfile", str(self.root / justfile), *settings, *args],
+            cwd=cwd or self.root, env=env, input="", text=True, capture_output=True, timeout=20,
         )
         self.output = result.stdout + result.stderr
         self.assertEqual(result.returncode, 23 if failure else expected_status, self.output)
@@ -104,7 +128,8 @@ class JustfileTests(unittest.TestCase):
         return [json.loads(line) for line in self.log.read_text().splitlines()]
 
     def event(self, argv, env=None, **extra):
-        return {"argv": argv, "env": env or {}, **extra}
+        cwd = self.root if argv[0] == "multipass" else self.app
+        return {"argv": argv, "cwd": str(cwd), "env": env or {}, **extra}
 
     def integration(self, args=()):
         return [self.event(CLEAR, stdin=SQL), self.event(INTEGRATION + list(args), INTEGRATION_ENV)]
@@ -114,7 +139,7 @@ class JustfileTests(unittest.TestCase):
         return [self.event(command) for command in commands]
 
     def ci_events(self, events):
-        compose_file = f"{self.root}/docker-compose.yml:{self.root}/docker-compose.ci.yml"
+        compose_file = f"{self.app}/docker-compose.yml:{self.app}/docker-compose.ci.yml"
         return [{**event, "env": {**event["env"], "COMPOSE_FILE": compose_file}} for event in events]
 
     def test_all_migrated_targets_exist(self):
@@ -171,6 +196,117 @@ class JustfileTests(unittest.TestCase):
         args = ["filter with spaces", "--", "*"]
         expected = [self.event(DB, DB_ENV), *self.integration(args)]
         self.assertEqual(self.invoke("test-all", *args), expected, self.output)
+
+    def test_application_recipes_are_independent_of_invocation_directory(self):
+        elsewhere = self.root / "elsewhere"
+        elsewhere.mkdir()
+        expected = [self.event(DB, DB_ENV), *self.integration()]
+        self.assertEqual(self.invoke("test-all", cwd=elsewhere), expected, self.output)
+
+    def test_vm_rust_recipes_use_application_directory_and_local_target(self):
+        target = self.root / "vm-target"
+        for recipe, command in (
+            ("build", ["cargo", "build", "--locked", "--release"]),
+            ("test", ["cargo", "test", "--locked", "--lib"]),
+        ):
+            with self.subTest(recipe=recipe):
+                events = self.invoke(recipe, justfile="justfile.vm", variables={"target_dir": target})
+                self.assertEqual(events, [self.event(command, {"CARGO_TARGET_DIR": str(target)})])
+
+    def test_create_mounts_only_this_checkout_by_default(self):
+        events = self.invoke("create")
+        mounts = [e for e in events if e["argv"][:2] == ["multipass", "mount"]]
+        self.assertEqual(mounts, [self.event([
+            "multipass", "mount", "--type", "classic", str(self.root),
+            "regression-vm:/home/ubuntu/app-center-ratings",
+        ])])
+
+    def test_default_operator_mount_verifies_root_charm_without_extra_mount(self):
+        self.assertEqual(self.invoke("operator-mount"), [])
+        (self.root / "charmcraft.yaml").write_text("name: unrelated\n")
+        self.assertEqual(self.invoke("operator-mount", expected_status=1), [])
+
+    def test_explicit_operator_override_mounts_and_is_forwarded_to_vm(self):
+        operator = self.root / "other operator"
+        operator.mkdir()
+        (operator / "charmcraft.yaml").write_text("name: ratings\n")
+        self.env["RATINGS_OPERATOR_REPO"] = str(operator)
+        events = self.invoke("operator-mount")
+        self.assertEqual(events[-1], self.event([
+            "multipass", "mount", "--type", "classic", str(operator),
+            "regression-vm:/home/ubuntu/ratings-operator",
+        ]))
+        events = self.invoke("vm", "charm-test", "filter with spaces")
+        self.assertEqual(events[0]["argv"], [
+            "multipass", "exec", "--working-directory", "/home/ubuntu/app-center-ratings",
+            "regression-vm", "--", "env",
+            "PATH=/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+            "RATINGS_OPERATOR_REPO=/home/ubuntu/ratings-operator", "/snap/bin/just",
+            "--justfile", "justfile.vm", "charm-test", "filter with spaces",
+        ])
+
+    def test_default_vm_forwarding_uses_root_operator(self):
+        event = self.invoke("vm", "charm-pack")[0]
+        self.assertIn("RATINGS_OPERATOR_REPO=/home/ubuntu/app-center-ratings", event["argv"])
+
+    def test_vm_rock_syncs_only_application_and_packs_local_copy(self):
+        source = self.root / "rock source"
+        events = self.invoke("rock", justfile="justfile.vm", variables={"rock_source": source})
+        sync, pack = events
+        self.assertEqual(sync["argv"][:3], ["rsync", "-a", "--delete"])
+        self.assertEqual(sync["argv"][-2:], [f"{self.app}/", f"{source}/"])
+        self.assertIn("/target/", sync["argv"])
+        self.assertIn("/mock_server/target/", sync["argv"])
+        self.assertEqual(pack, {"argv": ["rockcraft", "pack"], "cwd": str(source), "env": {}})
+
+    def test_vm_charm_pack_uses_root_metadata_and_excludes_application_and_caches(self):
+        source, artifacts = self.root / "charm source", self.root / "artifacts"
+        variables = {"charm_source": source, "rollout_dir": artifacts}
+        events = self.invoke("charm-pack", justfile="justfile.vm", variables=variables)
+        sync = next(e for e in events if e["argv"][0] == "rsync")
+        self.assertEqual(sync["argv"][-2:], [f"{self.root}/", f"{source}/"])
+        for pattern in ("/ratings_rock/", "/terraform/", "/dev/build/", "/parts/", "/target/",
+                        ".venv/", "venv/", "virtualenv/", "*.charm", "*.rock"):
+            self.assertIn(pattern, sync["argv"])
+        pack = next(e for e in events if e["argv"][:4] == ["sudo", "-n", "charmcraft", "pack"])
+        self.assertEqual(pack["cwd"], str(source))
+        artifact = artifacts / "app-center-ratings_amd64.charm"
+        self.assertEqual(artifact.read_bytes(), b"mock charm")
+
+    def test_vm_charm_pack_preserves_explicit_legacy_override(self):
+        operator = self.root / "other operator"
+        operator.mkdir()
+        (operator / "charmcraft.yaml").write_text("name: ratings\n")
+        self.env["RATINGS_OPERATOR_REPO"] = str(operator)
+        self.env["MOCK_CHARM_NAME"] = "ratings"
+        source, artifacts = self.root / "charm source", self.root / "artifacts"
+        events = self.invoke("charm-pack", justfile="justfile.vm",
+                             variables={"charm_source": source, "rollout_dir": artifacts})
+        sync = next(e for e in events if e["argv"][0] == "rsync")
+        self.assertEqual(sync["argv"][-2:], [f"{operator}/", f"{source}/"])
+        self.assertTrue((source / "ratings_amd64.charm").exists())
+        self.assertEqual((artifacts / "app-center-ratings_amd64.charm").read_bytes(), b"mock charm")
+
+    def test_vm_charm_test_uses_root_requirements_and_vm_local_venv(self):
+        artifacts = self.root / "artifacts"
+        events = self.invoke("charm-test", justfile="justfile.vm", variables={"rollout_dir": artifacts})
+        expected = [
+            ["python3", "-m", "venv", str(artifacts / "test-venv")],
+            ["pip", "install", "-r", str(self.root / "requirements-dev.txt")],
+            ["python", "-m", "pytest", "-q"],
+            ["ruff", "check", "src", "tests"],
+            ["ruff", "format", "--check", "src", "tests"],
+        ]
+        self.assertEqual(events, [{"argv": command, "cwd": str(self.root), "env": {}}
+                                  for command in expected])
+
+    def test_vm_charm_test_rejects_wrong_root_metadata_before_external_commands(self):
+        (self.root / "charmcraft.yaml").write_text("name: ratings\n")
+        self.assertEqual(self.invoke("charm-test", justfile="justfile.vm", expected_status=1), [])
+
+    def test_vm_charm_pack_rejects_wrong_root_metadata_before_external_commands(self):
+        (self.root / "charmcraft.yaml").write_text("name: ratings\n")
+        self.assertEqual(self.invoke("charm-pack", justfile="justfile.vm", expected_status=1), [])
 
     def test_ci_startup_readiness_tests_and_cleanup_order(self):
         expected = [

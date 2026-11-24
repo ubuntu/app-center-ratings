@@ -19,7 +19,7 @@ URL = "admin/cos-lite.ratings-logs"
 
 def status():
     return json.loads("""{"applications": {
-        "ratings": {"charm-name": "ratings", "scale": 1,
+        "ratings": {"charm-name": "app-center-ratings", "scale": 1,
             "application-status": {"current": "active"}, "relations": {}, "units": {
                 "ratings/0": {"workload-status": {"current": "active"},
                               "juju-status": {"current": "idle"}}}},
@@ -37,7 +37,7 @@ def unit(current, app="ratings"):
 class RolloutTests(unittest.TestCase):
     def setUp(self):
         self.root = Path(self.enterContext(tempfile.TemporaryDirectory()))
-        self.charm, self.rock = self.root / "ratings.charm", self.root / "ratings.rock"
+        self.charm, self.rock = self.root / "app-center-ratings_amd64.charm", self.root / "ratings.rock"
         self.charm.touch()
         self.rock.write_bytes(b"rock")
         self.image = self.root / "image.json"
@@ -91,6 +91,14 @@ class RolloutTests(unittest.TestCase):
             self.assertIn(self.charm, command)
             self.assertIn(MODEL, command)
         self.assertIn("--num-units=1", commands[0])
+
+    def test_refresh_accepts_explicit_legacy_operator_name(self):
+        current = status()
+        current["applications"]["ratings"]["charm-name"] = "ratings"
+        current["applications"]["ratings"]["relations"] = {"database": ["postgresql"]}
+        self.replies(current, current)
+        rollout.deploy(self.charm, self.root, MODEL)
+        self.assertEqual([cmd[1] for cmd in self.mutations()], ["refresh"])
 
     def test_wrong_application_or_provider_refused_before_mutation(self):
         for problem in ("missing", "postgresql", "ratings", "database"):

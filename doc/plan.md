@@ -46,12 +46,13 @@ or namespace.
   model: it needs a Kubernetes cloud/model. Neither blanket Kubernetes support
   nor blanket machine-only availability can be inferred for Ratings from the
   evidence currently available.
-- The Ratings sidecar charm now lives at the root of
-  [`canonical/container-runner-operator`](https://github.com/canonical/container-runner-operator),
-  in jj change `vpmyx` / bookmark `feat/ps7`. Its legacy machine charm remains on
-  `main`; this is not an in-place machine-charm upgrade. The application repository
-  owns Rust/image code and lab orchestration, not a second copy of the charm.
-  Keep the local Kubernetes lab; setup is in [charming.md](charming.md).
+- The current Ratings sidecar charm lives at the [app-center-ratings root](../README.md),
+  with Rust/image sources in [`ratings_rock/`](../ratings_rock/README.md) and lab
+  orchestration at the root. Its earlier `container-runner-operator` PS7 sidecar
+  change (`vpmyx` / `feat/ps7`) is historical, not a required current checkout.
+  The legacy machine charm remains in that repository; this is not an in-place
+  machine-charm upgrade. Keep the local Kubernetes lab; setup is in
+  [charming.md](charming.md).
 - Follow MediaWiki for the PS7 staging platform integrations and target the same
   Desktop-owned Kubernetes cluster. Confirm cluster identity, staging model
   provisioning, access, and operational ownership. Record any blocker without
@@ -128,10 +129,11 @@ provide the stronger evidence.
   to repo automation for now. `renovate.json` describes dependency-update PR
   configuration, not workload-image deployment. The inspected GitHub workflows
   cover QA, Renovate validation, and scheduled database backups; they do not define
-  Terraform apply or application promotion. No Ratings configuration
-  was found in the searched model Terraform/Markdown/YAML files, and no Container
-  Runner/image-update configuration was found in the scoped PS7 search. External
-  deployment automation may still exist.
+  Terraform apply or application promotion. At the time of the 2026-11-11
+  inspection, no Ratings configuration was found in the searched model
+  Terraform/Markdown/YAML files, and no Container Runner/image-update configuration
+  was found in the scoped PS7 search. The Ratings staging stack has since been
+  added at the path above. External deployment automation may still exist.
 
 ## Story 2: PS7 staging Kubernetes deployment using MediaWiki as the reference
 
@@ -172,13 +174,15 @@ new deployment required by this story.
 - [ ] Verify staging gRPC routing, certificates/DNS, access restrictions, and
       staging-only secrets/JWT signing keys. Do not copy production signing keys
       or redirect production clients to staging.
-- [x] Keep deployment Terraform and its runbook in the operations repository's
-      `ratings/` directory. This repository owns the Rust application/image and
-      lab helpers; `container-runner-operator`'s PS7 change owns the sidecar source,
-      charm packaging, and charm tests. The configuration declares Ratings,
-      PgBouncer backed by the staging offer, optional OTEL log forwarding, and
-      opt-in native-gRPC ingress. These additions have offline tests, not live
-      deployment validation.
+- [x] Keep environment-specific deployment Terraform and its runbook in the
+      operations repository's `ratings/` directory. This repository owns the root
+      sidecar source, packaging and Python tests, the Rust application/image in
+      `ratings_rock/`, root lab helpers, and the reusable [`terraform/` module](../terraform/README.md).
+      The module follows the [MediaWiki charm module layout](https://github.com/canonical/mediawiki-k8s-operator/tree/main/terraform)
+      and declares only Ratings and endpoint outputs. The consuming operations
+      stack owns model lookup, credentials, backend/state, PgBouncer backed by the
+      staging offer, optional OTEL log forwarding, and opt-in native-gRPC ingress.
+      These additions have offline tests, not live deployment validation.
 
 ### 2. Adapt the MediaWiki reference and validate Ratings
 
@@ -188,10 +192,14 @@ repository. Its `README.md` documents the confirmed model, required artifact/
 database/backend inputs, PgBouncer, opt-in ingress, and live acceptance gates. The current
 Terraform provider requires the sidecar charm to be published to Charmhub; the
 lab's local `.charm` archive is not directly deployable through that provider.
-Build and publish from the standalone operator repository's sidecar change, not
-its legacy machine `main`. The local lab mounts that checkout separately with
-`just operator-mount`; `charm-pack` and `charm-test` no longer use an application-local
-charm project.
+Build and publish the sidecar from the app-center-ratings root, and build the
+rock from `ratings_rock/`; see [publishing.md](publishing.md). Root `just vm rollout`,
+`charm-pack`, and `charm-test` use this single checkout by default.
+`just operator-mount` validates the root charm; `RATINGS_OPERATOR_REPO` is only an
+optional compatible-operator override. The charm name is `app-center-ratings`,
+while the lab Juju application remains `ratings`. The operations stack consumes
+the reusable root `terraform/` module and retains its environment-specific
+platform services and deployment settings.
 
 The reference directory is
 `models/ps7/desktop/k8s-stg-desktop-managed-cluster/mediawiki/` in the operations

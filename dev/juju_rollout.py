@@ -19,6 +19,7 @@ import tomllib
 import urllib.request
 
 REGISTRY = "127.0.0.1:5000"
+RATINGS_CHARMS = {"app-center-ratings", "ratings"}
 MARKER = "# Managed by app-center-ratings/dev/juju_rollout.py\n"
 
 
@@ -262,7 +263,7 @@ def deploy(charm, state_dir, model):
             "Expected application postgresql (postgresql-k8s); run just vm postgres first"
         )
     if "ratings" in apps:
-        if apps["ratings"].get("charm-name") != "ratings":
+        if apps["ratings"].get("charm-name") not in RATINGS_CHARMS:
             raise LabError(
                 "Refusing to refresh an unrelated application called ratings"
             )

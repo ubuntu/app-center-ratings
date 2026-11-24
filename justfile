@@ -7,9 +7,10 @@ cpus := env_var_or_default("RATINGS_VM_CPUS", "4")
 memory := env_var_or_default("RATINGS_VM_MEMORY", "12G")
 disk := env_var_or_default("RATINGS_VM_DISK", "60G")
 repo := justfile_directory()
-operator_repo := absolute_path(env_var_or_default("RATINGS_OPERATOR_REPO", parent_directory(repo) / "container-runner-operator"))
+app_repo := repo / "ratings_rock"
+operator_repo := absolute_path(env_var_or_default("RATINGS_OPERATOR_REPO", repo))
 vm_repo := "/home/ubuntu/app-center-ratings"
-vm_operator_repo := "/home/ubuntu/container-runner-operator"
+vm_operator_repo := if operator_repo == repo { vm_repo } else { "/home/ubuntu/ratings-operator" }
 kubeconfig_path := home_directory() / ".kube/ratings-local.yaml"
 kubeconfig_timeout := env_var_or_default("RATINGS_KUBECONFIG_TIMEOUT", "30s")
 vm_path := "/home/ubuntu/.cargo/bin:/home/ubuntu/.local/bin:/snap/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
@@ -19,26 +20,33 @@ default:
     @just --list
 
 # Build the release binary on the workstation, not inside Multipass.
+[working-directory: "ratings_rock"]
 build:
     cargo build --release
 
+[working-directory: "ratings_rock"]
 docker-build:
     docker build -f docker/prod/Dockerfile .
 
 # Start the Compose stack; `up` below still starts the Multipass VM.
+[working-directory: "ratings_rock"]
 compose-up:
     docker compose up
 
+[working-directory: "ratings_rock"]
 up-detached *args:
     docker compose up --detach "$@"
 
+[working-directory: "ratings_rock"]
 down:
     docker compose down
 
 # Unit tests only; no database or Compose stack is started.
+[working-directory: "ratings_rock"]
 test:
     cargo test --lib
 
+[working-directory: "ratings_rock"]
 db-test:
     APP_HOST='0.0.0.0' \
         APP_PORT='8080' \
@@ -47,6 +55,7 @@ db-test:
         APP_POSTGRES_URI='postgresql://migration_user:strongpassword@localhost:5432/ratings' \
         cargo test --lib --features db_tests
 
+[working-directory: "ratings_rock"]
 integration-test *args: clear-db-data
     APP_JWT_SECRET='deadbeef' \
         MOCK_ADMIN_URL='http://127.0.0.1:11111/__admin__/register-snap' \
@@ -58,14 +67,16 @@ test-all *args: db-test
     just --justfile "{{ repo }}/justfile" integration-test "$@"
 
 # Wait for the stack's healthchecks, failing on unhealthy/exited containers or timeout.
+[working-directory: "ratings_rock"]
 wait-for-server timeout="600":
     docker compose up --no-build --wait --wait-timeout "$1"
 
 # Use the non-watching CI image; always tear down, including on startup/test failure.
+[working-directory: "ratings_rock"]
 ci-test:
     #!/usr/bin/env bash
     set -euo pipefail
-    export COMPOSE_FILE="{{ repo }}/docker-compose.yml:{{ repo }}/docker-compose.ci.yml"
+    export COMPOSE_FILE="{{ app_repo }}/docker-compose.yml:{{ app_repo }}/docker-compose.ci.yml"
     cleanup() {
         local status=$? cleanup_status=0
         trap - EXIT
@@ -85,23 +96,29 @@ ci-test:
     just --justfile "{{ repo }}/justfile" wait-for-server
     just --justfile "{{ repo }}/justfile" test-all
 
+[working-directory: "ratings_rock"]
 clear-db-data:
     docker compose exec -T db psql -U postgres ratings < tests/clear-db.sql
 
+[working-directory: "ratings_rock"]
 rebuild-local:
     docker compose build
 
+[working-directory: "ratings_rock"]
 rm-db:
     docker compose rm db
     docker volume rm -f postgres_data
 
+[working-directory: "ratings_rock"]
 rm-volumes:
     docker volume rm -f target-cache
     docker volume rm -f cargo-cache
 
+[working-directory: "ratings_rock"]
 db-shell:
     docker exec -it ratings-db psql -U postgres ratings
 
+[working-directory: "ratings_rock"]
 ratings-shell:
     docker exec -it ratings bash
 
@@ -124,7 +141,7 @@ host-install:
     if ! snap list kubectl >/dev/null 2>&1; then sudo snap install kubectl --classic --channel=1.32/stable; fi
     kvm-ok
 
-# Create or start the VM and mount the application and sidecar operator checkouts.
+# Mount this checkout; a separate operator mount is only needed for an explicit override.
 create:
     #!/usr/bin/env bash
     set -euo pipefail
@@ -142,13 +159,17 @@ create:
     fi
     just --justfile "{{ repo }}/justfile" operator-mount
 
-# Mount the standalone sidecar checkout into an existing lab; never replace a mount.
+# Verify the root charm; optionally mount an explicitly selected operator checkout.
 operator-mount:
     #!/usr/bin/env bash
     set -euo pipefail
-    if ! grep -qx 'name: ratings' "{{ operator_repo }}/charmcraft.yaml"; then
-        printf 'Expected the Ratings sidecar checkout at %s. Select feat/ps7 (jj change vpmyx), not the legacy machine main, or set RATINGS_OPERATOR_REPO.\n' "{{ operator_repo }}" >&2
+    if ! grep -Eq '^name: (app-center-ratings|ratings)$' "{{ operator_repo }}/charmcraft.yaml"; then
+        printf 'Expected a Ratings charm at %s; check charmcraft.yaml or set RATINGS_OPERATOR_REPO.\n' "{{ operator_repo }}" >&2
         exit 1
+    fi
+    if [ "{{ operator_repo }}" = "{{ repo }}" ]; then
+        grep -qx 'name: app-center-ratings' "{{ repo }}/charmcraft.yaml"
+        exit 0
     fi
     source_path=$(multipass info "{{ vm }}" --format=json | python3 -c 'import json, sys; d=json.load(sys.stdin)["info"][sys.argv[1]]; print(d.get("mounts", {}).get(sys.argv[2], {}).get("source_path", ""))' "{{ vm }}" "{{ vm_operator_repo }}")
     if [ -z "$source_path" ]; then
