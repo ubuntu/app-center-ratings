@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/ps7
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,4 +11,4 @@ concurrency:
 
 jobs:
   build-test:
-    uses: ./.github/workflows/build.yaml
+    uses: ./.github/workflows/charm-build.yaml

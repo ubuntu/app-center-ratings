@@ -10,17 +10,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: charm/requirements-dev.txt
       - name: Install locked dependencies
-        run: python -m pip install -r requirements-dev.txt
+        run: python -m pip install -r charm/requirements-dev.txt
       - name: Run linters
         run: |
+          cd charm
           python -m ruff check src tests
           python -m ruff format --check src tests
 
@@ -30,21 +31,23 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
           python-version: '3.12'
           cache: pip
-          cache-dependency-path: requirements-dev.txt
+          cache-dependency-path: charm/requirements-dev.txt
       - name: Install locked dependencies
-        run: python -m pip install -r requirements-dev.txt
+        run: python -m pip install -r charm/requirements-dev.txt
       - name: Run offline tests and verify vendored library pins
-        run: python -m pytest -q --cov=charm --cov-report=term-missing --cov-report=xml
+        run: |
+            cd charm
+            python -m pytest -q --cov=charm --cov-report=term-missing --cov-report=xml
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
         with:
-          files: ./coverage.xml
+          files: ./charm/coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
@@ -57,14 +60,16 @@ jobs:
       - unit-test
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Install Charmcraft
         run: sudo snap install charmcraft --classic --channel=4.x/stable
       - name: Pack on disposable runner (no deploy or publish)
-        run: sudo charmcraft pack --destructive-mode --platform amd64
+        run: |
+            cd charm
+            sudo charmcraft pack --destructive-mode --platform amd64
       - name: Upload local charm artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: ratings-amd64
-          path: ratings_amd64.charm
+          name: app-center-ratings_amd64
+          path: charm/app-center-ratings_amd64.charm
           if-no-files-found: error

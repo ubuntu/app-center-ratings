@@ -810,8 +810,8 @@ def test_loki_forwarder_creates_labels_and_disables_removed_target(harness):
     target = harness.get_container_pebble_plan(SERVICE).log_targets["loki/0"]
     assert target.location == endpoint
     assert target.services == ["all"]
-    assert target.labels["juju_application"] == "ratings"
-    assert target.labels["juju_unit"] == "ratings/0"
+    assert target.labels["juju_application"] == "app-center-ratings"
+    assert target.labels["juju_unit"] == "app-center-ratings/0"
     assert "juju_model_uuid" in target.labels
     harness.remove_relation(relation_id)
     assert harness.get_container_pebble_plan(SERVICE).log_targets["loki/0"].services == ["-all"]
