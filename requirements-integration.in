@@ -1,0 +1,9 @@
+# Integration dependencies are isolated from the charm and unit/static test environments.
+-c requirements-dev.txt
+
+pytest==8.3.5
+jubilant==1.15.0
+grpcio==1.85.4
+grpcio-tools==1.85.4
+# Bare opcli installs the artifact pytest plugin, not the CLI's optional dependencies.
+opcli @ git+https://github.com/canonical/charm-ci.git@14b1cf49d48b9d5b96192d9bca2890c98b7295cf

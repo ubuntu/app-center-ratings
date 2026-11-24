@@ -1,0 +1,16 @@
+name: Tests
+
+on:
+  pull_request:
+  merge_group:
+
+jobs:
+  unit-tests:
+    uses: canonical/operator-workflows/.github/workflows/test.yaml@main
+    secrets: inherit
+    permissions:
+      pull-requests: write
+    with:
+      self-hosted-runner: false
+      python-version: "3.12"
+      with-uv: true

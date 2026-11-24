@@ -1,0 +1,19 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+
+version: 1
+rocks:
+  - name: ratings
+    rockcraft-yaml: ratings_rock/rockcraft.yaml
+    platforms:
+      - arch: amd64
+charms:
+  - name: app-center-ratings
+    charmcraft-yaml: charmcraft.yaml
+    resources:
+      ratings-image:
+        type: oci-image
+        rock: ratings
+    platforms:
+      - arch: amd64
+snaps: []

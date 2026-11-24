@@ -7,9 +7,10 @@ sidecar charm, a reusable Terraform module, and local development orchestration.
 
 ```text
 app-center-ratings/
-  charmcraft.yaml, src/, lib/, tests/       Python sidecar charm and offline tests
+  charmcraft.yaml, src/, lib/, tests/       Python sidecar charm, unit and integration tests
   requirements*.in, requirements*.txt      Charm dependency locks
   pyproject.toml, tox.ini                  Charm tooling
+  artifacts.yaml, spread.yaml, concierge.yaml  Charm/rock integration CI
   ratings_rock/                           Rust service and workload packaging
     Cargo.toml, Cargo.lock, build.rs
     rust-toolchain.toml, deny.toml
@@ -444,13 +445,32 @@ database-name guards before the relation library's eager writes,
 standard-Base64 JWT creation/rotation, zero/unknown
 success counts with successful, refused, and timed-out TCP probes, non-UP checks,
 check events without service restarts, and readiness reset after restart.
-The [charm build workflow](.github/workflows/charm-build.yaml) runs these offline
-tests, Ruff lint/format checks, and packs the root charm; its artifact upload path
-is `app-center-ratings_amd64.charm`. That workflow does not deploy or publish to
-Charmhub. The separate [Rust CI workflow](.github/workflows/ci.yaml) runs Compose
-workload tests from `ratings_rock/` and has an explicitly gated rock-publication
-job; see [publishing](doc/publishing.md). Optional `tox` commands use the same locked
-dependencies and `pyproject.toml` configuration; see [CONTRIBUTING.md](CONTRIBUTING.md).
+The [charm checks workflow](.github/workflows/charm-build.yaml) runs these offline
+tests, Ruff lint/format checks, and integration-helper/configuration checks.
+The separate [integration workflow](.github/workflows/integration_test.yaml)
+uses pinned **canonical/charm-ci v1.0.2**, following the MediaWiki workflow:
+
+- `artifacts.yaml` builds the root `app-center-ratings` charm and the
+  `ratings_rock/` rock, mapped to its `ratings-image` resource.
+- `upload-image: artifact` transfers the `.rock` through Actions artifacts, not
+  GHCR. opcli pushes it to a disposable cluster's local OCI registry for Juju.
+- Root `concierge.yaml` provisions Ubuntu 24.04/MicroK8s `1.32-strict/stable`
+  with Juju `3.6/stable`; it does not use the Multipass lab configuration.
+- `spread.yaml` discovers `tests/integration/test_smoke.py` and runs the locked
+  `tox -e integration` environment. It deploys the built charm/rock and PostgreSQL
+  in a temporary model, waits for readiness, and checks authenticated gRPC calls.
+  The model and storage are removed afterwards, including on test failure.
+
+Integration runs on pull requests, main pushes, merge groups, and manual dispatch.
+It does **not** upload to Charmhub, release channels, or deploy to staging. See the
+[integration test guide](tests/integration/README.md) for limits, artifact setup,
+and non-live validation commands. Ingress, observability, scaling, and upgrade
+behaviour are not covered by this initial smoke test.
+
+The separate [Rust CI workflow](.github/workflows/ci.yaml) still runs Compose
+workload tests from `ratings_rock/` and has an explicitly gated, resource-only
+rock-publication job; see [publishing](doc/publishing.md). Optional `tox` commands
+use the corresponding locked dependencies; see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 The Harness tests run **offline after dependency installation**, using the real
 vendored libraries and fake Juju/Pebble/database data. They cover provisioning,

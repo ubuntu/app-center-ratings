@@ -55,7 +55,7 @@ In general, we follow the ["fork-and-pull" Git workflow](https://github.com/susa
 6. Push changes to your fork
 7. Open a PR in our repository and follow the PR template so that we can efficiently review the changes.
 
-> PRs will trigger unit and integration tests with and without race detection, linting and formatting validations, static and security checks, freshness of generated files verification. All the tests must pass before merging in main branch.
+> PRs trigger charm unit and integration tests, Rust/Compose tests, linting and formatting checks, dependency-policy checks, and CLA/commit-style checks. All required checks must pass before merging into main.
 
 Once merged to the main branch, `po` files and any documentation change will be automatically updated. Those are thus not necessary in the pull request itself to minimize diff review.
 
@@ -208,6 +208,38 @@ named `ratings`. No sibling Container Runner checkout is required.
 See the [operator details](README.md#ratings-kubernetes-sidecar-operator) and
 [lab guide](doc/charming.md) for the full workflow and deployment safety boundaries.
 
+### Charm and rock integration CI
+
+[Integration tests](.github/workflows/integration_test.yaml) use
+`canonical/charm-ci`, following MediaWiki's reusable workflow. The workflow
+builds both artifacts declared in root `artifacts.yaml`; there is no separate
+charm-only pack job. The rock is transferred as an Actions artifact and pushed
+into the disposable MicroK8s cluster's local registry, **not GHCR or Charmhub**.
+Root `concierge.yaml` provisions this CI environment; `dev/concierge.yaml`
+remains the separate Multipass lab configuration.
+
+`spread.yaml` discovers the live module under `tests/integration/`. Its smoke
+check deploys the built charm and image with PostgreSQL, verifies readiness,
+and exercises authentication, a ratings query, and user deletion over gRPC.
+It does not access staging, DBaaS offers, or the Snap Store. This suite is
+separate from the Rust integration tests and does not yet cover ingress,
+observability, autoscaling, JWT rotation, or upgrades.
+
+The integration dependencies are locked separately in
+`requirements-integration.txt`. Safe validation without a cluster:
+
+```sh
+tox -e integration -- tests/integration --collect-only -q
+tox -e integration -- tests/integration/checks.py -q
+```
+
+A live `tox -e integration` requires a **disposable** provisioned MicroK8s/Juju
+environment and opcli's built-artifact manifest with the rock already pushed to
+its local registry. Do not run it against a production controller. See
+[tests/integration/README.md](tests/integration/README.md) for the exact contract,
+cleanup behaviour, and lock-update command. Charmhub resource upload and channel
+release remain separate from integration CI; see [publishing](doc/publishing.md).
+
 ### About the testsuite
 
 The project includes a comprehensive testsuite made of unit and integration
@@ -215,7 +247,8 @@ tests. All the tests must pass before the review is considered. If you have
 troubles with the testsuite, feel free to mention it on your PR description.
 
 Rust unit tests are located within the files containing the code they are testing
-under `ratings_rock/src/`. Offline Python charm tests live in root `tests/unit/`.
+under `ratings_rock/src/`. Offline Python charm tests live in root `tests/unit/`;
+live charm/rock smoke tests live in root `tests/integration/`.
 
 Rust integration tests are located in `ratings_rock/tests/` and run against the
 local Docker Compose stack (see the [Building and running the server](#building-and-running-the-server)

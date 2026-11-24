@@ -77,6 +77,14 @@ charmcraft revisions app-center-ratings
 
 ### GitHub Actions
 
+The separate [integration workflow](../.github/workflows/integration_test.yaml)
+builds the charm and rock together with `canonical/charm-ci` and tests a disposable
+Juju deployment. It uses `upload-image: artifact`: the test image is transferred
+through Actions artifacts and pushed to the test cluster's local registry, not
+GHCR or Charmhub. It does not publish or release anything. Its result does not
+automatically gate the independent resource-upload workflow below; verify that
+integration passed for the intended source commit before approving a release.
+
 The `publish` job in [`../.github/workflows/ci.yaml`](../.github/workflows/ci.yaml):
 
 1. Waits for the existing Rust build/lint/test job to pass.
