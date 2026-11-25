@@ -6,6 +6,6 @@ updates:
       # Check for updates to GitHub Actions every week
       interval: "weekly"
   - package-ecosystem: "cargo"
-    directory: "/"
+    directory: "/ratings_rock"
     schedule:
       interval: "weekly"

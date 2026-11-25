@@ -1,0 +1,16 @@
+# This workflow checks if the contributor has signed the Canonical Contributor Licence Agreement (CLA)
+name: Canonical Contributor Licence Agreement check
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  cla-check:
+    if: contains(fromJson('["weblate"]'), github.event.pull_request.user.login) == false
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check if CLA signed
+        uses: canonical/has-signed-canonical-cla@v2
+        with:
+          exempted-bots: dependabot,github-actions,renovate

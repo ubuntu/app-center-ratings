@@ -1,0 +1,46 @@
+name: Integration tests
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+  merge_group:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  integration-test:
+    uses: canonical/charm-ci/.github/workflows/integration-test.yml@14b1cf49d48b9d5b96192d9bca2890c98b7295cf # v1.0.2
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+    with:
+      working-directory: .
+      upload-image: artifact
+      charmcraft-channel: 4.x/stable
+      rockcraft-channel: latest/stable
+      build-timeout-minutes: 60
+      test-timeout-minutes: 120
+
+  required_status_checks:
+    name: Required Integration Test Status Checks
+    runs-on: ubuntu-24.04
+    needs:
+      - integration-test
+    if: always() && !cancelled()
+    timeout-minutes: 5
+    steps:
+      - name: Check integration-test status
+        env:
+          RESULT: ${{ needs.integration-test.result }}
+        run: |
+          if [ "$RESULT" = "success" ]; then
+            exit 0
+          fi
+          echo "integration-test failed with status: $RESULT"
+          exit 1

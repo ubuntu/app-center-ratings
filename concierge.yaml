@@ -1,0 +1,23 @@
+# Copyright 2026 Canonical Ltd.
+# See LICENSE file for licensing details.
+# Disposable integration-test environment; the Multipass lab uses dev/concierge.yaml.
+
+juju:
+  channel: 3.6/stable
+  model-defaults:
+    test-mode: "true"
+    automatically-retry-hooks: "true"
+
+providers:
+  microk8s:
+    enable: true
+    channel: 1.32-strict/stable
+    bootstrap: true
+    addons:
+      - hostpath-storage
+      - dns
+      - rbac
+
+host:
+  packages:
+    - skopeo
