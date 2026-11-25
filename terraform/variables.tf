@@ -38,24 +38,13 @@ variable "channel" {
 }
 
 variable "revision" {
-  description = "Explicit tested Charmhub charm revision, independent of the workload resource revision."
+  description = "Explicit tested Charmhub charm revision, will also reference corresponding workload resource."
   type        = number
   nullable    = false
 
   validation {
     condition     = var.revision >= 0 && floor(var.revision) == var.revision
     error_message = "Pin a non-negative integer charm revision."
-  }
-}
-
-variable "image_revision" {
-  description = "Explicit positive Charmhub ratings-image OCI resource revision. Juju provider 1.5.7 rejects resource revision zero."
-  type        = number
-  nullable    = false
-
-  validation {
-    condition     = var.image_revision > 0 && floor(var.image_revision) == var.image_revision
-    error_message = "Pin a positive integer Charmhub ratings-image resource revision (> 0), not an image URL, tag, or digest."
   }
 }
 

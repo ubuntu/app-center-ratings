@@ -14,9 +14,9 @@ resource "juju_application" "ratings" {
     base     = "ubuntu@24.04"
   }
 
-  resources = {
-    "ratings-image" = tostring(var.image_revision)
-  }
+  # resources = {
+  #   "ratings-image" = tostring(var.image_revision)
+  # }
 
   config = var.config
 }
