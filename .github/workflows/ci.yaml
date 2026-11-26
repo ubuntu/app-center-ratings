@@ -14,9 +14,9 @@ on:
 jobs:
   build:
     name: Build Ratings
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -25,26 +25,35 @@ jobs:
       - name: Install build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler docker-compose
+          sudo apt-get install -y libssl-dev pkg-config protobuf-compiler
 
       - name: Check code formating
-        uses: mbrobbel/rustfmt-check@master
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo fmt --all -- --check
+          cargo fmt --manifest-path mock_server/Cargo.toml -- --check
 
       - name: Clippy linting
-        uses: giraffate/clippy-action@v1
-        with:
-          reporter: "github-pr-review"
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cargo clippy --locked
+          cargo clippy --locked --manifest-path mock_server/Cargo.toml
 
       - name: Dependencies security audit
         uses: actions-rust-lang/audit@v1
         with:
-          ignore: RUSTSEC-2023-0071 # patch not available att
+          # RUSTSEC-2023-0071: rsa 0.10 has the fix, but rsa is in Cargo.lock only through sqlx's mysql backend (needs rsa 0.9), which is never compiled
+          # RUSTSEC-2026-0459: libsqlite3-sys is in Cargo.lock only through sqlx's sqlite backend, which is never compiled
+          ignore: RUSTSEC-2023-0071,RUSTSEC-2026-0459
 
       - name: Setup and Run Tests
         run: make ci-test
+
+  deny:
+    name: Cargo Deny
+    runs-on: ubuntu-26.04
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: EmbarkStudios/cargo-deny-action@v2
 
   publish:
     if: github.event_name == 'push'
@@ -56,7 +65,7 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install build dependencies
         run: |

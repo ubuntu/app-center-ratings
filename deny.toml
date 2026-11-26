@@ -1,0 +1,22 @@
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2023-0071", reason = "rsa is only in Cargo.lock through sqlx's mysql backend, which is never compiled" },
+    { id = "RUSTSEC-2026-0459", reason = "libsqlite3-sys is only in Cargo.lock through sqlx's sqlite backend, which is never compiled" },
+]
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
+    "BSD-3-Clause",
+    "ISC",
+    "Unicode-3.0",
+    "GPL-3.0-or-later",
+    "Zlib",
+    "CDLA-Permissive-2.0", # webpki infra
+]
+
+[bans]
+multiple-versions = "allow" #  We allow this because it's a common occurence in Rust and should not cause problems.
+wildcards = "deny"
